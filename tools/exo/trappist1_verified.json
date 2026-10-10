@@ -1,0 +1,141 @@
+{
+  "retrieved": "2026-10-10",
+  "star": {
+    "name": {"value": "TRAPPIST-1 (2MASS J23062928-0502285)", "uncertainty": null, "unit": "", "source": "Gillon et al. 2016 (doi:10.1038/nature17448); Van Grootel et al. 2018 (arXiv:1712.01911)", "verified": true},
+    "mass": {"value": 0.0898, "uncertainty": 0.0023, "unit": "M_sun", "source": "Mann et al. 2019 as adopted in Agol et al. 2021 (doi:10.3847/PSJ/abd022); seen via NTRS copy https://ntrs.nasa.gov/citations/20210000129", "verified": true},
+    "radius": {"value": 0.1192, "uncertainty": 0.0013, "unit": "R_sun", "source": "Agol et al. 2021 (doi:10.3847/PSJ/abd022); also reproduced in Piaulet-Ghorayeb et al. 2025 (arXiv:2508.08416)", "verified": true},
+    "teff": {"value": 2566, "uncertainty": 26, "unit": "K", "source": "Agol et al. 2021 (doi:10.3847/PSJ/abd022)", "verified": true},
+    "luminosity": {"value": 0.000553, "uncertainty": 0.000019, "unit": "L_sun", "source": "Ducrot et al. 2020 as adopted in Agol et al. 2021 (doi:10.3847/PSJ/abd022)", "verified": true},
+    "spectral_type": {"value": "M8V", "uncertainty": null, "unit": "", "source": "https://en.wikipedia.org/wiki/TRAPPIST-1 (secondary); Gillon et al. 2016 Methods give M8.0 +/- 0.5", "verified": true},
+    "age": {"value": 7.6, "uncertainty": 2.2, "unit": "Gyr", "source": "Burgasser & Mamajek 2017, ApJ 845, 110 (doi:10.3847/1538-4357/aa7fea)", "verified": true},
+    "parallax": {"value": 80.2123, "uncertainty": 0.0716, "unit": "mas", "source": "https://en.wikipedia.org/wiki/TRAPPIST-1 infobox (secondary). Gaia DR3 provenance NOT confirmed by search; best-known: this is the Gaia (E)DR3 value. Gaia DR2 gave 80.4512 +/- 0.1211 mas", "verified": false},
+    "distance": {"value": 12.47, "uncertainty": 0.01, "unit": "pc", "source": "1000/parallax (= 12.467 pc); https://en.wikipedia.org/wiki/TRAPPIST-1 (secondary). Inherits the unconfirmed Gaia DR3 provenance of the parallax", "verified": false},
+    "gaia_dr3_source_id": {"value": "2635476908753563008", "uncertainty": null, "unit": "", "source": "https://github.com/mshappe/stellar-atlas (third-party, not checked against the Gaia archive)", "verified": false},
+    "ra_j2000": {"value": "23h06m29.368s", "uncertainty": null, "unit": "hms", "source": "https://en.wikipedia.org/wiki/TRAPPIST-1 (secondary); matches designation J230629.368-050229.04. High proper motion: always state the epoch", "verified": true},
+    "dec_j2000": {"value": "-05d02m29.04s", "uncertainty": null, "unit": "dms", "source": "https://en.wikipedia.org/wiki/TRAPPIST-1 (secondary); matches designation J230629.368-050229.04", "verified": true},
+    "pm_ra": {"value": 930.788, "uncertainty": null, "unit": "mas/yr", "source": "https://en.wikipedia.org/wiki/TRAPPIST-1 (secondary; same footnote as parallax)", "verified": true},
+    "pm_dec": {"value": -479.038, "uncertainty": null, "unit": "mas/yr", "source": "https://en.wikipedia.org/wiki/TRAPPIST-1 (secondary; same footnote as parallax)", "verified": true},
+    "v_mag": {"value": 18.798, "uncertainty": 0.082, "unit": "mag", "source": "https://en.wikipedia.org/wiki/TRAPPIST-1 (secondary)", "verified": true},
+    "j_mag": {"value": 11.354, "uncertainty": 0.022, "unit": "mag", "source": "https://en.wikipedia.org/wiki/TRAPPIST-1 (secondary; best-known origin 2MASS, not confirmed)", "verified": true}
+  },
+  "planets": {
+    "b": {
+      "period_days": {"value": 1.510826, "uncertainty": 0.000006, "unit": "d", "source": "Agol et al. 2021 via TEPCat https://www.astro.keele.ac.uk/jkt/tepcat/planets/TRAPPIST-1b.html (ephemeris ref 2021PSJ.....2....1A)", "verified": true},
+      "t0_bjd_tdb": {"value": 2457257.55044, "uncertainty": 0.00015, "unit": "BJD_TDB", "source": "Agol et al. 2021 via TEPCat (TRAPPIST-1b page); also arXiv:2010.01074 table (7257.55044). Model epoch: see report caveat before predicting transits", "verified": true},
+      "semi_major_axis_au": {"value": 0.01154, "uncertainty": null, "unit": "AU", "source": "Agol et al. 2021 as tabulated in https://www.aanda.org/articles/aa/full_html/2022/02/aa42354-21/T1.html (1.154e-2 au)", "verified": true},
+      "radius_earth": {"value": 1.116, "uncertainty": 0.014, "unit": "R_earth", "source": "Agol et al. 2021; asymmetric +0.014/-0.012 (larger shown); confirmed https://en.wikipedia.org/wiki/TRAPPIST-1b and doi:10.3847/1538-4357/add34b", "verified": true},
+      "mass_earth": {"value": 1.374, "uncertainty": 0.069, "unit": "M_earth", "source": "Agol et al. 2021; confirmed arXiv:2201.08840 Table 1 and aa42354-21 T1", "verified": true},
+      "density_earth": {"value": 0.987, "uncertainty": 0.050, "unit": "rho_earth (Earth = 5.514 g/cm^3)", "source": "Agol et al. 2021 (NTRS copy); asymmetric +0.048/-0.050 per doi:10.3847/1538-4357/add34b", "verified": true},
+      "inclination_deg": {"value": 89.728, "uncertainty": 0.165, "unit": "deg", "source": "Agol et al. 2021 photodynamical table (NTRS copy); https://en.wikipedia.org/wiki/TRAPPIST-1b", "verified": true},
+      "insolation_earth": {"value": 4.153, "uncertainty": null, "unit": "S_earth", "source": "Table in A&A 2025 aa54243-25 (TRAPPIST-1 b 3D climate); equals L/a^2 from Agol values", "verified": true}
+    },
+    "c": {
+      "period_days": {"value": 2.421937, "uncertainty": 0.000018, "unit": "d", "source": "Agol et al. 2021 via TEPCat https://www.astro.keele.ac.uk/jkt/tepcat/planets/TRAPPIST-1c.html", "verified": true},
+      "t0_bjd_tdb": {"value": 2457258.587287, "uncertainty": 0.00027, "unit": "BJD_TDB", "source": "Agol et al. 2021 via TEPCat (TRAPPIST-1c page; digits as reported by search)", "verified": true},
+      "semi_major_axis_au": {"value": 0.01580, "uncertainty": 0.00013, "unit": "AU", "source": "Agol et al. 2021 via aa42354-21 T1 and https://en.wikipedia.org/wiki/TRAPPIST-1c", "verified": true},
+      "radius_earth": {"value": 1.097, "uncertainty": 0.014, "unit": "R_earth", "source": "Agol et al. 2021; asymmetric +0.014/-0.012 (larger shown); https://en.wikipedia.org/wiki/TRAPPIST-1c", "verified": true},
+      "mass_earth": {"value": 1.308, "uncertainty": 0.056, "unit": "M_earth", "source": "Agol et al. 2021; confirmed arXiv:2201.08840 Table 1 and aa42354-21 T1", "verified": true},
+      "density_earth": {"value": 0.991, "uncertainty": 0.043, "unit": "rho_earth (Earth = 5.514 g/cm^3)", "source": "Agol et al. 2021 (NTRS copy); asymmetric +0.040/-0.043", "verified": true},
+      "inclination_deg": {"value": 89.778, "uncertainty": 0.118, "unit": "deg", "source": "Agol et al. 2021 photodynamical table (NTRS copy); https://en.wikipedia.org/wiki/TRAPPIST-1c", "verified": true},
+      "insolation_earth": {"value": 2.214, "uncertainty": null, "unit": "S_earth", "source": "UNVERIFIED best-known Agol et al. 2021 value; L/a^2 = 2.215; arXiv:2311.17699 gives ~2.22", "verified": false}
+    },
+    "d": {
+      "period_days": {"value": 4.049219, "uncertainty": 0.000026, "unit": "d", "source": "Agol et al. 2021 via TEPCat https://www.astro.keele.ac.uk/jkt/tepcat/planets/TRAPPIST-1d.html", "verified": true},
+      "t0_bjd_tdb": {"value": 2457257.06768, "uncertainty": 0.00067, "unit": "BJD_TDB", "source": "Agol et al. 2021 via TEPCat (TRAPPIST-1d page)", "verified": true},
+      "semi_major_axis_au": {"value": 0.02227, "uncertainty": 0.00019, "unit": "AU", "source": "Agol et al. 2021 via aa42354-21 T1 and https://en.wikipedia.org/wiki/TRAPPIST-1d", "verified": true},
+      "radius_earth": {"value": 0.788, "uncertainty": 0.011, "unit": "R_earth", "source": "Agol et al. 2021; asymmetric +0.011/-0.010 (larger shown); https://en.wikipedia.org/wiki/TRAPPIST-1d and doi:10.3847/1538-4357/add34b", "verified": true},
+      "mass_earth": {"value": 0.388, "uncertainty": 0.012, "unit": "M_earth", "source": "Agol et al. 2021 via arXiv:2201.08840 Table 1", "verified": true},
+      "density_earth": {"value": 0.792, "uncertainty": 0.030, "unit": "rho_earth (Earth = 5.514 g/cm^3)", "source": "Agol et al. 2021; asymmetric +0.028/-0.030 per doi:10.3847/1538-4357/add34b", "verified": true},
+      "inclination_deg": {"value": 89.896, "uncertainty": 0.077, "unit": "deg", "source": "Agol et al. 2021 via NASA Exoplanet Archive overview https://exoplanetarchive.ipac.caltech.edu/overview/TRAPPIST-1", "verified": true},
+      "insolation_earth": {"value": 1.115, "uncertainty": null, "unit": "S_earth", "source": "Agol et al. 2021 as cited by Way et al. 2025 ApJL 980 L7 (doi:10.3847/2041-8213/adace0)", "verified": true}
+    },
+    "e": {
+      "period_days": {"value": 6.101013, "uncertainty": 0.000035, "unit": "d", "source": "Agol et al. 2021 via TEPCat https://www.astro.keele.ac.uk/jkt/tepcat/planets/TRAPPIST-1e.html", "verified": true},
+      "t0_bjd_tdb": {"value": 2457257.82771, "uncertainty": 0.00041, "unit": "BJD_TDB", "source": "Agol et al. 2021 via TEPCat (TRAPPIST-1e page)", "verified": true},
+      "semi_major_axis_au": {"value": 0.02925, "uncertainty": 0.00025, "unit": "AU", "source": "Agol et al. 2021 via aa42354-21 T1 and https://en.wikipedia.org/wiki/TRAPPIST-1e", "verified": true},
+      "radius_earth": {"value": 0.920, "uncertainty": 0.013, "unit": "R_earth", "source": "Agol et al. 2021 via https://en.wikipedia.org/wiki/TRAPPIST-1e (0.920, +/-~83 km = 0.013 R_earth); best-known asymmetric +0.013/-0.012, lower bound not seen", "verified": true},
+      "mass_earth": {"value": 0.692, "uncertainty": 0.022, "unit": "M_earth", "source": "Agol et al. 2021 via arXiv:2201.08840 Table 1", "verified": true},
+      "density_earth": {"value": 0.889, "uncertainty": 0.033, "unit": "rho_earth (Earth = 5.514 g/cm^3)", "source": "Agol et al. 2021; asymmetric +0.030/-0.033 per doi:10.3847/1538-4357/add34b", "verified": true},
+      "inclination_deg": {"value": 89.793, "uncertainty": 0.048, "unit": "deg", "source": "Agol et al. 2021 photodynamical table (NTRS copy); https://en.wikipedia.org/wiki/TRAPPIST-1e", "verified": true},
+      "insolation_earth": {"value": 0.646, "uncertainty": null, "unit": "S_earth", "source": "Agol et al. 2021 as cited by Way et al. 2025 (arXiv:2502.00132)", "verified": true}
+    },
+    "f": {
+      "period_days": {"value": 9.207540, "uncertainty": 0.000032, "unit": "d", "source": "Agol et al. 2021 via TEPCat https://www.astro.keele.ac.uk/jkt/tepcat/planets/TRAPPIST-1f.html", "verified": true},
+      "t0_bjd_tdb": {"value": 2457257.07426, "uncertainty": 0.00085, "unit": "BJD_TDB", "source": "Agol et al. 2021 via TEPCat (TRAPPIST-1f page)", "verified": true},
+      "semi_major_axis_au": {"value": 0.03849, "uncertainty": 0.00033, "unit": "AU", "source": "Agol et al. 2021 via aa42354-21 T1 and https://en.wikipedia.org/wiki/TRAPPIST-1f", "verified": true},
+      "radius_earth": {"value": 1.045, "uncertainty": 0.013, "unit": "R_earth", "source": "Agol et al. 2021; asymmetric +0.013/-0.012 (larger shown); https://en.wikipedia.org/wiki/TRAPPIST-1f", "verified": true},
+      "mass_earth": {"value": 1.039, "uncertainty": 0.031, "unit": "M_earth", "source": "Agol et al. 2021 via arXiv:2201.08840 Table 1", "verified": true},
+      "density_earth": {"value": 0.911, "uncertainty": 0.029, "unit": "rho_earth (Earth = 5.514 g/cm^3)", "source": "Agol et al. 2021 (NTRS copy); asymmetric +0.025/-0.029", "verified": true},
+      "inclination_deg": {"value": 89.740, "uncertainty": 0.019, "unit": "deg", "source": "https://en.wikipedia.org/wiki/TRAPPIST-1f (secondary; Agol attribution not seen for f)", "verified": true},
+      "insolation_earth": {"value": 0.373, "uncertainty": null, "unit": "S_earth", "source": "UNVERIFIED best-known Agol et al. 2021 value; equals L/a^2 = 0.373", "verified": false}
+    },
+    "g": {
+      "period_days": {"value": 12.352446, "uncertainty": 0.000054, "unit": "d", "source": "Agol et al. 2021 via NASA Exoplanet Archive overview and TEPCat https://www.astro.keele.ac.uk/jkt/tepcat/planets/TRAPPIST-1g.html", "verified": true},
+      "t0_bjd_tdb": {"value": 2457257.71462, "uncertainty": 0.00103, "unit": "BJD_TDB", "source": "Agol et al. 2021 via TEPCat (TRAPPIST-1g page)", "verified": true},
+      "semi_major_axis_au": {"value": 0.04683, "uncertainty": 0.00040, "unit": "AU", "source": "Agol et al. 2021 via aa42354-21 T1 and https://en.wikipedia.org/wiki/TRAPPIST-1g", "verified": true},
+      "radius_earth": {"value": 1.129, "uncertainty": 0.015, "unit": "R_earth", "source": "Agol et al. 2021 via NASA Exoplanet Archive overview; asymmetric +0.015/-0.013 (larger shown)", "verified": true},
+      "mass_earth": {"value": 1.321, "uncertainty": 0.038, "unit": "M_earth", "source": "Agol et al. 2021 via arXiv:2201.08840 Table 1", "verified": true},
+      "density_earth": {"value": 0.917, "uncertainty": 0.029, "unit": "rho_earth (Earth = 5.514 g/cm^3)", "source": "Agol et al. 2021 (NTRS copy); NASA Exoplanet Archive lists 5.06 +0.14/-0.16 g/cm^3", "verified": true},
+      "inclination_deg": {"value": 89.742, "uncertainty": 0.012, "unit": "deg", "source": "Agol et al. 2021 via NASA Exoplanet Archive overview", "verified": true},
+      "insolation_earth": {"value": 0.252, "uncertainty": null, "unit": "S_earth", "source": "UNVERIFIED best-known Agol et al. 2021 value; equals L/a^2 = 0.252", "verified": false}
+    },
+    "h": {
+      "period_days": {"value": 18.772866, "uncertainty": 0.000214, "unit": "d", "source": "Agol et al. 2021 via TEPCat https://astro.keele.ac.uk/jkt/tepcat/planets/TRAPPIST-1h.html and https://en.wikipedia.org/wiki/TRAPPIST-1h", "verified": true},
+      "t0_bjd_tdb": {"value": 2457249.60676, "uncertainty": 0.00272, "unit": "BJD_TDB", "source": "Agol et al. 2021 via TEPCat (TRAPPIST-1h page)", "verified": true},
+      "semi_major_axis_au": {"value": 0.06189, "uncertainty": 0.00053, "unit": "AU", "source": "Agol et al. 2021 via aa42354-21 T1 and https://en.wikipedia.org/wiki/TRAPPIST-1h", "verified": true},
+      "radius_earth": {"value": 0.755, "uncertainty": 0.014, "unit": "R_earth", "source": "Agol et al. 2021 via NASA Exoplanet Archive overview", "verified": true},
+      "mass_earth": {"value": 0.326, "uncertainty": 0.020, "unit": "M_earth", "source": "Agol et al. 2021 via NASA Exoplanet Archive overview and arXiv:2201.08840", "verified": true},
+      "density_earth": {"value": 0.755, "uncertainty": 0.055, "unit": "rho_earth (Earth = 5.514 g/cm^3)", "source": "Agol et al. 2021 (NTRS copy); asymmetric +0.049/-0.054 per doi:10.3847/1538-4357/add34b", "verified": true},
+      "inclination_deg": {"value": 89.805, "uncertainty": 0.013, "unit": "deg", "source": "Agol et al. 2021 via NASA Exoplanet Archive overview", "verified": true},
+      "insolation_earth": {"value": 0.144, "uncertainty": null, "unit": "S_earth", "source": "UNVERIFIED best-known Agol et al. 2021 value; equals L/a^2 = 0.144", "verified": false}
+    }
+  },
+  "jwst": [
+    {"planet": "b", "summary": "JWST/MIRI 15-micron secondary eclipses detected thermal emission from TRAPPIST-1 b; the dayside brightness temperature is consistent with a dark bare rock and argues against a thick atmosphere.", "citation": {"authors": "Greene, T. P. et al.", "year": 2023, "title": "Thermal emission from the Earth-sized exoplanet TRAPPIST-1 b using JWST", "venue": "Nature 618, 39-42", "doi": "10.1038/s41586-023-05951-7", "url": "https://arxiv.org/abs/2303.14849", "verified": true}},
+    {"planet": "c", "summary": "MIRI 15-micron eclipses gave a dayside brightness temperature of 380 +/- 31 K, ruling out a thick CO2-rich (Venus-like) atmosphere; a thin atmosphere or bare rock remain possible.", "citation": {"authors": "Zieba, S. et al.", "year": 2023, "title": "No thick carbon dioxide atmosphere on the rocky exoplanet TRAPPIST-1 c", "venue": "Nature 620, 746-749", "doi": "10.1038/s41586-023-06232-z", "url": "https://arxiv.org/abs/2306.10150", "verified": true}},
+    {"planet": "b", "summary": "Adding 12.8-micron eclipses, the two-band data fit either an airless planet with a fresh ultramafic surface or a thick CO2 atmosphere with a haze-driven temperature inversion; broadband photometry alone cannot decide.", "citation": {"authors": "Ducrot, E. et al.", "year": 2025, "title": "Combined analysis of the 12.8 and 15 um JWST/MIRI eclipse observations of TRAPPIST-1 b", "venue": "Nature Astronomy 9, 358 (online Dec 2024)", "doi": "10.1038/s41550-024-02428-z", "url": "https://arxiv.org/abs/2412.11627", "verified": true}},
+    {"planet": "b", "summary": "MIRI 15-micron phase curve shows a hot dayside and no significant nightside emission, consistent with a dark airless surface; atmospheres thicker than about 1 bar are strongly disfavoured.", "citation": {"authors": "Gillon, M. et al.", "year": 2026, "title": "No thick atmosphere around TRAPPIST-1 b and c from JWST thermal phase curves", "venue": "Nature Astronomy 10, 674", "doi": "10.1038/s41550-026-02806-9", "url": "https://arxiv.org/abs/2509.02128", "verified": true}},
+    {"planet": "c", "summary": "MIRI 15-micron phase curve: TRAPPIST-1 c could be airless with a more reflective surface or have a thin O2-rich atmosphere; atmospheres thicker than about 1 bar are strongly disfavoured.", "citation": {"authors": "Gillon, M. et al.", "year": 2026, "title": "No thick atmosphere around TRAPPIST-1 b and c from JWST thermal phase curves", "venue": "Nature Astronomy 10, 674", "doi": "10.1038/s41550-026-02806-9", "url": "https://arxiv.org/abs/2509.02128", "verified": true}},
+    {"planet": "d", "summary": "A NIRSpec/PRISM transmission spectrum from two transits is flat within about 100-150 ppm after correcting for stellar contamination, ruling out clear hydrogen-rich and many thicker secondary atmospheres; a bare rock or a very thin or hazy atmosphere remain possible.", "citation": {"authors": "Piaulet-Ghorayeb, C. et al.", "year": 2025, "title": "Strict Limits on Potential Secondary Atmospheres on the Temperate Rocky Exo-Earth TRAPPIST-1 d", "venue": "The Astrophysical Journal 989, 181", "doi": "10.3847/1538-4357/adf207", "url": "https://arxiv.org/abs/2508.08416", "verified": true}},
+    {"planet": "e", "summary": "Four NIRSpec/PRISM transits rule out cloudy hydrogen-dominated primary atmospheres at better than 3 sigma, but the data cannot yet tell whether TRAPPIST-1 e has a secondary atmosphere; stellar contamination is significant.", "citation": {"authors": "Espinoza, N. et al.", "year": 2025, "title": "JWST-TST DREAMS: NIRSpec/PRISM Transmission Spectroscopy of the Habitable Zone Planet TRAPPIST-1 e", "venue": "The Astrophysical Journal Letters 990, L52 (companion: Glidden et al. 2025, ApJL 990, L53)", "doi": "10.3847/2041-8213/adf42e", "url": "https://iopscience.iop.org/article/10.3847/2041-8213/adf42e", "verified": true}}
+  ],
+  "exoplanet_count": {"value": 6445, "as_of": "2026-10-08", "source": "https://exoplanetarchive.ipac.caltech.edu/ (homepage counter and 2026 news at https://exoplanetarchive.ipac.caltech.edu/docs/exonews_archive.html)", "verified": true},
+  "solar_system_mean_radii_km": {
+    "sun": {"value": 695700, "uncertainty": null, "unit": "km", "source": "IAU 2015 Resolution B3 nominal solar radius (exact by definition; a conversion constant, not a measurement)", "verified": true},
+    "mercury": {"value": 2439.7, "uncertainty": null, "unit": "km", "source": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/mercuryfact.html", "verified": true},
+    "venus": {"value": 6051.8, "uncertainty": null, "unit": "km", "source": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/venusfact.html", "verified": true},
+    "earth": {"value": 6371.0, "uncertainty": null, "unit": "km", "source": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/earthfact.html", "verified": true},
+    "moon": {"value": 1737.4, "uncertainty": null, "unit": "km", "source": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/moonfact.html", "verified": true},
+    "mars": {"value": 3389.5, "uncertainty": null, "unit": "km", "source": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/marsfact.html", "verified": true},
+    "jupiter": {"value": 69911, "uncertainty": null, "unit": "km", "source": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/jupiterfact.html", "verified": true},
+    "saturn": {"value": 58232, "uncertainty": null, "unit": "km", "source": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/saturnfact.html", "verified": true},
+    "uranus": {"value": 25362, "uncertainty": null, "unit": "km", "source": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/uranusfact.html", "verified": true},
+    "neptune": {"value": 24622, "uncertainty": null, "unit": "km", "source": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/neptunefact.html", "verified": true},
+    "pluto": {"value": 1188, "uncertainty": null, "unit": "km", "source": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/plutofact.html", "verified": true}
+  },
+  "citations": {
+    "agol2021": {"authors": "Agol, E. et al.", "year": 2021, "title": "Refining the Transit-timing and Photometric Analysis of TRAPPIST-1: Masses, Radii, Densities, Dynamics, and Ephemerides", "venue": "The Planetary Science Journal 2(1), 1", "doi": "10.3847/PSJ/abd022", "url": "https://iopscience.iop.org/article/10.3847/PSJ/abd022", "verified": true},
+    "agol2024_forecast": {"authors": "Agol, E. et al.", "year": 2024, "title": "Updated forecast for TRAPPIST-1 times of transit for all seven exoplanets incorporating JWST data", "venue": "arXiv preprint 2409.11620 (journal version not confirmed)", "doi": null, "url": "https://arxiv.org/abs/2409.11620", "verified": true},
+    "gillon2016": {"authors": "Gillon, M. et al.", "year": 2016, "title": "Temperate Earth-sized planets transiting a nearby ultracool dwarf star", "venue": "Nature 533, 221-224", "doi": "10.1038/nature17448", "url": "https://arxiv.org/abs/1605.07211", "verified": true},
+    "gillon2017": {"authors": "Gillon, M. et al.", "year": 2017, "title": "Seven temperate terrestrial planets around the nearby ultracool dwarf star TRAPPIST-1", "venue": "Nature 542, 456-460", "doi": "10.1038/nature21360", "url": null, "verified": true},
+    "burgasser2017": {"authors": "Burgasser, A. J. & Mamajek, E. E.", "year": 2017, "title": "On the Age of the TRAPPIST-1 System", "venue": "The Astrophysical Journal 845, 110", "doi": "10.3847/1538-4357/aa7fea", "url": "https://arxiv.org/abs/1706.02018", "verified": true},
+    "iau2012_b2": {"authors": "International Astronomical Union (XXVIII General Assembly)", "year": 2012, "title": "Resolution B2 on the re-definition of the astronomical unit of length (au = 149 597 870 700 m exactly)", "venue": "IAU XXVIII General Assembly, Beijing; adopted 30 August 2012", "doi": null, "url": "https://iauarchive.eso.org/static/resolutions/IAU2012_English.pdf", "verified": true},
+    "iau2015_b3": {"authors": "Prsa, A. et al.", "year": 2016, "title": "Nominal Values for Selected Solar and Planetary Quantities: IAU 2015 Resolution B3", "venue": "The Astronomical Journal 152(2), 41", "doi": "10.3847/0004-6256/152/2/41", "url": "https://www.iau.org/common/Uploaded%20files/IAUGA2015-Resolution-B3-recommended-nominal-conversion.pdf", "verified": true},
+    "gaia_mission": {"authors": "Gaia Collaboration, Prusti, T. et al.", "year": 2016, "title": "The Gaia mission", "venue": "Astronomy & Astrophysics 595, A1", "doi": "10.1051/0004-6361/201629272", "url": null, "verified": true},
+    "gaia_dr3": {"authors": "Gaia Collaboration, Vallenari, A. et al.", "year": 2023, "title": "Gaia Data Release 3: Summary of the content and survey properties", "venue": "Astronomy & Astrophysics 674, A1", "doi": "10.1051/0004-6361/202243940", "url": "https://www.aanda.org/articles/aa/abs/2023/06/aa43940-22/aa43940-22.html", "verified": true},
+    "hipparcos1997": {"authors": "Perryman, M. A. C. et al.", "year": 1997, "title": "The HIPPARCOS Catalogue", "venue": "Astronomy & Astrophysics 323, L49-L52", "doi": null, "url": "https://ui.adsabs.harvard.edu/abs/1997A&A...323L..49P", "verified": true},
+    "hipparcos2007": {"authors": "van Leeuwen, F.", "year": 2007, "title": "Validation of the new Hipparcos reduction", "venue": "Astronomy & Astrophysics 474, 653-664", "doi": "10.1051/0004-6361:20078357", "url": "https://arxiv.org/abs/0708.1752", "verified": true},
+    "nasa_planetary_fact_sheet": {"authors": "Williams, D. R. (NASA NSSDCA, Goddard Space Flight Center)", "year": null, "title": "Planetary Fact Sheet - Metric (and per-body fact sheets)", "venue": "NASA Space Science Data Coordinated Archive web resource (continuously updated; accessed 2026-10-10)", "doi": null, "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/", "verified": true},
+    "lro_lola": {"authors": "Smith, D. E. et al.", "year": 2010, "title": "Initial observations from the Lunar Orbiter Laser Altimeter (LOLA)", "venue": "Geophysical Research Letters 37, L18204", "doi": "10.1029/2010GL043751", "url": null, "verified": true},
+    "lroc": {"authors": "Robinson, M. S. et al.", "year": 2010, "title": "Lunar Reconnaissance Orbiter Camera (LROC) Instrument Overview", "venue": "Space Science Reviews 150, 81-124", "doi": "10.1007/s11214-010-9634-2", "url": null, "verified": true},
+    "blue_marble_ng": {"authors": "Stockli, R., Vermote, E., Saleous, N., Simmon, R. & Herring, D.", "year": 2005, "title": "The Blue Marble Next Generation - A true color earth dataset including seasonal dynamics from MODIS", "venue": "Published by the NASA Earth Observatory", "doi": null, "url": "https://earthobservatory.nasa.gov/features/BlueMarble/BlueMarble.php", "verified": true},
+    "etopo1": {"authors": "Amante, C. & Eakins, B. W.", "year": 2009, "title": "ETOPO1 1 Arc-Minute Global Relief Model: Procedures, Data Sources and Analysis", "venue": "NOAA Technical Memorandum NESDIS NGDC-24, National Geophysical Data Center, NOAA", "doi": "10.7289/V5C8276M", "url": "https://repository.library.noaa.gov/view/noaa/1163", "verified": true},
+    "proxima_b": {"authors": "Anglada-Escude, G. et al.", "year": 2016, "title": "A terrestrial planet candidate in a temperate orbit around Proxima Centauri", "venue": "Nature 536, 437-440", "doi": "10.1038/nature19106", "url": "https://arxiv.org/abs/1609.03449", "verified": true},
+    "hyg_database": {"authors": "astronexus.com (HYG Database project)", "year": null, "title": "HYG Database v4.1 (Hipparcos, Yale, Gliese); license CC BY-SA 4.0; superseded by v4.2", "venue": "astronexus.com / codeberg.org/astronexus/hyg", "doi": null, "url": "https://astronexus.com/hyg", "verified": false},
+    "esa_gaia_parallax": {"authors": "European Space Agency", "year": null, "title": "Parallax (Gaia)", "venue": "ESA Science & Exploration web page", "doi": null, "url": "https://www.esa.int/Science_Exploration/Space_Science/Gaia/Parallax", "verified": true},
+    "esa_measuring_parallax": {"authors": "European Space Agency", "year": null, "title": "Measuring stellar distances by parallax", "venue": "ESA Science & Technology (sci.esa.int, archived/not updated)", "doi": null, "url": "https://sci.esa.int/web/gaia/-/53278-measuring-stellar-distances-by-parallax", "verified": true},
+    "nasa_kepler_laws": {"authors": "NASA Goddard Scientific Visualization Studio", "year": null, "title": "Kepler's Laws of Planetary Motion Described Using Earth Satellites", "venue": "NASA SVS visualization page", "doi": null, "url": "https://svs.gsfc.nasa.gov/4642", "verified": true},
+    "bruneton2008": {"authors": "Bruneton, E. & Neyret, F.", "year": 2008, "title": "Precomputed Atmospheric Scattering", "venue": "Computer Graphics Forum 27(4), 1079-1086 (Proc. EGSR 2008)", "doi": "10.1111/j.1467-8659.2008.01245.x", "url": "https://diglib.eg.org/items/0af15b7c-795a-4cca-97d3-4cc9b99126e4", "verified": true},
+    "nasa_exoplanet_archive": {"authors": "NASA Exoplanet Archive (NASA/IPAC, Caltech)", "year": 2026, "title": "NASA Exoplanet Archive", "venue": "Web archive operated by IPAC/Caltech for NASA", "doi": null, "url": "https://exoplanetarchive.ipac.caltech.edu/", "verified": true}
+  }
+}

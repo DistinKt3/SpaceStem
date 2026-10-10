@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Known Sky: M0 rendering spike</title>
+    <style>
+      html, body { margin: 0; height: 100%; background: #000; overflow: hidden; font: 13px/1.4 system-ui, sans-serif; color: #cde; }
+      canvas { display: block; width: 100%; height: 100%; }
+      #hud { position: fixed; left: 12px; top: 12px; background: rgba(0,10,20,.6); padding: 8px 10px; border-radius: 6px; white-space: pre; pointer-events: none; }
+      #help { position: fixed; right: 12px; bottom: 12px; background: rgba(0,10,20,.6); padding: 8px 10px; border-radius: 6px; }
+    </style>
+  </head>
+  <body>
+    <canvas id="c"></canvas>
+    <div id="hud">booting…</div>
+    <div id="help">Drag: look · WASD/RF: move · Q/E: roll · Shift: ×10 · 1-5: views<br />URL: ?backend=webgpu|webgl2 &amp;depth=reversed|partitioned|naive &amp;origin=relative|absolute</div>
+    <script type="module" src="/src/spike/main.ts"></script>
+  </body>
+</html>
