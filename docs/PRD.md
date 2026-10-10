@@ -1,6 +1,6 @@
-# SpaceStem: Product Requirements Document
+# Known Sky: Product Requirements Document
 
-**Status:** Draft v0.2 (owner decisions recorded; ready for design kickoff)
+**Status:** v1.0 LOCKED for PoC build (2026-10-10)
 **Owner:** Justin McCain
 **Last updated:** 2026-10-10
 
@@ -10,7 +10,7 @@
 
 ## 1. Vision
 
-SpaceStem is a first-person space exploration game set in **our actual universe**. Where science has measured something, you see the measurement. Where science has only a best inference, you see a labeled inference. Where nothing is known, the game generates a plausible answer from real physics and tells you so.
+Known Sky is a first-person space exploration game set in **our actual universe**. Where science has measured something, you see the measurement. Where science has only a best inference, you see a labeled inference. Where nothing is known, the game generates a plausible answer from real physics and tells you so.
 
 You fly a ship with a real cockpit, travel from a planet's surface to other galaxies, gather resources to extend your reach, and come away knowing something true about space.
 
@@ -156,6 +156,36 @@ Weapons, missiles, death rays, combat, multiplayer, base building, trading econo
 
 Intergalactic exploration with generated interiors, the full 3D cosmic web, live transient alerts, ship customization, combat sandbox, co-op "expeditions", educator mode and classroom share, VR.
 
+## 9a. PoC Scope (governs all work until further notice)
+
+The PoC proves the *feeling and the honesty*: awe at scale, seamless travel, and the Measured/Inferred/Generated layer working on real data. It is a thin, polished slice of Section 9, not a lesser product. Anything not listed here is out.
+
+**Constraints:** no budget beyond this build; free tools and free hosting only (GitHub Pages or similar static hosting); assets procedural or public-domain/permissively licensed (NASA imagery, procedural textures, self-made models); ship fast, in small playable increments.
+
+**PoC milestones (each ends in a playable, deployed build):**
+
+| # | Milestone | Done when |
+|---|---|---|
+| M0 | **Spike** | three.js WebGPU (WebGL2 fallback) scene with floating origin, a depth strategy that shows no z-fighting from 1 m to 1e12 m, and a LOD sphere. Findings written down. |
+| M1 | **Sol** | Sun, planets and major moons at real positions and scales (offline ephemeris data), seamless orbit-to-surface on Earth and Moon with public-domain textures and elevation. |
+| M2 | **Cockpit and flight** | Sleek sci-fi cockpit, thrusters, impulse, cruise, HUD with real distance and light-travel time, reduced-motion option. |
+| M3 | **Known stars** | Offline-built star tile set (HYG or a small Gaia subset, a few thousand light-years) with names; hyperspeed jump between stars; map view. |
+| M4 | **One real exoplanet system** | A single NASA Exoplanet Archive system (e.g. TRAPPIST-1 or Proxima Centauri) built from archive values, with Inferred surface and a provenance panel and citation. |
+| M5 | **Codex and provenance** | Measured / Inferred / Generated badges on every object; "How do we know this?" panel with source and citation. |
+| M6 | **Fuel loop and onboarding** | Scoop fuel from a star, guided Earth-orbit opening, shareable coordinate link, screenshot mode. |
+| M7 | **Polish and release** | Quality scaling for mid-range laptops, colorblind modes, text scaling, remappable controls, subtitles, public deploy. |
+
+**Stretch (only if everything above is done):** rover on one rocky body, a single curated anomaly (e.g. a pulsar), generated Milky Way fill beyond the real star set.
+
+**Explicitly out of the PoC:** generated stars/planets beyond the real set (stretch only), other galaxies, combat, multiplayer, resource economy beyond fuel, narrative thread beyond a one-line goal, audio beyond ambient cockpit sound and a simple score loop.
+
+**Working rules for the build:**
+1. Plan before code for each milestone; write findings and decisions into `docs/`.
+2. Every Measured claim shown in game has a source recorded in the data manifest.
+3. Commit small, deploy often; each milestone is demoable.
+4. Never hit external data APIs at runtime for core play; fetch once, process offline, commit compact assets (mind repo size).
+5. Do not claim a feature works until it has been run and looked at in a real browser.
+
 ## 10. The Ship and Views
 
 - **Cockpit (default):** full 3D interior, believable instruments, physical switches, head look; the HUD is *diegetic* where possible (readouts on glass and panels) so we avoid a flat overlay feel.
@@ -212,9 +242,9 @@ Music: sparse and ambient. Sound design must honor "space is silent" with a cons
 | Q9 | **Audio:** a mix of scored ambient music and honest silence. Interior ship sound and instrument tones always; exterior space is silent except where sound is carried through the hull or instruments; a score sits underneath. |
 | Q10 | **Science validation:** no human reviewer. Every Measured claim must carry a citation to NASA, ESA or peer-reviewed sources; Codex text is written conservatively and flagged where uncertain. |
 | Q11 | **Data licensing:** each source's terms are verified before use; sources that don't fit are dropped. |
-| Q12 | **Team:** mostly the owner with Claude. This favors a tight V1; no date or budget set. Gaia DR4 (2 Dec 2026) is a nice-to-have, not a deadline. |
+| Q12 | **Team, budget, date:** owner plus Claude only. This is a **proof of concept**; budget is limited to what is built in these sessions (no paid services, no outsourced art). Target date: **as soon as possible**. Gaia DR4 (2 Dec 2026) is a nice-to-have, not a deadline. |
 | Q3 | **Business model:** free side project. Recommended path below. |
-| Q13 | **Name:** SpaceStem is a working title; shortlist below. |
+| Q13 | **Name:** **Known Sky** (final for the PoC). Trademark and domain not checked. |
 | Q14 | **Narrative:** a light, optional guiding thread that never gates exploration. |
 | Q15 | **Accessibility and language:** colorblind modes, subtitles and text scaling, full control remapping, and reduced-motion option in V1. English only, with a text system built for translation later. |
 | Onboarding | The first ten minutes start in Earth orbit with a guided launch, then the Moon and onward, teaching scale gently. |
@@ -228,21 +258,10 @@ Music: sparse and ambient. Sound design must honor "space is silent" with a cons
 - Keep art and audio assets in a separate license so the owner can change course later. Education licensing can be reconsidered after launch.
 - Cost to watch: hosting tile data. Use static hosting and a CDN.
 
-### Name shortlist (Q13, trademark and domain not yet checked)
-
-| Candidate | Why |
-|---|---|
-| **Parallax** | The method Gaia uses to measure star distances; says "measuring the real universe". Likely crowded as a name. |
-| **Known Sky** | Matches the Measured/Inferred/Generated idea. |
-| **Farfield** | Short, evocative, easy to say. |
-| **Lightlag** | Plays on light-travel time, our HUD signature. |
-| **SpaceStem** | Current working title (STEM connection). |
-
 ### Still open
 
 All fifteen original questions are now answered above. Remaining items to confirm during design:
-- Pick the final name from the shortlist, then check trademark and domain.
-- Target date and budget (none set).
+- Check trademark and domain for Known Sky (post-PoC).
 - Reference images for the sleek sci-fi cockpit.
 - Per-source data license check.
 
@@ -265,7 +284,7 @@ The original question list below is kept for reference.
 10. **Science validation.** Do you have access to an astronomer or educator as an advisor or reviewer?
 11. **Data licensing.** Comfortable with us verifying each source's terms before use, and dropping any source that doesn't fit?
 12. **Team and timeline.** Who is building (you, a team, me), and what is the target date and budget? Gaia DR4 lands 2 Dec 2026, which could be a launch-narrative moment if the timeline allows.
-13. **Name and brand.** Is "SpaceStem" final?
+13. **Name and brand.** Is "Known Sky" final?
 14. **Narrative.** Pure sandbox, or a light guiding thread (e.g. a mission to understand where we are)?
 15. **Accessibility and localization.** Colorblind modes, subtitles, languages in V1?
 
