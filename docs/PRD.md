@@ -194,9 +194,20 @@ Music: sparse and ambient. Sound design must honor "space is silent" with a cons
 - **Quality:** crash-free sessions, frame-time percentiles on target hardware, zero z-fighting or precision-jitter bugs on a defined test route.
 - **Scientific accuracy:** all Measured claims traceable to a source; an external science reviewer sign-off (Q10).
 
-## 14. Open Questions for the Owner
+## 14. Decisions and Open Questions
 
-The first four are the highest leverage and are being asked in chat. The rest need answers before design starts.
+### Decided (2026-10-10)
+
+| # | Decision |
+|---|---|
+| Q1 | **Audience:** both play and learning. Fun first, with rigorous science behind it. |
+| Q2 | **Platform:** web browser (three.js, WebGPU primary, WebGL2 fallback). Desktop wrapping is a later option. |
+| Q4 | **Travel realism:** visual only. Real distances and light-travel time on the HUD; no time-dilation simulation. |
+| Q5 | **V1 scope:** as proposed in Section 9. |
+
+### Still open
+
+Items below marked Q1, Q2, Q4, Q5 are answered above. The rest need answers before design starts. Priority: Q6, Q7, Q10, Q12 first.
 
 **Strategic**
 1. **Audience and purpose.** Primary: entertainment, education, or both? Age range?
