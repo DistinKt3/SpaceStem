@@ -136,21 +136,23 @@ export class FrameRenderer {
     }
   }
 
-  /** Conservative sphere-vs-frustum test in view space with no far plane. */
-  private inFrustum(center: THREE.Vector3, radius: number): boolean {
+  /**
+   * Sphere-vs-frustum test in view space with no far plane. Returns the view-space depth of the sphere center
+   * (positive in front of the camera), or null when the sphere is outside the frustum.
+   */
+  private viewDepth(center: THREE.Vector3, radius: number): number | null {
     const v = tmpV.copy(center).applyMatrix4(this.camera.matrixWorldInverse);
-    if (v.z - radius > 0) return false; // entirely behind the camera
+    if (v.z - radius > 0) return null; // entirely behind the camera
     const tanY = Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2);
     const tanX = tanY * this.camera.aspect;
     const depth = -v.z;
-    // Side planes through the origin; normals normalized.
     const nx = 1 / Math.sqrt(1 + tanX * tanX);
     const ny = 1 / Math.sqrt(1 + tanY * tanY);
-    if ((v.x - tanX * depth) * nx > radius) return false;
-    if ((-v.x - tanX * depth) * nx > radius) return false;
-    if ((v.y - tanY * depth) * ny > radius) return false;
-    if ((-v.y - tanY * depth) * ny > radius) return false;
-    return true;
+    if ((v.x - tanX * depth) * nx > radius) return null;
+    if ((-v.x - tanX * depth) * nx > radius) return null;
+    if ((v.y - tanY * depth) * ny > radius) return null;
+    if ((-v.y - tanY * depth) * ny > radius) return null;
+    return depth;
   }
 
   render(): void {
@@ -173,15 +175,20 @@ export class FrameRenderer {
 
     // 2. World, partitioned by depth.
     const intervals: DepthInterval<DepthRenderable>[] = [];
+    const tanHalfY = Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2);
+    const cosHalfDiag = 1 / Math.sqrt(1 + tanHalfY * tanHalfY * (1 + this.camera.aspect * this.camera.aspect));
     const wasVisible: DepthRenderable[] = [];
     for (const item of this.renderables) {
       const obj = item.object;
       if (!obj.visible) continue;
       wasVisible.push(item);
       const d = obj.position.length();
-      if (!this.inFrustum(obj.position, item.radius)) continue;
-      const near = item.nearBound ? item.nearBound(d) : d - item.radius;
-      const far = item.farBound ? item.farBound(d) : d + item.radius;
+      const z = this.viewDepth(obj.position, item.radius);
+      if (z === null) continue;
+      // Clip planes act on view-space depth, which is <= Euclidean distance. Custom (Euclidean) near bounds are
+      // scaled by the cosine of the half-diagonal FOV so in-frustum geometry is never clipped.
+      const near = item.nearBound ? item.nearBound(d) * cosHalfDiag : z - item.radius;
+      const far = item.farBound ? Math.min(item.farBound(d), z + item.radius) : z + item.radius;
       intervals.push({ near, far, item });
     }
     for (const item of wasVisible) item.object.visible = false;

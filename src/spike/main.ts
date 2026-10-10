@@ -4,7 +4,7 @@
  */
 import * as THREE from 'three/webgpu';
 import { attribute, color, mix, smoothstep, vec3, float } from 'three/tsl';
-import { createRenderer, type BackendRequest, type DepthMode } from '../render/bootstrap';
+import { createRenderer, effectiveDepthMode, type BackendRequest, type DepthMode } from '../render/bootstrap';
 import { FrameRenderer, type DepthRenderable } from '../render/frameRenderer';
 import { Vec3d } from '../core/vec3d';
 import { PlanetTerrain } from '../world/planet/planetTerrain';
@@ -12,7 +12,7 @@ import { ChunkWorkerPool } from '../world/planet/workerPool';
 
 const params = new URLSearchParams(location.search);
 const backendReq = (params.get('backend') ?? 'auto') as BackendRequest;
-const depthMode = (params.get('depth') ?? 'reversed') as DepthMode;
+const requestedDepth = (params.get('depth') ?? 'reversed') as DepthMode;
 const absoluteOrigin = params.get('origin') === 'absolute';
 const hud = document.getElementById('hud')!;
 
@@ -27,7 +27,8 @@ interface Placed {
 
 async function main(): Promise<void> {
   const canvas = document.getElementById('c') as HTMLCanvasElement;
-  const { renderer, info } = await createRenderer(canvas, backendReq, depthMode);
+  const { renderer, info } = await createRenderer(canvas, backendReq, requestedDepth);
+  const depthMode = effectiveDepthMode(requestedDepth, info);
   const fr = new FrameRenderer(renderer, { depthMode, msaaSamples: params.get('msaa') === '0' ? 0 : 4 });
   fr.bloomStrength.value = Number(params.get('bloom') ?? 0.4);
 
@@ -238,7 +239,25 @@ async function main(): Promise<void> {
       const c = renderer.domElement;
       return [((p.x + 1) / 2) * c.width, ((1 - p.y) / 2) * c.height];
     },
-    capture: () => renderer.domElement.toDataURL('image/png'),
+    /** Render and read back in the same task (WebGL canvases clear after compositing). */
+    capture: () => {
+      render();
+      return renderer.domElement.toDataURL('image/png');
+    },
+    /** Sample RGB at canvas pixel positions from a fresh frame. */
+    sample: async (points: [number, number][]) => {
+      render();
+      const url = renderer.domElement.toDataURL('image/png');
+      const img = new Image();
+      img.src = url;
+      await img.decode();
+      const c2 = document.createElement('canvas');
+      c2.width = img.width;
+      c2.height = img.height;
+      const ctx = c2.getContext('2d')!;
+      ctx.drawImage(img, 0, 0);
+      return points.map(([x, y]) => Array.from(ctx.getImageData(Math.round(x), Math.round(y), 1, 1).data.slice(0, 3)));
+    },
   };
   requestAnimationFrame(tick);
 }

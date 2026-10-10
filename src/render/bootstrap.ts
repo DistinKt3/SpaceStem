@@ -10,6 +10,12 @@ import { installWebGPUCompatShims } from './compat';
 export type BackendRequest = 'auto' | 'webgpu' | 'webgl2';
 export type DepthMode = 'reversed' | 'partitioned' | 'naive';
 
+/** The depth mode a created renderer can actually run: reversed-Z only where the backend supports it end to end. */
+export function effectiveDepthMode(requested: DepthMode, info: RendererInfo): DepthMode {
+  if (requested === 'reversed' && !info.reversedDepth) return 'partitioned';
+  return requested;
+}
+
 export interface RendererInfo {
   backend: 'webgpu' | 'webgl2';
   reversedDepth: boolean;
@@ -100,11 +106,17 @@ export async function createRenderer(
   } else if (request !== 'webgl2') {
     fallbackReason = 'navigator.gpu unavailable';
   }
+  // three r186: reversed depth on the WebGL2 backend renders the scene correctly into render targets, but the final
+  // RenderPipeline pass to the canvas comes out black. WebGL2 therefore always uses the partitioned baseline.
+  if (renderer && renderer.reversedDepthBuffer && !(renderer.backend as unknown as { isWebGPUBackend?: boolean }).isWebGPUBackend) {
+    void renderer.dispose();
+    renderer = null;
+  }
   if (!renderer) {
     // A fresh canvas is needed once a context of another type has been created on the old one.
     const fresh = canvas.cloneNode(false) as HTMLCanvasElement;
     canvas.replaceWith(fresh);
-    renderer = await attempt(fresh, true, wantReversed);
+    renderer = await attempt(fresh, true, false);
   }
   const isGpu = (renderer.backend as unknown as { isWebGPUBackend?: boolean }).isWebGPUBackend === true;
   return {
