@@ -177,6 +177,20 @@ The PoC proves the *feeling and the honesty*: awe at scale, seamless travel, and
 
 **Stretch (only if everything above is done):** rover on one rocky body, a single curated anomaly (e.g. a pulsar), generated Milky Way fill beyond the real star set.
 
+### M0 fallback ladder (rendering risk)
+
+Baseline from day one: **camera-relative rendering** (64-bit positions on the CPU, subtract camera position before GPU upload) plus **floating origin** plus **depth partitioning** (2-3 layers: near, mid, far, each with its own depth range and clear, composited back to front). This works the same on WebGPU and WebGL2. Treat logarithmic depth or reverse-Z as an optimization, not a dependency.
+
+| Failure | Workaround | Cost |
+|---|---|---|
+| Log depth or reverse-Z unsupported in three.js WebGPU | Depth partitioning (baseline) | Slight draw overhead; care at layer seams |
+| WebGPU unstable or unavailable | WebGL2 as primary; `logarithmicDepthBuffer` with manual opt-in for custom shaders | No compute shaders; planet heightfields move to Web Workers or render-to-texture |
+| Jitter at large distances | Camera-relative rendering plus floating origin | Almost none |
+| Extreme range for far objects | Scaled layers: render stars and galaxies in a scaled-down space at fixed apparent size | Careful transitions between layers |
+| Seamless surface-to-space too slow or buggy | Staged transition: hide a scene handoff behind atmosphere glow and a camera move (still no loading screen) | Not truly seamless |
+
+**Time box:** the M0 spike gets one to two focused sessions. If it still fails, cut scope first (staged transition) before changing engines. Switching engines (for example Babylon.js, which has floating origin and log depth built in) is the last resort and needs the owner's approval.
+
 **Explicitly out of the PoC:** generated stars/planets beyond the real set (stretch only), other galaxies, combat, multiplayer, resource economy beyond fuel, narrative thread beyond a one-line goal, audio beyond ambient cockpit sound and a simple score loop.
 
 **Working rules for the build:**
