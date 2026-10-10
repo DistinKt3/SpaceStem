@@ -1,6 +1,6 @@
 # SpaceStem: Product Requirements Document
 
-**Status:** Draft v0.1 (research complete, awaiting product owner input)
+**Status:** Draft v0.2 (owner decisions recorded; ready for design kickoff)
 **Owner:** Justin McCain
 **Last updated:** 2026-10-10
 
@@ -139,12 +139,14 @@ The player moves through these scales without loading screens:
 | **Generated space** | The Milky Way's remaining stars and planets via the hybrid generator (Section 5) |
 | **Cockpit** | One ship, fully modelled cockpit with working instruments (speed, fuel, nav map, scanner) |
 | **Travel** | Thrusters, impulse, cruise, hyperspeed, and one star-to-star jump |
-| **Exploration** | Scan, land (at least on rocky bodies), simple on-foot or rover survey (to confirm, Q7) |
+| **Exploration** | Scan, land (at least on rocky bodies), ship landing plus drivable rover survey (decided, Q7); no on-foot in V1 |
 | **Resources** | Fuel plus a small set of elements; refuel and upgrade loop |
 | **Anomalies** | A curated set (e.g. a pulsar, a supernova remnant, a black hole, a famous odd star) with correct science |
 | **Codex** | Provenance badges, citations, discovery log |
 | **Sharing** | Shareable coordinates/link and screenshot mode |
-| **Onboarding** | First 10 minutes designed end to end |
+| **Onboarding** | First 10 minutes designed end to end: start in Earth orbit, guided launch, Moon, onward |
+| **Accessibility** | Colorblind modes, subtitles and text scaling, full control remapping, reduced-motion option; English only with translation-ready text |
+| **Guiding thread** | Light, optional narrative goal that never gates exploration |
 
 ### Not in V1 (explicit)
 
@@ -204,10 +206,47 @@ Music: sparse and ambient. Sound design must honor "space is silent" with a cons
 | Q2 | **Platform:** web browser (three.js, WebGPU primary, WebGL2 fallback). Desktop wrapping is a later option. |
 | Q4 | **Travel realism:** visual only. Real distances and light-travel time on the HUD; no time-dilation simulation. |
 | Q5 | **V1 scope:** as proposed in Section 9. |
+| Q6 | **Art direction:** sleek sci-fi ship and cockpit (clean surfaces, glass and holographic displays), with the science kept grounded. |
+| Q7 | **Surface exploration:** ship plus rover. No on-foot in V1. |
+| Q8 | **Minimum hardware:** mid-range laptop (integrated or entry GPU from roughly the last five years), 60 fps at 1080p with automatic quality scaling. |
+| Q9 | **Audio:** a mix of scored ambient music and honest silence. Interior ship sound and instrument tones always; exterior space is silent except where sound is carried through the hull or instruments; a score sits underneath. |
+| Q10 | **Science validation:** no human reviewer. Every Measured claim must carry a citation to NASA, ESA or peer-reviewed sources; Codex text is written conservatively and flagged where uncertain. |
+| Q11 | **Data licensing:** each source's terms are verified before use; sources that don't fit are dropped. |
+| Q12 | **Team:** mostly the owner with Claude. This favors a tight V1; no date or budget set. Gaia DR4 (2 Dec 2026) is a nice-to-have, not a deadline. |
+| Q3 | **Business model:** free side project. Recommended path below. |
+| Q13 | **Name:** SpaceStem is a working title; shortlist below. |
+| Q14 | **Narrative:** a light, optional guiding thread that never gates exploration. |
+| Q15 | **Accessibility and language:** colorblind modes, subtitles and text scaling, full control remapping, and reduced-motion option in V1. English only, with a text system built for translation later. |
+| Onboarding | The first ten minutes start in Earth orbit with a guided launch, then the Moon and onward, teaching scale gently. |
+
+### Business model recommendation (Q3)
+
+**Free to play in the browser, with the code open source (permissive license such as MIT) and the game assets under a separate license.**
+- Free hosted play maximizes reach and sharing, which serves the "show others how to explore it" goal.
+- Open-sourcing the code invites science and graphics contributors, which matters for a solo-plus-AI team, and fits the citation-first honesty pillar.
+- Data keeps its original licenses and is credited in-game and in the repository. Source terms (for example Gaia and NASA/ESA media) must still be checked individually before shipping.
+- Keep art and audio assets in a separate license so the owner can change course later. Education licensing can be reconsidered after launch.
+- Cost to watch: hosting tile data. Use static hosting and a CDN.
+
+### Name shortlist (Q13, trademark and domain not yet checked)
+
+| Candidate | Why |
+|---|---|
+| **Parallax** | The method Gaia uses to measure star distances; says "measuring the real universe". Likely crowded as a name. |
+| **Known Sky** | Matches the Measured/Inferred/Generated idea. |
+| **Farfield** | Short, evocative, easy to say. |
+| **Lightlag** | Plays on light-travel time, our HUD signature. |
+| **SpaceStem** | Current working title (STEM connection). |
 
 ### Still open
 
-Items below marked Q1, Q2, Q4, Q5 are answered above. The rest need answers before design starts. Priority: Q6, Q7, Q10, Q12 first.
+All fifteen original questions are now answered above. Remaining items to confirm during design:
+- Pick the final name from the shortlist, then check trademark and domain.
+- Target date and budget (none set).
+- Reference images for the sleek sci-fi cockpit.
+- Per-source data license check.
+
+The original question list below is kept for reference.
 
 **Strategic**
 1. **Audience and purpose.** Primary: entertainment, education, or both? Age range?
