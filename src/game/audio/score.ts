@@ -121,14 +121,14 @@ function candidateVoicings(pcs: readonly number[]): number[][] {
   return out;
 }
 
-function voicingCost(v: readonly number[], prev: readonly number[] | null): number {
+/** A voicing's own cost (register, spread, doubled tones); movement is added by voiceLoop. */
+function voicingCost(v: readonly number[]): number {
   const mean = (v[0]! + v[1]! + v[2]! + v[3]!) / 4;
   let cost = 0.35 * Math.abs(mean - 65);
   // Prefer compact voicings, but let smooth motion win over a strict span limit.
   cost += 0.6 * Math.max(0, v[3]! - v[0]! - 16);
   const distinct = new Set(v.map(pc)).size;
   cost += (4 - distinct) * 1.5;
-  if (prev) for (let i = 0; i < 4; i++) cost += Math.abs(v[i]! - prev[i]!);
   return cost;
 }
 
@@ -144,7 +144,7 @@ function voiceLoop(pcsList: readonly (readonly number[])[]): number[][] {
     return c.length > 0 ? c : [fallback];
   });
   const n = cands.length;
-  const local = cands.map((cs) => cs.map((v) => voicingCost(v, null)));
+  const local = cands.map((cs) => cs.map(voicingCost));
   const starts = cands[0]!.map((_, j) => j).sort((a, b) => local[0]![a]! - local[0]![b]! || a - b).slice(0, 16);
   let bestCost = Infinity;
   let bestPath: number[] = [];
@@ -241,8 +241,7 @@ export function composeScore(seed: number): Score {
   degrees.forEach((degree, i) => {
     const pcs = pcsList[i]!;
     const dur = bars[i]! * barSeconds;
-    let bass = 36 + pcs[0]!;
-    if (bass < 36) bass += 12;
+    const bass = 36 + pcs[0]!; // root in the octave above C2
     chords.push({ start: t, dur, degree, pcs, notes: voicings[i]!, bass, brightness: bright[i]! });
     t += dur;
   });
