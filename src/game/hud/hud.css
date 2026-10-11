@@ -1,0 +1,46 @@
+.ks-hud { position: fixed; inset: 0; pointer-events: none; color: var(--ks-fg); font-family: var(--ks-mono); z-index: 2; }
+.ks-hud-markers { position: absolute; inset: 0; overflow: hidden; }
+.ks-reticle { position: absolute; left: 50%; top: 50%; width: 2.6rem; height: 2.6rem; transform: translate(-50%, -50%); color: var(--ks-accent); opacity: 0.75; filter: drop-shadow(0 0 4px rgba(127, 212, 255, 0.6)); }
+.ks-reticle svg, .ks-vel svg { width: 100%; height: 100%; display: block; }
+.ks-vel { position: absolute; left: 0; top: 0; width: 2.4rem; height: 1.5rem; color: #b8ffcf; opacity: 0.85; filter: drop-shadow(0 0 4px rgba(120, 255, 170, 0.5)); }
+.ks-bracket {
+  position: absolute; left: 0; top: 0; box-sizing: border-box;
+  border: 1.5px solid transparent; border-image: none;
+  background:
+    linear-gradient(var(--ks-accent), var(--ks-accent)) top left / 12px 1.5px no-repeat,
+    linear-gradient(var(--ks-accent), var(--ks-accent)) top left / 1.5px 12px no-repeat,
+    linear-gradient(var(--ks-accent), var(--ks-accent)) top right / 12px 1.5px no-repeat,
+    linear-gradient(var(--ks-accent), var(--ks-accent)) top right / 1.5px 12px no-repeat,
+    linear-gradient(var(--ks-accent), var(--ks-accent)) bottom left / 12px 1.5px no-repeat,
+    linear-gradient(var(--ks-accent), var(--ks-accent)) bottom left / 1.5px 12px no-repeat,
+    linear-gradient(var(--ks-accent), var(--ks-accent)) bottom right / 12px 1.5px no-repeat,
+    linear-gradient(var(--ks-accent), var(--ks-accent)) bottom right / 1.5px 12px no-repeat;
+  filter: drop-shadow(0 0 4px rgba(127, 212, 255, 0.7));
+}
+.ks-edge-arrow { position: absolute; left: 0; top: 0; width: 0; height: 0; border-left: 14px solid var(--ks-accent); border-top: 8px solid transparent; border-bottom: 8px solid transparent; margin: -8px 0 0 -7px; filter: drop-shadow(0 0 4px rgba(127, 212, 255, 0.8)); }
+.ks-label { position: absolute; left: 0; top: 0; font-size: 0.68rem; letter-spacing: 0.04em; color: var(--ks-dim); white-space: nowrap; text-shadow: 0 0 4px #000, 0 0 2px #000; }
+.ks-hud-panel {
+  position: absolute; padding: 0.55rem 0.8rem; background: var(--ks-panel); border: 1px solid var(--ks-border);
+  border-radius: 0.6rem; backdrop-filter: blur(6px); font-size: 0.78rem; line-height: 1.45;
+  box-shadow: 0 0 24px rgba(0, 0, 0, 0.35), inset 0 0 18px rgba(127, 212, 255, 0.06);
+}
+.ks-hud-top { left: 50%; top: 1rem; transform: translateX(-50%); min-width: 15rem; text-align: center; }
+.ks-mode { text-transform: uppercase; letter-spacing: 0.22em; font-size: 0.72rem; color: var(--ks-accent); }
+.ks-speed { font-size: 1.35rem; font-weight: 600; letter-spacing: 0.02em; margin-top: 0.15rem; }
+.ks-sub { display: block; font-size: 0.66rem; color: var(--ks-dim); font-weight: 400; letter-spacing: 0.06em; }
+.ks-throttle { height: 0.3rem; margin: 0.4rem auto 0.1rem; width: 100%; border-radius: 0.2rem; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+.ks-throttle-fill { height: 100%; background: linear-gradient(90deg, rgba(127, 212, 255, 0.4), var(--ks-accent)); }
+.ks-hud-left { left: 1.2rem; top: 50%; transform: translateY(-50%); min-width: 9rem; }
+.ks-hud-right { right: 1.2rem; top: 50%; transform: translateY(-50%); min-width: 11rem; max-width: 16rem; }
+.ks-hud-panel .k { color: var(--ks-dim); text-transform: uppercase; letter-spacing: 0.1em; font-size: 0.62rem; margin-top: 0.35rem; }
+.ks-hud-panel .k:first-child { margin-top: 0; }
+.ks-hud-panel .v { font-size: 0.86rem; }
+.ks-target-name { color: var(--ks-accent); font-weight: 600; }
+.ks-prov { display: inline-block; margin-top: 0.3rem; padding: 0.05rem 0.45rem; border-radius: 1rem; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.08em; border: 1.5px solid; }
+.ks-prov-measured { color: var(--ks-measured); border-style: solid; }
+.ks-prov-inferred { color: var(--ks-inferred); border-style: dashed; }
+.ks-prov-generated { color: var(--ks-generated); border-style: dotted; }
+.ks-hint { margin-top: 0.45rem; font-size: 0.62rem; color: var(--ks-dim); }
+.ks-hud-footer { position: absolute; left: 50%; bottom: 0.8rem; transform: translateX(-50%); font-size: 0.66rem; color: var(--ks-dim); white-space: nowrap; text-shadow: 0 0 3px #000; }
+.ks-hud-warn { position: absolute; left: 50%; top: 32%; transform: translateX(-50%); padding: 0.35rem 0.9rem; border-radius: 0.4rem; background: rgba(60, 10, 0, 0.55); border: 1px solid var(--ks-warn, #ffb347); color: var(--ks-warn, #ffb347); letter-spacing: 0.18em; text-transform: uppercase; font-size: 0.8rem; }
+#hud { display: none; }

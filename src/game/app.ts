@@ -27,6 +27,8 @@ export interface CameraState {
 
 export interface Controller {
   update(dt: number, app: App): void;
+  /** Optional per-frame HUD/overlay update after the world has been positioned. */
+  updateHud?(app: App): void;
 }
 
 export class App {
@@ -155,10 +157,13 @@ export class App {
     if (!this.paused) this.simTime = this.sys.ephemeris.clampTime(this.simTime + dt * this.timeScale);
     this.controller?.update(dt, this);
     this.renderFrame();
-    this.hudTimer -= dt;
-    if (this.hudTimer <= 0) {
-      this.hudTimer = 0.1;
-      this.updateHud();
+    if (this.controller?.updateHud) this.controller.updateHud(this);
+    else {
+      this.hudTimer -= dt;
+      if (this.hudTimer <= 0) {
+        this.hudTimer = 0.1;
+        this.updateHud();
+      }
     }
   }
 
