@@ -225,7 +225,11 @@ test.describe('settings panel', () => {
 
   test('colour-blind modes switch the palette tokens', async ({ page }) => {
     await open(page, 'open=accessibility');
-    const token = (name: string) => page.evaluate((n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim(), name);
+    // Short hex colours are expanded, so the check holds for the minified production CSS (#fff) and the source (#ffffff).
+    const token = (name: string) =>
+      page
+        .evaluate((n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim(), name)
+        .then((v) => v.replace(/^#([0-9a-f])([0-9a-f])([0-9a-f])$/i, '#$1$1$2$2$3$3'));
     expect(await page.evaluate(() => document.documentElement.dataset['colorblind'])).toBe('none');
     expect(await token('--ks-measured')).toBe('#7fd4ff');
     await page.locator('.ks-choice[data-value="deuteranopia"]').click();
