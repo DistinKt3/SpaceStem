@@ -5453,6 +5453,7 @@
     "Special relativity, published by Albert Einstein in 1905, makes the speed of light, 299,792,458 m/s, a limit: an object with mass would need unlimited energy to reach it.",
     "NASA's Voyager 1, the most distant human-made object, travels at about 17 km/s relative to the Sun. At that speed, crossing the distance to Proxima Centauri would take about 75,000 years.",
     "In the game, an interstellar jump takes roughly half a minute whatever the distance. Crossing 4.25 light-years in about 25 seconds would mean moving about five million times faster than light. That is pure fiction, and it is labelled **Generated**.",
+    "Hyper-fuel, star scooping and hull heat are game mechanics too. They respond to one real quantity, the starlight reaching the ship: the star's luminosity spread over a sphere as wide as the ship's distance. So in the game a hot star such as Sirius A fills the tank quickly but heats the hull from far out, while a dim red dwarf such as Proxima Centauri has to be skimmed close. The tank, the scoop rate, the hull's heat limit and the cost of each jump are invented for play and labelled **Generated**.",
     "General relativity does allow some exotic solutions on paper. In 1994 Miguel Alcubierre described a 'warp drive' that contracts space ahead of a ship and expands it behind, so the ship could outpace light as seen from outside. It needs 'exotic matter' with negative energy density, and later calculations found the total energy required to be physically unattainable.",
     "Traversable wormholes, shortcuts through spacetime, were described by Morris and Thorne in 1988 as a teaching tool. They need material whose tension exceeds its energy density; no known material behaves that way, though the authors noted it could not be ruled out firmly. There is no known way to build a warp drive or a wormhole."
    ],
@@ -5495,6 +5496,14 @@
      "unit": "× c",
      "provenance": "generated",
      "method": "4.25 ly in about 25 s (game design)",
+     "citation": "known-sky-source"
+    },
+    {
+     "label": "Jump range of a full hyper-fuel tank",
+     "value": 50,
+     "unit": "ly",
+     "provenance": "generated",
+     "method": "Game design: a jump costs (distance / 50 ly)^0.75 of the tank (docs/FUEL.md)",
      "citation": "known-sky-source"
     }
    ],

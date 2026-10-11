@@ -1,7 +1,10 @@
 # Hyper-fuel and star scooping
 
-**Status:** M6 module, 2026-10-11. Code: `src/game/ship/fuel.ts` (model), `src/game/ship/fuelGauge.ts` (HUD widget),
-`fuel.html` + `src/spike/fuelDemo.ts` (lab page). Tests: `tests/unit/fuel.test.ts`, `tests/e2e/fuel.spec.ts`.
+**Status:** M6, integrated in the game, 2026-10-11. Code: `src/game/ship/fuel.ts` (model), `src/game/ship/fuelGauge.ts`
+(HUD widget), `src/game/ship/shipFuel.ts` (game integration), `src/game/ship/fuelLayout.ts` (HUD placement),
+`fuel.html` + `src/spike/fuelDemo.ts` (lab page, part of the build). Tests: `tests/unit/fuel.test.ts`,
+`tests/unit/fuelIntegration.test.ts`, `tests/e2e/fuel.spec.ts` (lab, gauge, HUD layout), `tests/e2e/fuelGame.spec.ts`
+(the real game).
 
 The universe is real; the drive is fiction. This loop follows that rule:
 
@@ -13,8 +16,10 @@ The universe is real; the drive is fiction. This loop follows that rule:
 | Hull heat scale, its limit and warnings | **Game mechanic (fiction)**, shaped like real radiative balance | This document |
 | Jump cost | **Game mechanic (fiction)** | This document |
 
-Every player-facing text about the loop says "game mechanic" (the gauge header, its accessible name, the refusal
-message, the lab page). Nothing here is presented as a measured fact.
+Every player-facing text about the loop says "game mechanic" (the gauge header, its accessible name and description,
+the refusal message, the lab page), and the Codex entry "The drive is fiction" explains which part is real (the flux)
+and which is invented (tank, scoop rate, heat limit, jump cost; a Generated fact gives the 50 ly range). Nothing here
+is presented as a measured fact.
 
 ## 1. Stellar flux (real)
 
@@ -64,13 +69,15 @@ dh/dt = (F / F_limit - h^4) / tau          F_limit = 20,000   tau = 12 s
 h_eq  = (F / F_limit)^(1/4)                (equilibrium: the black-body temperature law)
 ```
 
-- `h` is clamped to 0..1. Above `F_limit` the equilibrium would pass the limit, so heat reaches 1.0 in finite time.
+- `h` is clamped to 0..1. At exactly `F_limit` the heat approaches 1 asymptotically (0.5 to 0.99 takes about 15 s);
+  above it the equilibrium would pass the limit, so heat reaches 1.0 in finite time.
 - Cooling with no flux follows `1/h^3 = 1/h0^3 + 3 t / tau`: from 1.0 to 0.85 in 2.5 s, from 0.9 to 0.65 in 9 s,
   slower as the hull gets cold (radiative cooling weakens as T^4).
 - For scale only: a black sphere at 1 au sits at 278 K, and this model puts it at heat 0.084, so heat 1.0 would
   correspond to about 3,300 K. No real hull material is implied; the limit is a game number.
-- Integration: fixed substeps of at most 0.1 s with Heun's method (second order), so results do not depend on the
-  frame rate (unit-tested at 60 fps vs 10 fps). Updates longer than 3,600 s are truncated. Fully deterministic.
+- Integration: each update is split into equal substeps of at most 0.1 s (1/60 s at 60 fps) with Heun's method
+  (second order), so results do not depend on the frame rate (unit-tested at 60 fps vs 10 fps; they agree to about
+  1e-5). Updates longer than 3,600 s are truncated. Fully deterministic.
 
 ### Warning levels
 
@@ -81,7 +88,9 @@ h_eq  = (F / F_limit)^(1/4)                (equilibrium: the black-body temperat
 | Emergency | 1.00 | `heat-emergency` | 0.95 | Gauge "Emergency" (octagon), forced emergency climb, HUD line "Emergency climb" |
 
 Levels rise straight to the highest one reached and emit **one** event (the highest); they fall one level at a time
-with the 0.05 hysteresis, so a value sitting at a threshold never repeats events.
+with the 0.05 hysteresis, so a value sitting at a threshold never repeats events. A system created or restored with a
+hot hull reports its level on the first update (the reported level starts at nominal), so a hull restored at the limit
+still triggers the climb; the game and the lab also start the climb from the `emergency` state itself.
 
 ### Reference stars (measured parameters, distances in stellar radii from the centre)
 
@@ -113,7 +122,9 @@ cost(d) = max(0.04, (d / 50 ly)^0.75)        fraction of a full tank
 - The exponent 0.75 makes cost grow more slowly than distance (sublinear), so one long jump is cheaper than two short
   ones of the same total; refuelling at stars on the way is what makes long trips possible.
 - Distance is the ship-to-target-star distance when the jump is engaged (the same number the gauge's marker uses).
-- Invalid distances (NaN, infinite) cost Infinity, so `canJump` is false.
+- The cost is paid when hyperspeed engages. If the spool is aborted before the transit starts (a teleport), it is
+  refunded; a transit cut short is not.
+- Invalid distances (NaN, infinite, negative) cost Infinity, so `canJump` is false.
 
 | Destination (from Sol) | Distance | Cost |
 |---|---|---|
@@ -135,7 +146,7 @@ It also fires on the first update after loading a save that is already low.
 
 ```ts
 const fuel = new FuelSystem({ hyperFuel: 1, heat: 0 });     // defaults: full tank, cold hull
-fuel.jumpCost(ly); fuel.canJump(ly); fuel.consumeJump(ly);
+fuel.jumpCost(ly); fuel.canJump(ly); fuel.consumeJump(ly); fuel.refuel(amount);
 const events = fuel.update(dt, env /* StarEnv | null */, { mode, throttle, landed });
 fuel.scooping; fuel.fluxSolar; fuel.heatState; fuel.scoopRate; fuel.secondsToFull; fuel.equilibriumHeat;
 fuel.toJSON();  FuelSystem.fromJSON(raw);                    // { version: 1, hyperFuel, heat }
@@ -150,34 +161,74 @@ and a cold hull; values are clamped to 0..1).
 ## 7. Gauge
 
 `new FuelGauge(parent, { placement: 'hud' | 'inline' })`, then `update({ hyperFuel, heat, scooping, nextJumpCost,
-secondsToFull?, heatState? })` each frame. It writes to the DOM only when something visible changes.
+jumpStatus?, secondsToFull?, heatState? })` each frame. It writes to the DOM only when something visible changes.
 
 - Fuel bar with the next jump: a hatched segment marks the share the jump would use and a tick (with a small
   triangle) marks what is left; when the tank is short the segment becomes a dashed outline up to the cost, the tick
   turns to the danger colour and the line reads "✕ Next jump needs 27%".
+- The line under the bar has five states (`data-jump`): `ok` ("Next jump 27% · leaves 3%"), `short`, `none` ("No star
+  targeted"), `tooClose` ("Target star too close to jump to": a star closer than 0.01 ly, such as the Sun seen from
+  Earth, or the star just reached) and `underway` ("Jump under way · used 27%"). While a jump is under way the gauge
+  does not compare the selected target with the tank the jump has already paid from, so it never claims a paid jump
+  is unaffordable.
 - Heat bar with ticks at 70 % and 90 %; the state is a word plus an icon of a different shape per level.
 - "Scooping · full in 25 s" chip while scooping; "Low" flag under 20 %.
-- Accessibility: a `section` with an accessible name that says "game mechanic"; both bars are `role="meter"` with
-  `aria-valuetext`; one polite live region announces state changes only (scooping started/stopped, tank full, heat
-  level up or back to normal, low fuel, jump becomes affordable or not). Colours are the theme tokens, so the
-  colour-blind palettes apply; every state also has a word or shape. Sizes are rem (text scaling). Animations stop
-  under `prefers-reduced-motion` and `html[data-reduced-motion='true']` (the game setting).
-- Placement 'hud' pins it top-right of the HUD root; on screens shorter than 36 rem it tightens its spacing.
+- Text wraps rather than being cut off (the jump line, the "Game mechanic" tag, the scooping chip), so nothing is lost
+  in a narrow container at large text.
+- Accessibility: a `section` whose accessible name says "game mechanic" and whose description (`aria-describedby`)
+  says what is fiction and what is real; both bars are `role="meter"` with `aria-valuetext`; one polite live region
+  announces state changes only (scooping started/stopped, tank full, heat level up or back to normal, low fuel, jump
+  becomes affordable or not). At the hull limit it says "Hull heat at its limit."; the host names the action
+  ("Emergency climb") on its own line, so no message is spoken twice. Colours are the theme tokens, so the colour-blind
+  palettes apply; every state also has a word or shape. Sizes are rem (text scaling). Animations stop under
+  `prefers-reduced-motion` and `html[data-reduced-motion='true']` (the game setting).
+- `setDensity('compact')` tightens the spacing. The game sets it from the HUD height measured in rem (under 36 rem),
+  which follows the text-scale setting; a rem media query would not, because rem in a media query is always 16 px.
 
-## 8. Integration (summary)
+## 8. Integration in the game
 
-`ShipController` owns a `FuelSystem` (loaded from storage, `?fuel=` overrides) and a `FuelGauge` in the HUD root. Each
-frame it updates the system with the primary star (`sys.primaryStar`) and the ship's mode, throttle and landed state;
-it refuses hyperspeed with `fuel.error.insufficient` when `canJump` is false and consumes the cost when the jump
-engages; on `heat-emergency` it takes the controls for at least 4 s (and while the hull stays critical), turns the
-nose radially away from the star and climbs in cruise at full throttle, then throttles back. Audio: `scoopHeat` =
-heat; cues `scoop-warning`, `heat-critical`, `fuel-low`. The cockpit status uses the heat level (0.5 warning,
-0.8 critical, 1 emergency). Saves happen on jumps, scoop stop, tank full, every 5 s and on `pagehide`. The exact code
-is in the module's hand-off notes (shared-file requests).
+`ShipController` owns a `ShipFuel` (`src/game/ship/shipFuel.ts`), which holds the `FuelSystem` and the `FuelGauge`
+(a child of the HUD root, so hiding the HUD hides it). The controller calls it at fixed points:
+
+| Hook | When | What it does |
+|---|---|---|
+| `update(dt)` | Each simulated frame, after the flight and hyperspeed step | Scoop and hull heat from the system's star (`sys.primaryStar`: its real luminosity, radius and temperature; a missing luminosity falls back to radius and temperature) and the ship's mode, throttle and landed state. Plays the cues (`scoop-warning` at the warning level, `heat-critical` at critical and at the limit, `fuel-low`). Starts the climb at the limit, settles a paid jump, saves. |
+| `steerClimb(dt, controls)` | Before the flight step | The emergency climb: the player's steering, throttle and mode keys are ignored, the nose turns radially away from the star at 2.5 rad/s, and once it points within about 30° of "away" the ship climbs in cruise at full throttle (cruise's governor scales with the distance, so the climb is fast near the star). It lasts at least 4 s and as long as the hull stays critical, then the throttle returns to zero. Auto-align is switched off. A ship resting on the photosphere (it can sink there in thrusters mode, whose thrust cannot hold against a star's gravity) lifts off first. No climb in hyperspeed (the jump carries the ship away). |
+| `chargeJump(distanceM)` | When hyperspeed has accepted a jump | Pays the cost. When the tank is short the spool is cancelled and the HUD shows "Not enough hyper-fuel: scoop near a star (game mechanic)". Hyperspeed's own refusals (landed, gravity well, already at the star) come first. |
+| `onPlace()` | After a teleport (named views, share links) | Refunds a jump whose spool was aborted before the transit started, and ends a climb. |
+| `updateHud(targetId, distanceM)` | After the HUD update | Feeds the gauge (the jump states above; the jump-target rule is the one `engageHyperspeed` uses: the Sun, a catalogue star or an exoplanet system) and runs the HUD layout pass. |
+
+The HUD warning line shows "Emergency climb" during the climb. The cockpit status follows the heat (0.5 at the warning
+level: the word ALERT and amber; 0.8 at critical and 1 at the limit: red); it is not merged into the HUD's own alert,
+so the generic alert cue does not double the heat cues. Audio: `scoopHeat` = heat drives the hull-stress sound.
+
+**HUD layout** (`fuelLayout.ts`). The gauge sits top-right, the HUD's target panel is vertically centred on the right
+and the speed panel is centred at the top; all are sized in rem, so whether they collide depends on the viewport
+measured in rem. The layout pass (10 times a second, and at once after a resize or a text-scale change) measures the
+panels and:
+
+- puts the gauge top-right, or just below the speed panel when the two would sit side by side (narrow screens; it
+  returns only with 1 rem of clearance to spare, so a changing speed readout does not make it jump);
+- leaves the target panel centred unless that puts it under the gauge, and then moves it just below the gauge,
+  letting at most 40 % of it (ETA and the hint) run off the bottom rather than hiding under the gauge;
+- picks the placement with the least overlap when nothing is clear.
+
+Checked at 1280×720 and 800×450 (text scale 1), 1366×768 and 1280×720 (1.5) and 1920×1080 (2): no overlap with the
+target, speed or left panel, the footer or the warning line (`tests/e2e/fuel.spec.ts`, unit cases in
+`tests/unit/fuelIntegration.test.ts`). At 1280×720 with text scale 2 (40 × 22.5 rem) the HUD's own panels already
+overlap each other; the gauge stays off the target panel, which moves below it, but it covers the right end of the
+speed panel.
+
+**Saving.** The tank is saved to localStorage when a jump is paid or refunded, when scooping stops or the tank fills,
+every 5 s when it changed, and on `pagehide` or when the page is hidden. The hull starts cold after a reload, because
+the ship's position is not saved (the game starts in a fresh placement). `?fuel=0..1` (tests, screenshots) overrides
+the tank for the session and is never written to the save; anything that is not a finite number (including an empty
+value) is ignored.
 
 ## 9. Open questions
 
-- Refund on an aborted spool: the cost is charged when the jump engages; a teleport during the 3 s spool loses it.
-- Fuel is per browser (localStorage), like settings; the ship position is not saved yet, so a reload returns to Earth
-  orbit with the saved tank.
+- The ship's position is not saved, so a reload returns to Earth orbit with the saved tank.
+- A transit cut short by a teleport is not refunded (only an aborted spool is).
 - Tuning (band edge, rate, `F_limit`, jump range) has not been playtested.
+- The HUD itself has no large-text layout: at 40 × 22.5 rem (1280×720 at text scale 2) its panels overlap each other,
+  and the gauge can only limit the damage. A HUD-wide layout should place the gauge then.
