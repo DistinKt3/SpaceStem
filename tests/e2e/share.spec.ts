@@ -443,6 +443,57 @@ test.describe('game integration', () => {
     expect(decodeShare(`#${token!}`)?.anchor).toBe('301');
     const title = readPngText(new Uint8Array(png)).find((e) => e.keyword === 'Title')?.text ?? '';
     expect(title).toMatch(/^Moon · /);
+
+    // A link to a catalogue star pasted while playing (hashchange): the star becomes a lit body before the camera is
+    // placed, so the camera stays anchored to it (no detour through the interstellar frame).
+    const starOffset: [number, number, number] = [7.1e9, -4.3e9, 2.9e9];
+    const proxima: ShareState = {
+      v: 1,
+      anchor: '*105913',
+      offset: starOffset,
+      quat: lookAt([-starOffset[0], -starOffset[1] + 1.5e9, -starOffset[2]], [0, 0, 1]),
+      timeMs: s.timeMs,
+      target: '*105913',
+      mode: 'cruise',
+    };
+    await page.evaluate((h) => (location.hash = h), `#${encodeShare(proxima)}`);
+    type GameKs = {
+      app: {
+        cam: { pos: { anchor: string; offset: { x: number; y: number; z: number } } };
+        sys: { byId: Map<string, unknown>; primaryStar(p: unknown, t: number): { def: { id: string } } };
+        simTime: number;
+        controller: { targetId: string | null };
+      };
+    };
+    await page.waitForFunction(() => (window as unknown as { __ks: GameKs }).__ks.app.cam.pos.anchor === '*105913', null, { timeout: 60_000 });
+    await page.waitForTimeout(1500);
+    const at = await page.evaluate(() => {
+      const app = (window as unknown as { __ks: GameKs }).__ks.app;
+      const o = app.cam.pos.offset;
+      return {
+        anchor: app.cam.pos.anchor,
+        offset: [o.x, o.y, o.z],
+        lit: app.sys.byId.has('*105913'),
+        primary: app.sys.primaryStar(app.cam.pos, app.simTime).def.id,
+        target: app.controller.targetId,
+      };
+    });
+    expect(at).toMatchObject({ anchor: '*105913', lit: true, primary: '*105913', target: '*105913' });
+    // The ship holds still in cruise at zero throttle; allow for a little drift over the frames since arrival.
+    for (let k = 0; k < 3; k++) expect(Math.abs(at.offset[k]! - starOffset[k]!)).toBeLessThan(1);
+    const starShot = await page.evaluate(async () => {
+      const k = (window as unknown as { __ks: { share: { screenshot: { enter(): void; exit(): void; capture(o: { caption: boolean }): Promise<Blob> } } } }).__ks;
+      k.share.screenshot.enter();
+      const blob = await k.share.screenshot.capture({ caption: true });
+      k.share.screenshot.exit();
+      const buf = new Uint8Array(await blob.arrayBuffer());
+      let bin = '';
+      for (const c of buf) bin += String.fromCharCode(c);
+      return btoa(bin);
+    });
+    const star = Buffer.from(starShot, 'base64');
+    writeFileSync(`${SHOTS}/game-capture-proxima.png`, star);
+    expect(readPngText(new Uint8Array(star)).find((e) => e.keyword === 'Title')?.text).toMatch(/^Proxima Centauri · /);
     expect(errors).toEqual([]);
   });
 });

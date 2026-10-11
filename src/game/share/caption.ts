@@ -24,7 +24,7 @@ export interface CaptionInput {
   /** Display name of the nearest body or star. */
   nearName: string;
   nearIsStar: boolean;
-  /** Height above the nearest body's surface (m; for a star, above its photosphere). */
+  /** Height above the nearest body's surface (m). Not used for stars, whose radius may be Inferred. */
   altitudeM: number;
   landed?: boolean;
   /** The system's star (the Sun, or a visited star) and the distance to its centre (m). */
@@ -53,7 +53,8 @@ export function captionFor(c: CaptionInput): CaptionText {
     title = t('share.caption.deepSpace', { name: c.starName, distance: formatDistance(c.starDistanceM) });
     subtitle = t('share.caption.subtitle.deep', { utc });
   } else if (c.nearIsStar) {
-    title = t('share.caption.star', { name: c.nearName, distance: formatDistance(Math.max(0, c.altitudeM)) });
+    // Distance to the star's centre: a visited star's radius is Inferred (D-027), its position is catalogued.
+    title = t('share.caption.star', { name: c.nearName, distance: formatDistance(c.starDistanceM) });
     subtitle = t('share.caption.subtitle.star', { utc, duration: lightTime });
   } else {
     title =

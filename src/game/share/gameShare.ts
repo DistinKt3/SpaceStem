@@ -15,6 +15,18 @@ import { captionFor, type CaptionText } from './caption';
 import { ShareController, type ApplyResult, type ShareHost } from './shareController';
 import { isShareId, makeShareState, type ShareState } from './shareLink';
 
+/** Resolves when `ok()` is true or after `timeoutMs` (polled every 50 ms). */
+function waitFor(ok: () => boolean, timeoutMs: number): Promise<void> {
+  const until = performance.now() + timeoutMs;
+  return new Promise((resolve) => {
+    const poll = (): void => {
+      if (ok() || performance.now() > until) resolve();
+      else window.setTimeout(poll, 50);
+    };
+    poll();
+  });
+}
+
 /** Display name of a body: localised for Solar System bodies, the catalogue name for stars (and exoplanets). */
 function bodyName(def: Pick<BodyDef, 'key' | 'name'>): string {
   const k = `body.${def.key}`;
@@ -73,10 +85,18 @@ export class GameShareHost implements ShareHost {
     if (!this.anchorKnown(s.anchor)) return 'unknown-place';
     const tdb = unixMsToTdbSecondsSinceJ2000(s.timeMs);
     app.simTime = sys.ephemeris.clampTime(tdb);
-    // A visited star becomes a lit body (as on a hyperspeed arrival); other visited stars are released.
-    for (const v of [...sys.views]) if (v.def.id.startsWith('*') && v.def.id !== s.anchor) sys.removeBody(v.def.id, app.frame);
+    // Arrive as a hyperspeed jump would: the destination star (or system) becomes lit bodies and previously visited
+    // ones are released. The ship controller owns that rule; without it (free camera) catalogue stars are handled here.
+    // The anchor body must exist before the camera is placed, or the first frame would re-anchor the camera to
+    // interstellar space and back (losing metres of float64 precision). SolarSystem.addBody is not safe to call twice
+    // concurrently, so the star is awaited here first and the arrival hook then finds it present.
     const star = this.catalogIndex(s.anchor);
     if (star !== null && app.catalog && !sys.byId.has(s.anchor)) await sys.addBody(app.catalog.bodyDef(star), app.pool, app.frame);
+    const arrive = this.ship?.hyper.onArrive;
+    if (arrive) arrive(s.anchor);
+    else for (const v of [...sys.views]) if (v.def.id.startsWith('*') && v.def.id !== s.anchor) sys.removeBody(v.def.id, app.frame);
+    // Other external anchors (an exoplanet system's bodies, added by the arrival hook) load asynchronously.
+    if (s.anchor !== 'ism' && !sys.byId.has(s.anchor)) await waitFor(() => sys.byId.has(s.anchor), 10_000);
     if (app.map?.isOpen) app.map.close();
     app.place({ pos: { anchor: s.anchor, offset: new Vec3d(...s.offset) }, quat: new THREE.Quaternion(...s.quat) });
     const ctl = this.ship;

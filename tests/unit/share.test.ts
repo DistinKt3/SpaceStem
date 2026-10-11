@@ -347,7 +347,7 @@ describe('caption text and layout', () => {
     expect(captionFor({ nearName: 'Moon', nearIsStar: false, altitudeM: 0.4, starName: 'Sun', starDistanceM: 1.496e11, utcMs }).title).toBe('Moon · on the surface');
     expect(captionFor({ nearName: 'Mars', nearIsStar: false, altitudeM: 5e6, landed: true, starName: 'Sun', starDistanceM: 2.3e11, utcMs }).title).toBe('Mars · on the surface');
     const star = captionFor({ nearName: 'Proxima Centauri', nearIsStar: true, altitudeM: 1.8e11, starName: 'Proxima Centauri', starDistanceM: 1.8e11, utcMs });
-    expect(star.title).toBe('Proxima Centauri · 1.203 au from the surface');
+    expect(star.title).toBe('Proxima Centauri · 1.203 au away');
     expect(star.subtitle).toBe('2026-10-11 14:03:12 UTC · light time 10 min 0 s');
     const deep = captionFor({ nearName: 'Sun', nearIsStar: true, altitudeM: 1.3e16, starName: 'Sun', starDistanceM: 1.3e16, utcMs });
     expect(deep.title).toBe('Interstellar space · Sun 1.374 ly away');

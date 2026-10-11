@@ -68,6 +68,8 @@ function toBlob(canvas: HTMLCanvasElement): Promise<Blob> {
   });
 }
 
+let instances = 0;
+
 const ACTIVATION_KEYS = new Set(['Enter', 'NumpadEnter', 'Space', 'Tab', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End']);
 
 export class ScreenshotMode {
@@ -97,16 +99,18 @@ export class ScreenshotMode {
     root.hidden = true;
     root.setAttribute('role', 'region');
     root.setAttribute('aria-label', t('share.shot.region'));
+    const hintId = `ks-shot-hint-${++instances}`;
     root.innerHTML = `
       <canvas class="ks-shot-preview" aria-hidden="true"></canvas>
       <div class="ks-shot-frame" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
       <div class="ks-shot-flash" aria-hidden="true"></div>
       <div class="ks-shot-bar" role="group">
-        <span class="ks-shot-badge"><span class="ks-shot-rec" aria-hidden="true"></span><span></span></span>
-        <button type="button" class="ks-shot-btn ks-shot-capture">${iconSvg('camera')}<span class="ks-shot-label"></span><kbd class="ks-kbd"></kbd></button>
-        <button type="button" class="ks-shot-btn ks-shot-switch" role="switch"><span class="ks-shot-track" aria-hidden="true"><span class="ks-shot-thumb"></span></span><span class="ks-shot-label"></span></button>
+        <span class="ks-shot-badge" aria-hidden="true"><span class="ks-shot-rec"></span><span></span></span>
+        <button type="button" class="ks-shot-btn ks-shot-capture">${iconSvg('camera')}<span class="ks-shot-label"></span><kbd class="ks-kbd" aria-hidden="true"></kbd></button>
+        <button type="button" class="ks-shot-btn ks-shot-switch" role="switch" aria-describedby="${hintId}"><span class="ks-shot-track" aria-hidden="true"><span class="ks-shot-thumb"></span></span><span class="ks-shot-label"></span></button>
+        <span class="ks-sr-only" id="${hintId}"></span>
         <span class="ks-shot-sep" aria-hidden="true"></span>
-        <button type="button" class="ks-shot-btn ks-shot-exit"><span class="ks-shot-label"></span><kbd class="ks-kbd"></kbd></button>
+        <button type="button" class="ks-shot-btn ks-shot-exit"><span class="ks-shot-label"></span><kbd class="ks-kbd" aria-hidden="true"></kbd></button>
       </div>`;
     const q = (sel: string): HTMLElement => root.querySelector<HTMLElement>(sel)!;
     this.root = root;
@@ -122,11 +126,12 @@ export class ScreenshotMode {
     this.announcer.className = 'ks-sr-only ks-shot-announcer';
     this.announcer.setAttribute('aria-live', 'polite');
     const bar = q('.ks-shot-bar');
-    bar.setAttribute('aria-label', t('share.shot.region'));
+    bar.setAttribute('aria-label', t('share.shot.controls'));
     q('.ks-shot-badge span:last-child').textContent = t('share.shot.badge');
     this.captureLabel.textContent = t('share.shot.capture');
     q('.ks-shot-switch .ks-shot-label').textContent = t('share.shot.caption');
     this.captionBtn.title = t('share.shot.captionHint');
+    q(`#${hintId}`).textContent = t('share.shot.captionHint');
     q('.ks-shot-exit .ks-shot-label').textContent = t('share.shot.exit');
 
     this.captureBtn.addEventListener('click', () => void this.captureFromOverlay());
