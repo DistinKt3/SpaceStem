@@ -54,6 +54,7 @@ class InlinePool {
     return Promise.resolve(buildChunk(this.config, req));
   }
   clearQueue(): void {}
+  unregister(): void {}
 }
 
 const cfg: HeightConfig = { key: 'dispose-test', radius: 1.7374e6, seed: 9, procedural: 'volcanic', amplitude: 1500 };
