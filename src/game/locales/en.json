@@ -87,12 +87,13 @@
   "map.systemTitle": "System map",
   "map.starsTitle": "Star map",
   "map.systemScale": "Laid on the planets' mean orbital plane. Distances from the star are compressed (r^0.4) so every orbit fits; directions are true.",
-  "map.starsScale": "Named catalogue stars within 50 light-years at true positions, galactic plane horizontal; rings at 10, 25 and 50 ly; lines drop to the plane.",
+  "map.starsScale": "Named catalogue stars and known exoplanet systems within 50 light-years at true positions, galactic plane horizontal; rings at 10, 25 and 50 ly; lines drop to the plane.",
   "map.help": "Drag or Shift+arrow keys to rotate · wheel or + and − to zoom · arrow keys and Enter choose a destination · {map} or {close} to close",
   "map.helpPad": "Right stick to rotate · triggers to zoom · D-pad and {accept} choose a destination · {switch} switch maps · {back} or {map} to close",
   "map.showStars": "Show star map",
   "map.showSystem": "Show system map",
   "map.destinations": "Destinations",
   "map.you": "You are here",
-  "map.youAt": "You are here · {name}"
+  "map.youAt": "You are here · {name}",
+  "map.exoSystem": "{dist} · {n} known planets"
 }

@@ -20,6 +20,7 @@ import { Fn, uv, vec4, float, length, smoothstep, exp, uniform } from 'three/tsl
 import { AU_M, LIGHT_YEAR_M, PARSEC_M } from '../../core/constants';
 import { Vec3d } from '../../core/vec3d';
 import { keplerOrbit } from '../../world/kepler';
+import { blackbodyColor } from '../../render/materials/planetShading';
 import type { App } from '../app';
 import { formatDistance } from '../format';
 import { bodyLabel, formatNumber, t } from '../i18n';
@@ -695,6 +696,20 @@ export class MapView {
       const rank = 2 + d - Math.max(0, 4 - absMag) * 6;
       const detail = [formatDistance(dPc * PARSEC_M), info?.spect].filter(Boolean).join(' · ');
       this.items.push({ id: `*${i}`, name: cat.name(i), pos: m, detail, color: col, size, rank });
+    }
+    // Exoplanet systems (not in the star catalogue): always listed and labelled, since they are the destinations with
+    // known planets.
+    for (const sys of app.exo) {
+      const pc = sys.helio.clone().scale(1 / PARSEC_M);
+      const dPc = pc.distanceTo(shipPc);
+      if (dPc * lyPerPc > MAP_RADIUS_LY) continue;
+      const m = toMap(pc);
+      const col = blackbodyColor(sys.spec.star.teffK);
+      this.addDot(m, col, 12);
+      this.scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([m, new THREE.Vector3(m.x, 0, m.z)]), this.dropMat));
+      extent = Math.max(extent, dPc * lyPerPc);
+      const detail = t('map.exoSystem', { dist: formatDistance(dPc * PARSEC_M), n: formatNumber(sys.spec.planets.length) });
+      this.items.push({ id: sys.spec.id, name: sys.spec.name, pos: m, detail, color: col, size: 12, rank: 1.5 });
     }
     this.addDot(new THREE.Vector3(), this.youColor, 14);
     this.items.unshift({ id: '', name: t('map.you'), pos: new THREE.Vector3(), detail: '', color: this.youColor, size: 14, rank: 0 });

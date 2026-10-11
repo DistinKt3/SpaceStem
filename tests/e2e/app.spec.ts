@@ -178,6 +178,11 @@ test('map lists destinations and sets the target', async ({ page }) => {
   expect(await page.evaluate(() => (window as unknown as { __ks: KS }).__ks.app.controller.targetId)).toBe('599');
   await page.locator('.ks-map-mode').click();
   await expect(page.locator('.ks-map-entry', { hasText: 'Proxima Centauri' })).toBeVisible();
+  // Exoplanet systems are not in the star catalogue but are listed (and selectable) in the star map.
+  const trappist = page.locator('.ks-map-entry', { hasText: 'TRAPPIST-1' });
+  await expect(trappist).toContainText('7 known planets');
+  await trappist.click();
+  expect(await page.evaluate(() => (window as unknown as { __ks: KS }).__ks.app.controller.targetId)).toBe('trappist-1');
   await page.keyboard.press('Escape');
   await expect(page.locator('.ks-map')).toBeHidden();
   await expect(page.locator('.ks-hud')).toBeVisible();
