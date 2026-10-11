@@ -29,7 +29,7 @@ export class TileSet {
     readonly body: string,
     readonly maxLevel: number,
     private readonly makeMaterial: (tex: THREE.Texture, level: number, x: number, y: number) => THREE.Material,
-    private readonly maxTiles = 160,
+    private readonly maxTiles = 96,
     private readonly anisotropy = 8,
   ) {}
 

@@ -8,6 +8,8 @@ import { unixMsToTdbSecondsSinceJ2000, tdbSecondsSinceJ2000ToUnixMs } from '../c
 import { Vec3d } from '../core/vec3d';
 import { createRenderer, effectiveDepthMode, type BackendRequest, type DepthMode, type RendererInfo } from '../render/bootstrap';
 import { FrameRenderer } from '../render/frameRenderer';
+import { Starfield } from '../render/starfield';
+import { PARSEC_M } from '../core/constants';
 import { loadBodies } from '../world/catalog';
 import { Ephemeris } from '../world/ephemeris';
 import { ChunkWorkerPool } from '../world/planet/workerPool';
@@ -34,6 +36,7 @@ export class App {
   frame!: FrameRenderer;
   sys!: SolarSystem;
   pool!: ChunkWorkerPool;
+  readonly stars = new Starfield();
   depthMode: DepthMode = 'reversed';
   /** Simulation time, TDB seconds since J2000. */
   simTime = 0;
@@ -75,12 +78,17 @@ export class App {
     const tParam = this.params.get('t');
     const startMs = tParam ? Date.parse(tParam) : Date.now();
     this.simTime = eph.clampTime(unixMsToTdbSecondsSinceJ2000(startMs));
+    this.progress(t('boot.loading', { item: 'stars' }));
+    await this.stars.load();
+    this.frame.backgroundScene.add(this.stars.group);
     this.pool = new ChunkWorkerPool();
     this.sys = await SolarSystem.create(eph, bodies, this.pool, this.frame, (name) => this.progress(t('boot.loading', { item: name })));
     // One update so lighting/rotation are known before placing the camera.
     this.sys.update(this.cam.pos, this.simTime, this.pxPerRadian());
     this.place(this.view(this.params.get('view') ?? 'leo'));
     document.getElementById('boot')?.classList.add('hidden');
+    // Large, non-essential assets stream in after the first frame.
+    void this.stars.loadMilkyWay().catch((e: unknown) => console.warn('Milky Way map failed to load', e));
   }
 
   pxPerRadian(): number {
@@ -162,10 +170,42 @@ export class App {
     this.frame.camera.quaternion.copy(this.cam.quat);
     this.frame.camera.position.set(0, 0, 0);
     this.updateExposure();
+    this.updateSky();
     this.frame.render();
   }
 
   private exposureState = -1;
+  private skyVisibility = 1;
+
+  /**
+   * Stars and the Milky Way keep a constant apparent brightness through eye adaptation (gain / exposure), dimmed when
+   * the camera is inside a sunlit atmosphere (daytime sky) or when a bright body fills the view.
+   */
+  private updateSky(): void {
+    const sun = this.sys.views.find((v) => v.def.kind === 'star')!;
+    const camSsb = this.sys.toSsb(this.cam.pos, this.simTime, new Vec3d());
+    const sunSsb = this.sys.ephemeris.ssb(sun.def.ephemerisId, this.simTime, new Vec3d());
+    this.stars.camPc.value.set((camSsb.x - sunSsb.x) / PARSEC_M, (camSsb.y - sunSsb.y) / PARSEC_M, (camSsb.z - sunSsb.z) / PARSEC_M);
+    let v = 1;
+    const [near, alt] = this.sys.nearest(this.cam.pos, this.simTime);
+    const atm = near.def.atmosphere;
+    if (atm && alt < atm.heightM) {
+      const up = near.rel.clone().scale(-1).normalize();
+      const s = near.uniforms.sunDir.value;
+      const elev = up.x * s.x + up.y * s.y + up.z * s.z;
+      const day = Math.min(1, Math.max(0, (elev + 0.12) / 0.17));
+      const density = Math.exp(-Math.max(0, alt) / atm.rayleighScaleHeightM);
+      v *= 1 - 0.985 * Math.min(1, density * day * 4);
+    }
+    const cover = Math.min(1, near.angularRadiusPx / (this.renderer.domElement.height * 0.5));
+    v *= 1 - 0.5 * cover;
+    this.skyVisibility += (v - this.skyVisibility) * 0.1;
+    const inv = 1 / Math.max(this.frame.exposure.value, 1e-3);
+    this.stars.gain.value = this.skyVisibility * inv * 0.6;
+    this.stars.skyGain.value = this.skyVisibility * inv * 0.6;
+    this.stars.viewport.value.set(this.renderer.domElement.width, this.renderer.domElement.height);
+    this.stars.setPlanets(this.sys.pointSources());
+  }
 
   /**
    * Eye adaptation: compensate most of the inverse-square fall-off of sunlight, then adapt toward the reflectance of

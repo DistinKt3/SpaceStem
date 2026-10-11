@@ -199,8 +199,9 @@
     "terrain": "earthlike",
     "amplitude": 350,
     "seaLevel": 0,
-    "night": "earth_night",
-    "clouds": "earth_clouds"
+    "night": "earth_night_clouds",
+    "clouds": "earth_night_clouds",
+    "cloudChannel": "a"
    },
    "atmosphere": {
     "heightM": 100000,

@@ -174,6 +174,7 @@ export interface CloudSpec {
   altitudeM: number;
   /** Texture width in texels (for LOD). */
   widthTexels: number;
+  channel: 'r' | 'a';
 }
 
 function cloudSample(cloud: CloudSpec, u: BodyUniforms, pRel: N, distKm: N, radiusKm: number): N {
@@ -182,7 +183,8 @@ function cloudSample(cloud: CloudSpec, u: BodyUniforms, pRel: N, distKm: N, radi
   const texelKm = (2 * PI * radiusKm) / cloud.widthTexels;
   const footprint = max(distKm.mul(u.radPerPixel), 1e-6);
   const lod = max(log2(footprint.div(texelKm)), 0);
-  return texture(cloud.texture, uvc).level(lod).r;
+  const t = texture(cloud.texture, uvc).level(lod);
+  return cloud.channel === 'a' ? t.a : t.r;
 }
 
 export interface SurfaceOptions {

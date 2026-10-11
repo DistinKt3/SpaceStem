@@ -188,11 +188,21 @@ def main() -> None:
         save_equirect("moon_lo", Image.fromarray(img), 2048)
         del img
     if want("earth_aux"):
-        save_equirect("earth_night", Image.open(RAW / "BlackMarble_2016_3km.jpg"), 4096, 80)
+        # One 8k RGBA texture: Black Marble 2016 city lights in RGB, cloud cover in alpha (halves GPU memory).
+        night = Image.open(RAW / "BlackMarble_2016_3km.jpg").convert("RGB").resize((8192, 4096), Image.LANCZOS)
         clouds = tifffile.imread(RAW / "cloud_combined_8192.tif")
         if clouds.ndim == 3:
             clouds = clouds[..., 0]
-        save_equirect("earth_clouds", Image.fromarray(clouds).convert("L"), 4096, 80)
+        cl = Image.fromarray(clouds).convert("L").resize((8192, 4096), Image.LANCZOS)
+        rgba = night.copy()
+        rgba.putalpha(cl)
+        (OUT / "tex").mkdir(parents=True, exist_ok=True)
+        p = OUT / "tex" / "earth_night_clouds.webp"
+        rgba.save(p, "WEBP", quality=80, alpha_quality=40, method=6)
+        print(f"tex earth_night_clouds: 8192x4096 RGBA {p.stat().st_size / 1e6:.2f} MB")
+        for old in ("earth_night.webp", "earth_clouds.webp"):
+            if (OUT / "tex" / old).exists():
+                (OUT / "tex" / old).unlink()
     if want("planets"):
         sss = {"mercury": ("8k_mercury.jpg", 4096), "venus_clouds": ("4k_venus_atmosphere.jpg", 2048),
                "mars": ("8k_mars.jpg", 4096), "jupiter": ("8k_jupiter.jpg", 4096), "saturn": ("8k_saturn.jpg", 2048),
@@ -234,6 +244,14 @@ def main() -> None:
         # 16 px/deg is downsampled 2x2 to 8 px/deg (~3.8 km) to keep the download small; finer relief is Generated.
         ldem8 = ldem.reshape(ldem.shape[0] // 2, 2, ldem.shape[1] // 2, 2).mean(axis=(1, 3))
         save_heights("moon", ldem8 * 1000.0, "NASA SVS CGI Moon Kit ldem_16 (LRO LOLA) averaged to 8 px/deg; meters above 1737.4 km")
+
+    if want("sky"):
+        # ESA Gaia EDR3 flux map, equirectangular galactic coordinates (l increases to the left, b up).
+        g = Image.open(RAW / "Gaia_EDR3_flux_cartesian_16k.png").convert("RGB").resize((8192, 4096), Image.LANCZOS)
+        (OUT / "tex").mkdir(parents=True, exist_ok=True)
+        p = OUT / "tex" / "milky_way_gaia.webp"
+        g.save(p, "WEBP", quality=78, method=6)
+        print(f"tex milky_way_gaia: 8192x4096 {p.stat().st_size / 1e6:.2f} MB")
 
     manifest_path.write_text(json.dumps(manifest, indent=1))
 

@@ -17,6 +17,8 @@ export interface SurfaceDef {
   seaLevel?: number;
   night?: string;
   clouds?: string;
+  /** Texture channel holding cloud cover ('r' for a greyscale map, 'a' when packed with night lights). */
+  cloudChannel?: 'r' | 'a';
   brdf?: 'lambert' | 'lunar';
   teffK?: number;
 }

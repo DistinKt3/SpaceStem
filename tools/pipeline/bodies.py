@@ -130,7 +130,7 @@ BODIES = [
      "surface": {"type": "gas", "texture": "venus_clouds"}, "atmosphere": VENUS_ATMOS},
     {"id": "399", "key": "earth", "name": "Earth", "kind": "planet", "parent": "10",
      "surface": {"type": "terrain", "tiles": "earth", "texture": "earth_lo", "heights": "earth", "terrain": "earthlike",
-                 "amplitude": 350, "seaLevel": 0, "night": "earth_night", "clouds": "earth_clouds"},
+                 "amplitude": 350, "seaLevel": 0, "night": "earth_night_clouds", "clouds": "earth_night_clouds", "cloudChannel": "a"},
      "atmosphere": EARTH_ATMOS},
     {"id": "301", "key": "moon", "name": "Moon", "kind": "moon", "parent": "399",
      "surface": {"type": "terrain", "tiles": "moon", "texture": "moon_lo", "heights": "moon", "terrain": "cratered",

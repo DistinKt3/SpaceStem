@@ -75,6 +75,21 @@ function loadTexture(name: string, ext = 'webp', srgb = true): Promise<THREE.Tex
   });
 }
 
+/** Disc-averaged colours for unresolved bodies (presentation only). */
+const POINT_COLORS: Record<string, [number, number, number]> = {
+  mercury: [215, 205, 195],
+  venus: [255, 245, 215],
+  earth: [190, 215, 255],
+  moon: [225, 220, 210],
+  mars: [255, 170, 120],
+  jupiter: [250, 230, 200],
+  saturn: [255, 235, 185],
+  uranus: [200, 240, 255],
+  neptune: [160, 190, 255],
+  io: [255, 240, 170],
+  titan: [255, 205, 130],
+};
+
 export class SolarSystem {
   readonly views: BodyView[] = [];
   readonly byId = new Map<string, BodyView>();
@@ -129,12 +144,17 @@ export class SolarSystem {
     if (def.atmosphere) atmosphere = makeAtmosphere(def.atmosphere, R, uniforms);
 
     let clouds: CloudSpec | undefined;
+    let night: THREE.Texture | undefined;
+    if (s.night) night = await loadTexture(s.night);
     if (s.clouds) {
-      const tex = await loadTexture(s.clouds, 'webp', false);
-      tex.wrapS = THREE.RepeatWrapping;
-      clouds = { texture: tex, altitudeM: 6000, widthTexels: tex.image ? (tex.image as { width: number }).width : 4096 };
+      const tex = s.clouds === s.night && night ? night : await loadTexture(s.clouds, 'webp', false);
+      clouds = {
+        texture: tex,
+        altitudeM: 6000,
+        widthTexels: (tex.image as { width?: number } | null)?.width ?? 8192,
+        channel: s.cloudChannel ?? 'r',
+      };
     }
-    const night = s.night ? await loadTexture(s.night) : undefined;
 
     // Height configuration (Measured data where available, Generated detail below its resolution).
     const cfg: HeightConfig = {
@@ -283,6 +303,28 @@ export class SolarSystem {
       }
     }
     return [best, bestAlt];
+  }
+
+  /**
+   * Bodies too small to resolve, as sky points: direction from the camera and apparent visual magnitude from
+   * reflected sunlight, m = m_sun - 2.5 log10(p (R/Δ)^2 (1 au/r)^2 Φ(α)) with a Lambert phase function.
+   */
+  pointSources(): { dir: [number, number, number]; mag: number; color: [number, number, number] }[] {
+    const out: { dir: [number, number, number]; mag: number; color: [number, number, number] }[] = [];
+    const sun = this.views.find((v) => v.def.kind === 'star')!;
+    for (const v of this.views) {
+      if (v.def.kind === 'star' || v.angularRadiusPx > 1.5) continue;
+      const delta = v.rel.length();
+      if (delta < 1) continue;
+      const toSun = new Vec3d().subVectors(sun.rel, v.rel);
+      const r = toSun.length();
+      const alpha = Math.acos(Math.max(-1, Math.min(1, toSun.dot(v.rel.clone().scale(-1)) / (r * delta))));
+      const phase = (Math.sin(alpha) + (Math.PI - alpha) * Math.cos(alpha)) / Math.PI;
+      const f = v.def.geometricAlbedo * (v.def.radiusM / delta) ** 2 * (AU_M / r) ** 2 * Math.max(phase, 1e-6);
+      const mag = -26.74 - 2.5 * Math.log10(f);
+      out.push({ dir: [v.rel.x / delta, v.rel.y / delta, v.rel.z / delta], mag, color: POINT_COLORS[v.def.key] ?? [235, 235, 235] });
+    }
+    return out;
   }
 
   /** Terrain height (m above mean radius) under a camera-relative direction for a body, using the CPU height fn. */
