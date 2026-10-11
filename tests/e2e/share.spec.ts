@@ -624,6 +624,24 @@ test.describe('real game (index.html)', () => {
     return { title, token: findShareInPng(new Uint8Array(png)), png };
   }
 
+  /** Brightest channel value above the caption band (0-255): a black capture reads about 1. */
+  async function peak(page: Page, png: Buffer): Promise<number> {
+    return page.evaluate(async (b64) => {
+      const img = new Image();
+      img.src = `data:image/png;base64,${b64}`;
+      await img.decode();
+      const c = document.createElement('canvas');
+      c.width = img.naturalWidth;
+      c.height = img.naturalHeight;
+      const g = c.getContext('2d')!;
+      g.drawImage(img, 0, 0);
+      const d = g.getImageData(0, 0, c.width, Math.floor(c.height * 0.7)).data;
+      let max = 0;
+      for (let i = 0; i < d.length; i += 4) max = Math.max(max, d[i]!, d[i + 1]!, d[i + 2]!);
+      return max;
+    }, png.toString('base64'));
+  }
+
   test('a link places the camera exactly, and the player shares and screenshots from the keyboard', async ({ page }) => {
     test.slow();
     const errors: string[] = [];
@@ -724,6 +742,8 @@ test.describe('real game (index.html)', () => {
     expect(pngSize(png)).toEqual(size);
     expect(decodeShare(`#${findShareInPng(new Uint8Array(png))!}`)?.anchor).toBe('301');
     expect(readPngText(new Uint8Array(png)).find((e) => e.keyword === 'Title')?.text).toMatch(/^Moon · /);
+    // The supersampled frame carries the picture (not an empty canvas).
+    expect(await peak(page, png)).toBeGreaterThan(60);
 
     // Escape leaves screenshot mode without opening the pause menu, and brings the cockpit back.
     await page.keyboard.press('Escape');
@@ -739,23 +759,6 @@ test.describe('real game (index.html)', () => {
     await page.keyboard.press('Escape');
     await expect.poll(() => page.evaluate(() => (window as unknown as { __ks: GameKs }).__ks.app.panel.isOpen)).toBe(false);
 
-    // The map ends screenshot mode (the toolbar must not sit over the map).
-    await page.keyboard.press('KeyP');
-    await expect(page.locator('body')).toHaveClass(/ks-screenshot/);
-    await page.keyboard.press('KeyM');
-    await expect(page.locator('body')).not.toHaveClass(/ks-screenshot/);
-    await page.keyboard.press('Escape');
-    await expect.poll(() => page.evaluate(() => (window as unknown as { __ks: GameKs }).__ks.app.map?.isOpen ?? false)).toBe(false);
-
-    // So does the Codex (it can also open from a toast's View button, without a game action).
-    await page.keyboard.press('KeyP');
-    await expect(page.locator('body')).toHaveClass(/ks-screenshot/);
-    await page.keyboard.press('KeyC');
-    await expect.poll(() => page.evaluate(() => (window as unknown as { __ks: GameKs }).__ks.app.codex.ui.isOpen)).toBe(true);
-    await expect(page.locator('body')).not.toHaveClass(/ks-screenshot/);
-    await page.keyboard.press('Escape');
-    await expect.poll(() => page.evaluate(() => (window as unknown as { __ks: GameKs }).__ks.app.codex.ui.isOpen)).toBe(false);
-
     // An interstellar link (review finding): the caption and the arrival name interstellar space, not the nearest moon.
     const ism: ShareState = { v: 1, anchor: 'ism', offset: [1e16, 2e15, -3e15], quat: [0, 0, 0, 1], timeMs: Date.UTC(2026, 9, 11, 12) };
     const deep = await page.evaluate(async (h) => {
@@ -765,7 +768,10 @@ test.describe('real game (index.html)', () => {
     }, `#${encodeShare(ism)}`);
     expect(deep.outcome).toBe('ok');
     expect(deep.detail).toBe('Interstellar space · 2026-10-11 12:00:00 UTC');
-    expect((await captureText(page)).title).toMatch(/^Interstellar space · Sun 1\.\d+ ly away$/);
+    const deepShot = await captureText(page);
+    writeFileSync(`${SHOTS}/game-capture-interstellar.png`, deepShot.png);
+    expect(deepShot.title).toMatch(/^Interstellar space · Sun 1\.\d+ ly away$/);
+    expect(await peak(page, deepShot.png)).toBeGreaterThan(30);
 
     // A catalogue star pasted while playing (hashchange): the star becomes a lit body before the camera is placed, so
     // the camera stays anchored to it (no detour through the interstellar frame).
@@ -800,6 +806,7 @@ test.describe('real game (index.html)', () => {
     const star = await captureText(page);
     writeFileSync(`${SHOTS}/game-capture-proxima.png`, star.png);
     expect(star.title).toMatch(/^Proxima Centauri · /);
+    expect(await peak(page, star.png)).toBeGreaterThan(60);
 
     // An exoplanet (M4): the system's bodies load and the camera is placed relative to the planet.
     const planet: ShareState = { v: 1, anchor: 'trappist-1e', offset: [2.2e7, 0, 0], quat: lookAt([-1, 0, 0], [0, 0, 1]), timeMs: s.timeMs, target: 'trappist-1e', mode: 'impulse' };
@@ -817,7 +824,27 @@ test.describe('real game (index.html)', () => {
     const exo = await captureText(page);
     writeFileSync(`${SHOTS}/game-capture-trappist-1e.png`, exo.png);
     expect(exo.title).toMatch(/^TRAPPIST-1 e · /);
+    expect(await peak(page, exo.png)).toBeGreaterThan(30);
     expect(decodeShare(`#${exo.token!}`)?.anchor).toBe('trappist-1e');
+
+    // The map and Codex checks come after the captures above: at da75eac, once the map has been opened and closed the 3D
+    // view renders black (a pre-existing bug, reported separately), which would blank these review images.
+    // The map ends screenshot mode (the toolbar must not sit over the map).
+    await page.keyboard.press('KeyP');
+    await expect(page.locator('body')).toHaveClass(/ks-screenshot/);
+    await page.keyboard.press('KeyM');
+    await expect(page.locator('body')).not.toHaveClass(/ks-screenshot/);
+    await page.keyboard.press('Escape');
+    await expect.poll(() => page.evaluate(() => (window as unknown as { __ks: GameKs }).__ks.app.map?.isOpen ?? false)).toBe(false);
+
+    // So does the Codex (it can also open from a toast's View button, without a game action).
+    await page.keyboard.press('KeyP');
+    await expect(page.locator('body')).toHaveClass(/ks-screenshot/);
+    await page.keyboard.press('KeyC');
+    await expect.poll(() => page.evaluate(() => (window as unknown as { __ks: GameKs }).__ks.app.codex.ui.isOpen)).toBe(true);
+    await expect(page.locator('body')).not.toHaveClass(/ks-screenshot/);
+    await page.keyboard.press('Escape');
+    await expect.poll(() => page.evaluate(() => (window as unknown as { __ks: GameKs }).__ks.app.codex.ui.isOpen)).toBe(false);
 
     // Large text on this short window, a Codex notification up, then K in screenshot mode: the share toast stays on
     // screen and off the toolbar, and every toolbar button still takes a click.
