@@ -170,6 +170,8 @@ lab.append(intro, monitor, legend, fps);
 // --- Loop -----------------------------------------------------------------------------------------------------------
 
 const recent: string[] = [];
+/** Every button action that fired, with whether the menu was open (for tests: nothing may leak past the menu). */
+const fired: string[] = [];
 let last = performance.now();
 let fpsAvg = 60;
 function frame(now: number): void {
@@ -177,6 +179,7 @@ function frame(now: number): void {
   last = now;
   fpsAvg += (1 / dt - fpsAvg) * 0.05;
   input.update(dt);
+  for (const a of ACTIONS) if (a.kind === 'button' && input.justPressed(a.id)) fired.push(`${a.id}${panel.isOpen ? '@menu' : ''}`);
   if (!panel.isOpen && input.justPressed('pause')) panel.open();
   for (const id of AXES) {
     const v = input.axis(id);
@@ -210,4 +213,4 @@ if (openTab !== null) {
   panel.open((SETTINGS_TABS as readonly string[]).includes(openTab) ? (openTab as SettingsTab) : undefined);
 }
 
-(window as unknown as { __ks: unknown }).__ks = { settings, input, panel, captions, t };
+(window as unknown as { __ks: unknown }).__ks = { settings, input, panel, captions, t, fired };

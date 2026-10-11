@@ -72,6 +72,7 @@ interface Slider {
 interface Toggle {
   readonly root: HTMLElement;
   readonly input: HTMLInputElement;
+  readonly hint: HTMLElement;
   set(v: boolean): void;
 }
 
@@ -100,6 +101,9 @@ export class SettingsPanel {
   private readonly tabs = new Map<SettingsTab, HTMLButtonElement>();
   private readonly panes = new Map<SettingsTab, HTMLElement>();
   private readonly paneTitle: HTMLElement;
+  private readonly frame: HTMLElement;
+  private readonly tablist: HTMLElement;
+  private readonly resizeObserver: ResizeObserver | null;
   private readonly hints: HTMLElement;
   private readonly live: HTMLElement;
   private readonly binds: HTMLElement;
@@ -139,6 +143,7 @@ export class SettingsPanel {
     this.live = h('p', { class: 'ks-sr-only', role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true' });
     this.paneTitle = h('p', { class: 'ks-set-panetitle', 'aria-hidden': 'true' });
     const tablist = h('div', { class: 'ks-set-tabs', role: 'tablist', 'aria-label': t('settings.tabs.label') });
+    this.tablist = tablist;
     for (const tab of SETTINGS_TABS) {
       const b = h(
         'button',
@@ -312,7 +317,7 @@ export class SettingsPanel {
     this.hints = h('div', { class: 'ks-set-hints', 'aria-hidden': 'true' });
     this.renderHints();
 
-    const frame = h(
+    const frame = (this.frame = h(
       'div',
       { class: 'ks-set-frame' },
       h('div', { class: 'ks-set-brand' }, h('p', { class: 'ks-set-eyebrow' }, t('settings.eyebrow')), h('h2', { class: 'ks-set-title', id: id('title') }, t('settings.title'))),
@@ -321,7 +326,7 @@ export class SettingsPanel {
       h('div', { class: 'ks-set-body' }, controls, a11y, audio, graphics),
       this.hints,
       this.live,
-    );
+    ));
     this.element = h('dialog', { class: 'ks-settings', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': id('title'), 'data-input': 'keyboard' }, frame);
     this.element.addEventListener('keydown', (e) => this.onKey(e));
     this.element.addEventListener('cancel', (e) => {
@@ -329,7 +334,9 @@ export class SettingsPanel {
       this.close();
     });
     this.element.addEventListener('close', () => {
-      if (this.openState) this.finishClose();
+      // The native event arrives asynchronously: after close() then open() in one task it belongs to the previous
+      // session, and finishing the new one would leave the modal on screen with the game resumed behind it.
+      if (this.openState && !this.element.open) this.finishClose();
     });
     this.element.addEventListener('pointerdown', (e) => {
       this.element.dataset['input'] = 'pointer';
@@ -339,6 +346,9 @@ export class SettingsPanel {
     (options.parent ?? document.body).append(this.element);
 
     this.unsub = settings.onChange((d, changed) => this.sync(d, changed));
+    // The dialog's size follows the window; re-fit the tab strip when it changes.
+    this.resizeObserver = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => this.fitTabs());
+    this.resizeObserver?.observe(this.element);
     this.selectTab('controls', false);
     this.renderControls();
   }
@@ -377,11 +387,13 @@ export class SettingsPanel {
       this.element.show();
     }
     this.tabs.get(this.tab)?.focus();
+    this.fitTabs();
     this.nav.reset();
     const loop = (): void => {
       if (!this.openState) return;
-      this.pollNav();
+      // Schedule first: a rebind capture started from this poll then runs after the next poll, not before it.
       this.navRaf = requestAnimationFrame(loop);
+      this.pollNav();
     };
     this.navRaf = requestAnimationFrame(loop);
   }
@@ -401,6 +413,7 @@ export class SettingsPanel {
   dispose(): void {
     this.close();
     this.unsub();
+    this.resizeObserver?.disconnect();
     this.element.remove();
   }
 
@@ -429,8 +442,44 @@ export class SettingsPanel {
     }
     for (const [k, p] of this.panes) p.hidden = k !== tab;
     this.paneTitle.textContent = t(`settings.tab.${tab}`);
+    // A collapsed strip shows the active tab's name (on the tab or in the header), whose width just changed.
+    if ((this.frame.dataset['tabs'] ?? 'full') !== 'full') this.fitTabs();
     this.panes.get(tab)?.scrollTo?.({ top: 0 });
     if (focus) this.tabs.get(tab)?.focus();
+  }
+
+  /**
+   * Picks the roomiest tab style that fits the strip without scrolling: full labels, the active tab's label only,
+   * icons with the active tab's name in the header, or icons alone. The column layout always fits. Measured rather
+   * than set by breakpoints, because label widths depend on the language, the font and the text size.
+   */
+  private fitTabs(): void {
+    if (!this.openState) return;
+    const strip = this.tablist;
+    const styles = [
+      ['full', false],
+      ['active', false],
+      ['icons', true],
+      ['icons', false],
+    ] as const;
+    let mode: 'full' | 'active' | 'icons' = 'full';
+    let fits = false;
+    for (const [m, title] of styles) {
+      mode = m;
+      this.frame.dataset['tabs'] = m;
+      this.frame.toggleAttribute('data-tabs-title', title);
+      if (strip.scrollWidth <= strip.clientWidth + 1) {
+        fits = true;
+        break;
+      }
+    }
+    this.frame.toggleAttribute('data-tabs-overflow', !fits);
+    for (const [k, b] of this.tabs) {
+      const iconOnly = mode === 'icons' || (mode === 'active' && k !== this.tab);
+      if (iconOnly) b.title = t(`settings.tab.${k}`);
+      else b.removeAttribute('title');
+    }
+    if (!fits) this.tabs.get(this.tab)?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }
 
   private onTabKey(e: KeyboardEvent): void {
@@ -722,6 +771,9 @@ export class SettingsPanel {
     });
     if (this.listening?.id !== id || this.listening.slot !== slot) return; // Superseded by another capture.
     this.listening = null;
+    // The pad button that ended the capture (the one just bound, or Menu to cancel) is still down: menu navigation
+    // must not also read it as A / B / X / LB / RB / Menu.
+    this.nav.reset();
     this.renderControls();
     if (this.openState) this.focusSlot(id, slot);
     const action = t(actionDef(id).label);
@@ -786,9 +838,11 @@ export class SettingsPanel {
       { class: 'ks-preview', 'aria-hidden': 'true' },
       h('div', { class: 'ks-preview-inner' },
         h('p', { class: 'ks-preview-k' }, t('settings.preview.label')),
-        h('p', { class: 'ks-preview-v' }, t('settings.preview.value'), badge('measured')),
-        h('p', { class: 'ks-preview-t' }, t('settings.preview.text')),
-        h('p', { class: 'ks-preview-badges' }, badge('inferred'), badge('generated')),
+        // Mean Earth-Moon distance (lunar laser ranging), so it carries the Measured badge.
+        h('p', { class: 'ks-preview-v' }, t('settings.preview.value', { value: formatNumber(384400) }), badge('measured')),
+        h('p', { class: 'ks-preview-t' }, t('settings.preview.text', { seconds: formatNumber(1.3, 1, 1) })),
+        // A labelled key of the three badge styles, set apart so no badge reads as a tag on the sentence above.
+        h('p', { class: 'ks-preview-legend' }, h('span', { class: 'ks-preview-legend-k' }, t('settings.preview.legend')), badge('measured'), badge('inferred'), badge('generated')),
       ),
     );
   }
@@ -806,14 +860,10 @@ export class SettingsPanel {
     );
   }
 
+  /** Says whether reduced motion follows the system preference (and what it asks for) or is the player's choice. */
   private motionHint(): string {
-    let system: boolean;
-    try {
-      system = matchMedia('(prefers-reduced-motion: reduce)').matches;
-    } catch {
-      system = false;
-    }
-    return t(system ? 'settings.a11y.reducedMotion.hintSystem' : 'settings.a11y.reducedMotion.hint');
+    if (this.settings.isOverridden('reducedMotion')) return t('settings.a11y.reducedMotion.hintOverride');
+    return t(this.settings.environment.prefersReducedMotion ? 'settings.a11y.reducedMotion.hintSystem' : 'settings.a11y.reducedMotion.hint');
   }
 
 
@@ -822,9 +872,15 @@ export class SettingsPanel {
   private sync(d: Readonly<SettingsData>, changed: ReadonlySet<SettingsKey>): void {
     if (changed.has('mouseSensitivity')) this.sensitivity.set(d.mouseSensitivity);
     if (changed.has('invertY')) this.invertY.set(d.invertY);
-    if (changed.has('textScale')) this.textScale.set(d.textScale);
+    if (changed.has('textScale')) {
+      this.textScale.set(d.textScale);
+      this.fitTabs(); // Label widths follow the root font size even when the dialog's size does not change.
+    }
     if (changed.has('colorblind')) this.colorblind.set(d.colorblind);
-    if (changed.has('reducedMotion')) this.reducedMotion.set(d.reducedMotion);
+    if (changed.has('reducedMotion')) {
+      this.reducedMotion.set(d.reducedMotion);
+      this.reducedMotion.hint.textContent = this.motionHint();
+    }
     if (changed.has('subtitles')) {
       this.subtitles.set(d.subtitles);
       this.captionSize.root.classList.toggle('is-muted', !d.subtitles);
@@ -924,7 +980,9 @@ export class SettingsPanel {
       input.style.setProperty('--ks-fill', `${((Number(input.value) - o.min) / (o.max - o.min)) * 100}%`);
     };
     const set = (v: number): void => {
-      input.value = String(o.toUi(v));
+      // Leave the thumb where it is when it already stands for this value (several positions of a log scale can round
+      // to one stored value): moving it to the canonical position would make it jump on release.
+      if (Math.abs(o.fromUi(Number(input.value)) - v) > 1e-9) input.value = String(o.toUi(v));
       show(v);
     };
     input.addEventListener('input', () => {
@@ -949,13 +1007,14 @@ export class SettingsPanel {
     const input = h('input', { type: 'checkbox', role: 'switch', id: iid, class: 'ks-switch-input', 'aria-describedby': `${iid}-hint` });
     input.checked = value;
     input.addEventListener('change', () => onChange(input.checked));
+    const hintEl = h('p', { class: 'ks-field-hint', id: `${iid}-hint` }, hint);
     const root = h(
       'div',
       { class: 'ks-field ks-field-switch' },
-      h('div', { class: 'ks-field-text' }, h('label', { class: 'ks-field-label', for: iid }, label), h('p', { class: 'ks-field-hint', id: `${iid}-hint` }, hint)),
+      h('div', { class: 'ks-field-text' }, h('label', { class: 'ks-field-label', for: iid }, label), hintEl),
       h('div', { class: 'ks-field-ctl' }, h('label', { class: 'ks-switch', for: iid }, input, h('span', { class: 'ks-switch-track', 'aria-hidden': 'true' }, h('span', { class: 'ks-switch-thumb' })))),
     );
-    return { root, input, set: (v) => (input.checked = v) };
+    return { root, input, hint: hintEl, set: (v) => (input.checked = v) };
   }
 
   private choice<T extends string>(
