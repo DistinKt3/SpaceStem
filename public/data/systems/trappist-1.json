@@ -1,0 +1,1671 @@
+{
+ "id": "trappist-1",
+ "name": "TRAPPIST-1",
+ "retrieved": "2026-10-11",
+ "source": "NASA Exoplanet Archive TAP: Planetary Systems Composite Parameters (pscomppars) for measured values and their per-parameter references, Planetary Systems table (ps, default_flag=1) for each planet's default parameter set; cross-checked against Gaia DR3, SIMBAD and Agol et al. 2021. Built by tools/pipeline/exoplanets.py.",
+ "exoplanetCount": {
+  "value": 6445,
+  "asOf": "2026-10-11",
+  "source": "NASA Exoplanet Archive TAP: select count(*) from pscomppars (one row per confirmed planet)",
+  "citation": "nasa-exoplanet-archive"
+ },
+ "star": {
+  "teffK": {
+   "value": 2566.0,
+   "uncertainty": 26.0,
+   "unit": "K",
+   "provenance": "measured",
+   "source": "NASA Exoplanet Archive pscomppars (st_teff); Agol et al. 2021",
+   "citation": "agol2021"
+  },
+  "radiusSun": {
+   "value": 0.1192,
+   "uncertainty": 0.0013,
+   "unit": "R_sun",
+   "provenance": "measured",
+   "source": "NASA Exoplanet Archive pscomppars (st_rad); Agol et al. 2021",
+   "citation": "agol2021"
+  },
+  "massSun": {
+   "value": 0.0898,
+   "uncertainty": 0.0023,
+   "unit": "M_sun",
+   "provenance": "measured",
+   "source": "NASA Exoplanet Archive pscomppars (st_mass); Agol et al. 2021",
+   "citation": "agol2021",
+   "note": "Agol et al. 2021 adopt this mass from the Mann et al. (2019) M_Ks-mass relation."
+  },
+  "luminosityLogSun": {
+   "value": -3.25727,
+   "uncertainty": [
+    0.01518,
+    0.01467
+   ],
+   "unit": "log10(L/L_sun)",
+   "provenance": "measured",
+   "source": "NASA Exoplanet Archive pscomppars (st_lum); Agol et al. 2021",
+   "citation": "agol2021"
+  },
+  "luminositySun": {
+   "value": 0.000553,
+   "uncertainty": 1.9e-05,
+   "unit": "L_sun",
+   "provenance": "measured",
+   "source": "NASA Exoplanet Archive pscomppars (10^st_lum); Agol et al. 2021",
+   "citation": "agol2021",
+   "note": "Linear form of luminosityLogSun. Agol et al. 2021 list (5.53 +/- 0.19)e-4 L_sun from Ducrot et al. 2020."
+  },
+  "ageGyr": {
+   "value": 7.6,
+   "uncertainty": 2.2,
+   "unit": "Gyr",
+   "provenance": "measured",
+   "source": "NASA Exoplanet Archive pscomppars (st_age); Piaulet-Ghorayeb et al. 2025",
+   "citation": "piaulet-ghorayeb2025",
+   "note": "Same value as Burgasser & Mamajek (2017), from kinematics, activity and metallicity indicators; the uncertainty is large."
+  },
+  "metallicityFeH": {
+   "value": 0.052,
+   "uncertainty": 0.073,
+   "unit": "dex",
+   "provenance": "measured",
+   "source": "NASA Exoplanet Archive pscomppars (st_met); Piaulet-Ghorayeb et al. 2025",
+   "citation": "piaulet-ghorayeb2025",
+   "note": "Ratio [Fe/H], relative to the Sun."
+  },
+  "spectralType": {
+   "value": "M8.0 V",
+   "unit": "",
+   "provenance": "measured",
+   "source": "NASA Exoplanet Archive pscomppars (st_spectype); Piaulet-Ghorayeb et al. 2025",
+   "citation": "piaulet-ghorayeb2025"
+  },
+  "vMag": {
+   "value": 18.798,
+   "uncertainty": 0.082,
+   "unit": "mag",
+   "provenance": "measured",
+   "source": "Costa et al. 2006 CCD photometry, via SIMBAD",
+   "citation": "costa2006",
+   "note": "Johnson V. The NASA Exoplanet Archive lists V = 17.02 +/- 0.2 from TICv8, 1.8 mag brighter than this direct measurement; see docs/EXO_TRAPPIST1.md."
+  },
+  "jMag": {
+   "value": 11.354,
+   "uncertainty": 0.022,
+   "unit": "mag",
+   "provenance": "measured",
+   "source": "NASA Exoplanet Archive pscomppars (sy_jmag); TICv8",
+   "citation": "stassun2019",
+   "note": "2MASS J (identical to the 2MASS catalogue value in SIMBAD)."
+  },
+  "kMag": {
+   "value": 10.296,
+   "uncertainty": 0.023,
+   "unit": "mag",
+   "provenance": "measured",
+   "source": "NASA Exoplanet Archive pscomppars (sy_kmag); TICv8",
+   "citation": "stassun2019",
+   "note": "2MASS Ks (identical to the 2MASS catalogue value in SIMBAD)."
+  },
+  "gaiaDr3Id": {
+   "value": "2635476908753563008",
+   "unit": "",
+   "provenance": "measured",
+   "source": "NASA Exoplanet Archive pscomppars (gaia_dr3_id); confirmed in the Gaia DR3 archive (gaiadr3.gaia_source)",
+   "citation": "gaia-dr3"
+  }
+ },
+ "position": {
+  "raDeg": {
+   "value": 346.6263919,
+   "uncertainty": 3.02652777777778e-08,
+   "unit": "deg",
+   "provenance": "measured",
+   "source": "NASA Exoplanet Archive pscomppars (ra); TICv8",
+   "citation": "stassun2019",
+   "note": "ICRS. Epoch J2015.5 (the Gaia DR2 epoch carried into TICv8), not J2000: the star moves about 1.03 arcsec per year, so its J2000 position is about 15 arcsec away. Gaia DR3 at epoch J2016.0: RA 346.626522 deg, Dec -5.043528 deg."
+  },
+  "decDeg": {
+   "value": -5.0434618,
+   "uncertainty": 2.57793611111111e-08,
+   "unit": "deg",
+   "provenance": "measured",
+   "source": "NASA Exoplanet Archive pscomppars (dec); TICv8",
+   "citation": "stassun2019",
+   "note": "ICRS. Epoch J2015.5 (the Gaia DR2 epoch carried into TICv8), not J2000: the star moves about 1.03 arcsec per year, so its J2000 position is about 15 arcsec away. Gaia DR3 at epoch J2016.0: RA 346.626522 deg, Dec -5.043528 deg."
+  },
+  "distancePc": {
+   "value": 12.42988881,
+   "uncertainty": 0.01870661,
+   "unit": "pc",
+   "provenance": "measured",
+   "source": "NASA Exoplanet Archive pscomppars (sy_dist); Gaia DR2",
+   "citation": "gaia-dr2",
+   "note": "1/parallax from Gaia DR2 (80.451 +/- 0.121 mas). Gaia DR3 measures 80.212 +/- 0.072 mas (12.467 pc); the archive had not adopted it for this star when queried. Light from TRAPPIST-1 takes about 40.5 years to reach us."
+  }
+ },
+ "orbitalPlane": {
+  "inclinationDeg": {
+   "value": 89.783,
+   "uncertainty": 0.058,
+   "unit": "deg",
+   "provenance": "inferred",
+   "source": "Mean of the seven planets' transit inclinations (NASA Exoplanet Archive pscomppars; Agol et al. 2021)",
+   "citation": "agol2021",
+   "note": "Inclination of the common orbital plane to the plane of the sky (90 deg = edge-on). The seven measured inclinations span 89.728-89.896 deg, so Known Sky draws one shared plane. Transits cannot distinguish i from 180 - i (whether the orbits pass north or south of the stellar centre); we take i < 90 deg."
+  },
+  "nodeDeg": {
+   "value": 0.0,
+   "unit": "deg",
+   "provenance": "generated",
+   "source": "Fixed choice by Known Sky (no measurement exists)",
+   "citation": "known-sky-exo-rules",
+   "note": "Position angle of the ascending node on the sky, east of north. Transits constrain only the inclination; how the orbits are turned about our line of sight is unknown. We fix it at 0 deg (node due north). Changing it rotates the whole system about the line of sight and changes nothing seen from Earth."
+  }
+ },
+ "planets": [
+  {
+   "id": "trappist-1b",
+   "name": "TRAPPIST-1 b",
+   "letter": "b",
+   "defaultParameterSet": {
+    "label": "Agol et al. 2021",
+    "citation": "agol2021",
+    "published": "2021-02"
+   },
+   "measured": {
+    "periodDays": {
+     "value": 1.510826,
+     "uncertainty": 6e-06,
+     "unit": "d",
+     "provenance": "measured",
+     "source": "NASA Exoplanet Archive pscomppars (pl_orbper); Agol et al. 2021",
+     "citation": "agol2021",
+     "note": "The osculating period at the start of Agol et al.'s N-body fit (BJD 2457257.93), not a long-term mean; see inferred.ephemerisPeriodDays for the mean period used to place the planet."
+    },
+    "semiMajorAxisAu": {
+     "value": 0.01154,
+     "uncertainty": 0.0001,
+     "unit": "au",
+     "provenance": "measured",
+     "source": "NASA Exoplanet Archive pscomppars (pl_orbsmax); Agol et al. 2021",
+     "citation": "agol2021"
+    },
+    "radiusEarth": {
+     "value": 1.116,
+     "uncertainty": [
+      0.012,
+      0.014
+     ],
+     "unit": "R_earth",
+     "provenance": "measured",
+     "source": "NASA Exoplanet Archive pscomppars (pl_rade); Agol et al. 2021",
+     "citation": "agol2021"
+    },
+    "massEarth": {
+     "value": 1.374,
+     "uncertainty": 0.069,
+     "unit": "M_earth",
+     "provenance": "measured",
+     "source": "NASA Exoplanet Archive pscomppars (pl_masse); Agol et al. 2021",
+     "citation": "agol2021",
+     "note": "From transit-timing variations (planet-planet tugs), scaled by the stellar mass."
+    },
+    "inclinationDeg": {
+     "value": 89.728,
+     "uncertainty": 0.165,
+     "unit": "deg",
+     "provenance": "measured",
+     "source": "NASA Exoplanet Archive pscomppars (pl_orbincl); Agol et al. 2021",
+     "citation": "agol2021"
+    },
+    "eccentricity": {
+     "value": 0.00622,
+     "uncertainty": 0.00304,
+     "unit": "",
+     "provenance": "measured",
+     "source": "NASA Exoplanet Archive pscomppars (pl_orbeccen); Grimm et al. 2018",
+     "citation": "grimm2018",
+     "note": "The default (Agol et al. 2021) parameter set gives no eccentricity, so the archive shows this older transit-timing fit. All seven orbits are nearly circular; Known Sky draws circles."
+    },
+    "transitMidBJD": {
+     "value": 2457322.514193,
+     "uncertainty": 3e-06,
+     "unit": "BJD_TDB",
+     "provenance": "measured",
+     "source": "NASA Exoplanet Archive pscomppars (pl_tranmid); Ducrot et al. 2020",
+     "citation": "ducrot2020",
+     "note": "A reference transit from an older fit than the period. Paired with the archive period it misses the transit forecast by Agol et al. 2024 nearest 2026-10-11 by -3.0 h (-30 deg of orbit), because that period is an osculating value; Known Sky phases the orbit with the mean ephemeris in inferred.ephemerisTransitMidBJD instead."
+    }
+   },
+   "inferred": {
+    "equilibriumTempK_A0": {
+     "value": 397.7,
+     "uncertainty": 4.9,
+     "unit": "K",
+     "provenance": "inferred",
+     "source": "Computed from the archive's Teff, R* and a, Bond albedo A = 0",
+     "citation": "agol2021",
+     "note": "Teq = Teff * sqrt(R*/(2a)) * (1 - A)^(1/4): the temperature of a uniformly warm planet that re-radiates all absorbed starlight (full heat redistribution, emissivity 1, no greenhouse effect). Real surfaces can be much warmer or colder; uncertainty from first-order propagation of independent errors. JWST measured a 15 um dayside brightness temperature of 490 +/- 17 K (Gillon et al. 2026), as expected for a dark airless rock that does not move heat to its night side. The archive's Ducrot et al. 2020 value is 397.6 K."
+    },
+    "equilibriumTempK_A030": {
+     "value": 363.7,
+     "uncertainty": 4.5,
+     "unit": "K",
+     "provenance": "inferred",
+     "source": "Computed from the archive's Teff, R* and a, Bond albedo A = 0.3 (Earth-like)",
+     "citation": "agol2021",
+     "note": "Teq = Teff * sqrt(R*/(2a)) * (1 - A)^(1/4): the temperature of a uniformly warm planet that re-radiates all absorbed starlight (full heat redistribution, emissivity 1, no greenhouse effect). Real surfaces can be much warmer or colder; uncertainty from first-order propagation of independent errors."
+    },
+    "insolationEarth": {
+     "value": 4.153,
+     "uncertainty": 0.16,
+     "unit": "S_earth",
+     "provenance": "inferred",
+     "source": "S = L / a^2 from the archive's luminosity and a",
+     "citation": "agol2021",
+     "note": "Starlight reaching the planet relative to what Earth receives from the Sun. Agol et al. 2021 list 4.153 (+0.161/-0.159)."
+    },
+    "densityRelEarth": {
+     "value": 0.989,
+     "uncertainty": 0.062,
+     "unit": "rho_earth",
+     "provenance": "inferred",
+     "source": "rho = M / R^3 from the archive's mass and radius",
+     "citation": "agol2021",
+     "note": "Earth = 1 (5.513 g/cm^3). The archive lists 5.442 g/cm^3. Independent-error propagation overestimates the spread: mass and radius share the stellar-mass uncertainty."
+    },
+    "surfaceGravityG": {
+     "value": 1.103,
+     "uncertainty": 0.062,
+     "unit": "g_earth",
+     "provenance": "inferred",
+     "source": "g = M / R^2 from the archive's mass and radius",
+     "citation": "agol2021",
+     "note": "Earth = 1 (9.82 m/s^2 mean)."
+    },
+    "escapeVelocityKms": {
+     "value": 12.41,
+     "uncertainty": 0.32,
+     "unit": "km/s",
+     "provenance": "inferred",
+     "source": "v_esc = 11.186 km/s * sqrt(M / R) from the archive's mass and radius",
+     "citation": "agol2021",
+     "note": "Scaled from Earth's 11.186 km/s (NASA Earth Fact Sheet)."
+    },
+    "tidallyLocked": {
+     "value": true,
+     "unit": "",
+     "provenance": "inferred",
+     "source": "Tidal spin-down timescale compared with the system's age",
+     "citation": "turbet2018",
+     "note": "Not observed. Turbet et al. 2018 find from N-body and tidal modelling that each TRAPPIST-1 planet is likely in synchronous rotation (one face always toward the star). Order-of-magnitude check (Gladman et al. 1996; Q = 100, k2 = 0.3, initial 12 h spin): spin-down in about 60 years, far shorter than the system's 7.6 Gyr age."
+    },
+    "ephemerisPeriodDays": {
+     "value": 1.5108737,
+     "uncertainty": 1.3e-07,
+     "unit": "d",
+     "provenance": "inferred",
+     "source": "Mean period: least-squares line through every transit time forecast by Agol et al. 2024 (2015-08-24 to 2027-07-31)",
+     "citation": "agol2024",
+     "note": "The forecast is an N-body fit to transit times measured from the ground, Spitzer, K2, HST and JWST. A straight line cannot follow the planets' mutual tugs (transit-timing variations): real transits stray from it by up to 23 min (8 min rms) over that span. The uncertainty is the formal fit error."
+    },
+    "ephemerisTransitMidBJD": {
+     "value": 2461040.78284,
+     "uncertainty": 0.0058,
+     "unit": "BJD_TDB",
+     "provenance": "inferred",
+     "source": "Mean-ephemeris transit nearest 2026-01-01, from the same least-squares line through the Agol et al. 2024 forecast",
+     "citation": "agol2024",
+     "note": "Used with ephemerisPeriodDays to place the planet on its orbit (phase 0 = mid-transit as seen from the Solar System). The uncertainty is the rms of the transit-timing variations about the line. Beyond 2027-07-31 the forecast ends and the error grows slowly."
+    },
+    "composition": {
+     "value": "rocky",
+     "unit": "",
+     "provenance": "inferred",
+     "source": "Bulk density versus interior models",
+     "citation": "agol2021",
+     "note": "Density 0.99 x Earth's. Agol et al. 2021 find all seven planets consistent with one rocky composition, slightly less iron-rich than Earth (core-mass fraction 21 +/- 4 wt% if water-free; 25 +5/-6 wt% for this planet), or Earth-like rock with added water, or iron-free oxidised rock. The data cannot decide between these. At 4.15 x Earth's insolation it lies beyond the runaway-greenhouse limit, where water could not stay condensed on the surface (Agol et al. 2021)."
+    },
+    "atmosphere": {
+     "value": "thick-co2-disfavoured",
+     "unit": "",
+     "provenance": "inferred",
+     "source": "JWST/MIRI 15 um secondary eclipses",
+     "citation": "greene2023",
+     "note": "JWST detected the dayside's thermal emission; it is most consistent with little or no atmosphere and no CO2 absorption (Greene et al. 2023). Adding 12.8 um eclipses, an airless fresh-rock surface fits, but so does a hazy CO2 atmosphere (Ducrot et al. 2025); phase curves then strongly disfavoured atmospheres of 1 bar or more (Gillon et al. 2026)."
+    }
+   },
+   "generated": {
+    "seed": 2178240980,
+    "terrain": "volcanic",
+    "albedo": 0.05,
+    "palette": [
+     "#1a1a18",
+     "#221f1c",
+     "#372e26",
+     "#483936",
+     "#5b5041"
+    ],
+    "iceCoverage": 0.0,
+    "nightSideGlow": 0.06,
+    "rationale": "Insolation 4.15 x Earth's is above the runaway-greenhouse limit, so no surface ice. One of the two scenarios that fit JWST's eclipses is a dark, airless surface of fresh, unweathered ultramafic rock, a hint of recent resurfacing (Ducrot et al. 2025), and JWST phase curves favour an airless, low-albedo rocky surface (Gillon et al. 2026), so we draw dark volcanic plains. Bond albedo 0.05 (rock 0.05, ice 0.45, weighted by ice cover). A faint night-side glow stands for possible tidally driven volcanism. It is kept faint because JWST detected no night-side emission (Gillon et al. 2026).",
+    "provenance": "generated",
+    "source": "Known Sky rule-based surface generator v1 (inputs: inferred insolation and equilibrium temperature, published JWST constraints)",
+    "citation": "known-sky-exo-rules"
+   }
+  },
+  {
+   "id": "trappist-1c",
+   "name": "TRAPPIST-1 c",
+   "letter": "c",
+   "defaultParameterSet": {
+    "label": "Agol et al. 2021",
+    "citation": "agol2021",
+    "published": "2021-02"
+   },
+   "measured": {
+    "periodDays": {
+     "value": 2.421937,
+     "uncertainty": 1.8e-05,
+     "unit": "d",
+     "provenance": "measured",
+     "source": "NASA Exoplanet Archive pscomppars (pl_orbper); Agol et al. 2021",
+     "citation": "agol2021",
+     "note": "The osculating period at the start of Agol et al.'s N-body fit (BJD 2457257.93), not a long-term mean; see inferred.ephemerisPeriodDays for the mean period used to place the planet."
+    },
+    "semiMajorAxisAu": {
+     "value": 0.0158,
+     "uncertainty": 0.00013,
+     "unit": "au",
+     "provenance": "measured",
+     "source": "NASA Exoplanet Archive pscomppars (pl_orbsmax); Agol et al. 2021",
+     "citation": "agol2021"
+    },
+    "radiusEarth": {
+     "value": 1.097,
+     "uncertainty": [
+      0.012,
+      0.014
+     ],
+     "unit": "R_earth",
+     "provenance": "measured",
+     "source": "NASA Exoplanet Archive pscomppars (pl_rade); Agol et al. 2021",
+     "citation": "agol2021"
+    },
+    "massEarth": {
+     "value": 1.308,
+     "uncertainty": 0.056,
+     "unit": "M_earth",
+     "provenance": "measured",
+     "source": "NASA Exoplanet Archive pscomppars (pl_masse); Agol et al. 2021",
+     "citation": "agol2021",
+     "note": "From transit-timing variations (planet-planet tugs), scaled by the stellar mass."
+    },
+    "inclinationDeg": {
+     "value": 89.778,
+     "uncertainty": 0.118,
+     "unit": "deg",
+     "provenance": "measured",
+     "source": "NASA Exoplanet Archive pscomppars (pl_orbincl); Agol et al. 2021",
+     "citation": "agol2021"
+    },
+    "eccentricity": {
+     "value": 0.00654,
+     "uncertainty": 0.00188,
+     "unit": "",
+     "provenance": "measured",
+     "source": "NASA Exoplanet Archive pscomppars (pl_orbeccen); Grimm et al. 2018",
+     "citation": "grimm2018",
+     "note": "The default (Agol et al. 2021) parameter set gives no eccentricity, so the archive shows this older transit-timing fit. All seven orbits are nearly circular; Known Sky draws circles."
+    },
+    "transitMidBJD": {
+     "value": 2457282.8113871,
+     "uncertainty": 3.8e-06,
+     "unit": "BJD_TDB",
+     "provenance": "measured",
+     "source": "NASA Exoplanet Archive pscomppars (pl_tranmid); Ducrot et al. 2020",
+     "citation": "ducrot2020",
+     "note": "A reference transit from an older fit than the period. Paired with the archive period it misses the transit forecast by Agol et al. 2024 nearest 2026-10-11 by +5.1 h (+31 deg of orbit), because that period is an osculating value; Known Sky phases the orbit with the mean ephemeris in inferred.ephemerisTransitMidBJD instead."
+    }
+   },
+   "inferred": {
+    "equilibriumTempK_A0": {
+     "value": 339.9,
+     "uncertainty": 4.2,
+     "unit": "K",
+     "provenance": "inferred",
+     "source": "Computed from the archive's Teff, R* and a, Bond albedo A = 0",
+     "citation": "agol2021",
+     "note": "Teq = Teff * sqrt(R*/(2a)) * (1 - A)^(1/4): the temperature of a uniformly warm planet that re-radiates all absorbed starlight (full heat redistribution, emissivity 1, no greenhouse effect). Real surfaces can be much warmer or colder; uncertainty from first-order propagation of independent errors. JWST measured a 15 um dayside brightness temperature of 380 +/- 31 K (Zieba et al. 2023). The archive's Ducrot et al. 2020 value is 339.7 K."
+    },
+    "equilibriumTempK_A030": {
+     "value": 310.9,
+     "uncertainty": 3.8,
+     "unit": "K",
+     "provenance": "inferred",
+     "source": "Computed from the archive's Teff, R* and a, Bond albedo A = 0.3 (Earth-like)",
+     "citation": "agol2021",
+     "note": "Teq = Teff * sqrt(R*/(2a)) * (1 - A)^(1/4): the temperature of a uniformly warm planet that re-radiates all absorbed starlight (full heat redistribution, emissivity 1, no greenhouse effect). Real surfaces can be much warmer or colder; uncertainty from first-order propagation of independent errors."
+    },
+    "insolationEarth": {
+     "value": 2.215,
+     "uncertainty": 0.086,
+     "unit": "S_earth",
+     "provenance": "inferred",
+     "source": "S = L / a^2 from the archive's luminosity and a",
+     "citation": "agol2021",
+     "note": "Starlight reaching the planet relative to what Earth receives from the Sun. Agol et al. 2021 list 2.214 (+0.086/-0.085)."
+    },
+    "densityRelEarth": {
+     "value": 0.991,
+     "uncertainty": 0.057,
+     "unit": "rho_earth",
+     "provenance": "inferred",
+     "source": "rho = M / R^3 from the archive's mass and radius",
+     "citation": "agol2021",
+     "note": "Earth = 1 (5.513 g/cm^3). The archive lists 5.464 g/cm^3. Independent-error propagation overestimates the spread: mass and radius share the stellar-mass uncertainty."
+    },
+    "surfaceGravityG": {
+     "value": 1.087,
+     "uncertainty": 0.054,
+     "unit": "g_earth",
+     "provenance": "inferred",
+     "source": "g = M / R^2 from the archive's mass and radius",
+     "citation": "agol2021",
+     "note": "Earth = 1 (9.82 m/s^2 mean)."
+    },
+    "escapeVelocityKms": {
+     "value": 12.21,
+     "uncertainty": 0.27,
+     "unit": "km/s",
+     "provenance": "inferred",
+     "source": "v_esc = 11.186 km/s * sqrt(M / R) from the archive's mass and radius",
+     "citation": "agol2021",
+     "note": "Scaled from Earth's 11.186 km/s (NASA Earth Fact Sheet)."
+    },
+    "tidallyLocked": {
+     "value": true,
+     "unit": "",
+     "provenance": "inferred",
+     "source": "Tidal spin-down timescale compared with the system's age",
+     "citation": "turbet2018",
+     "note": "Not observed. Turbet et al. 2018 find from N-body and tidal modelling that each TRAPPIST-1 planet is likely in synchronous rotation (one face always toward the star). Order-of-magnitude check (Gladman et al. 1996; Q = 100, k2 = 0.3, initial 12 h spin): spin-down in about 400 years, far shorter than the system's 7.6 Gyr age."
+    },
+    "ephemerisPeriodDays": {
+     "value": 2.4218107,
+     "uncertainty": 2e-07,
+     "unit": "d",
+     "provenance": "inferred",
+     "source": "Mean period: least-squares line through every transit time forecast by Agol et al. 2024 (2015-08-24 to 2027-07-31)",
+     "citation": "agol2024",
+     "note": "The forecast is an N-body fit to transit times measured from the ground, Spitzer, K2, HST and JWST. A straight line cannot follow the planets' mutual tugs (transit-timing variations): real transits stray from it by up to 17 min (7 min rms) over that span. The uncertainty is the formal fit error."
+    },
+    "ephemerisTransitMidBJD": {
+     "value": 2461041.45366,
+     "uncertainty": 0.00452,
+     "unit": "BJD_TDB",
+     "provenance": "inferred",
+     "source": "Mean-ephemeris transit nearest 2026-01-01, from the same least-squares line through the Agol et al. 2024 forecast",
+     "citation": "agol2024",
+     "note": "Used with ephemerisPeriodDays to place the planet on its orbit (phase 0 = mid-transit as seen from the Solar System). The uncertainty is the rms of the transit-timing variations about the line. Beyond 2027-07-31 the forecast ends and the error grows slowly."
+    },
+    "composition": {
+     "value": "rocky",
+     "unit": "",
+     "provenance": "inferred",
+     "source": "Bulk density versus interior models",
+     "citation": "agol2021",
+     "note": "Density 0.99 x Earth's. Agol et al. 2021 find all seven planets consistent with one rocky composition, slightly less iron-rich than Earth (core-mass fraction 21 +/- 4 wt% if water-free; 27 +5/-5 wt% for this planet), or Earth-like rock with added water, or iron-free oxidised rock. The data cannot decide between these. At 2.22 x Earth's insolation it lies beyond the runaway-greenhouse limit, where water could not stay condensed on the surface (Agol et al. 2021)."
+    },
+    "atmosphere": {
+     "value": "thick-co2-disfavoured",
+     "unit": "",
+     "provenance": "inferred",
+     "source": "JWST/MIRI 15 um secondary eclipses",
+     "citation": "zieba2023",
+     "note": "The dayside brightness temperature (380 +/- 31 K) disfavours a thick CO2-rich atmosphere; thinner atmospheres or bare rock remain possible (Zieba et al. 2023). Phase curves disfavour atmospheres of 1 bar or more; a thin O2-rich one is still allowed (Gillon et al. 2026)."
+    }
+   },
+   "generated": {
+    "seed": 2562668851,
+    "terrain": "cratered",
+    "albedo": 0.18,
+    "palette": [
+     "#3a3530",
+     "#584d4a",
+     "#6b695e",
+     "#8a8378",
+     "#9c9283"
+    ],
+    "iceCoverage": 0.0,
+    "nightSideGlow": 0.0,
+    "rationale": "Insolation 2.21 x Earth's is above the runaway-greenhouse limit, so no surface ice. With no sign of resurfacing, the terrain defaults to old, cratered rock. JWST phase curves allow an airless planet with a more reflective surface (Gillon et al. 2026), so the rock albedo is raised to 0.18. Bond albedo 0.18 (rock 0.18, ice 0.45, weighted by ice cover).",
+    "provenance": "generated",
+    "source": "Known Sky rule-based surface generator v1 (inputs: inferred insolation and equilibrium temperature, published JWST constraints)",
+    "citation": "known-sky-exo-rules"
+   }
+  },
+  {
+   "id": "trappist-1d",
+   "name": "TRAPPIST-1 d",
+   "letter": "d",
+   "defaultParameterSet": {
+    "label": "Agol et al. 2021",
+    "citation": "agol2021",
+    "published": "2021-02"
+   },
+   "measured": {
+    "periodDays": {
+     "value": 4.049219,
+     "uncertainty": 2.6e-05,
+     "unit": "d",
+     "provenance": "measured",
+     "source": "NASA Exoplanet Archive pscomppars (pl_orbper); Agol et al. 2021",
+     "citation": "agol2021",
+     "note": "The osculating period at the start of Agol et al.'s N-body fit (BJD 2457257.93), not a long-term mean; see inferred.ephemerisPeriodDays for the mean period used to place the planet."
+    },
+    "semiMajorAxisAu": {
+     "value": 0.02227,
+     "uncertainty": 0.00019,
+     "unit": "au",
+     "provenance": "measured",
+     "source": "NASA Exoplanet Archive pscomppars (pl_orbsmax); Agol et al. 2021",
+     "citation": "agol2021"
+    },
+    "radiusEarth": {
+     "value": 0.788,
+     "uncertainty": [
+      0.01,
+      0.011
+     ],
+     "unit": "R_earth",
+     "provenance": "measured",
+     "source": "NASA Exoplanet Archive pscomppars (pl_rade); Agol et al. 2021",
+     "citation": "agol2021"
+    },
+    "massEarth": {
+     "value": 0.388,
+     "uncertainty": 0.012,
+     "unit": "M_earth",
+     "provenance": "measured",
+     "source": "NASA Exoplanet Archive pscomppars (pl_masse); Agol et al. 2021",
+     "citation": "agol2021",
+     "note": "From transit-timing variations (planet-planet tugs), scaled by the stellar mass."
+    },
+    "inclinationDeg": {
+     "value": 89.896,
+     "uncertainty": 0.077,
+     "unit": "deg",
+     "provenance": "measured",
+     "source": "NASA Exoplanet Archive pscomppars (pl_orbincl); Agol et al. 2021",
+     "citation": "agol2021"
+    },
+    "eccentricity": {
+     "value": 0.00837,
+     "uncertainty": 0.00093,
+     "unit": "",
+     "provenance": "measured",
+     "source": "NASA Exoplanet Archive pscomppars (pl_orbeccen); Grimm et al. 2018",
+     "citation": "grimm2018",
+     "note": "The default (Agol et al. 2021) parameter set gives no eccentricity, so the archive shows this older transit-timing fit. All seven orbits are nearly circular; Known Sky draws circles."
+    },
+    "transitMidBJD": {
+     "value": 2457670.1463014,
+     "uncertainty": 1.84e-05,
+     "unit": "BJD_TDB",
+     "provenance": "measured",
+     "source": "NASA Exoplanet Archive pscomppars (pl_tranmid); Ducrot et al. 2020",
+     "citation": "ducrot2020",
+     "note": "A reference transit from an older fit than the period. Paired with the archive period it misses the transit forecast by Agol et al. 2024 nearest 2026-10-11 by -6.6 h (-25 deg of orbit), because that period is an osculating value; Known Sky phases the orbit with the mean ephemeris in inferred.ephemerisTransitMidBJD instead."
+    }
+   },
+   "inferred": {
+    "equilibriumTempK_A0": {
+     "value": 286.3,
+     "uncertainty": 3.5,
+     "unit": "K",
+     "provenance": "inferred",
+     "source": "Computed from the archive's Teff, R* and a, Bond albedo A = 0",
+     "citation": "agol2021",
+     "note": "Teq = Teff * sqrt(R*/(2a)) * (1 - A)^(1/4): the temperature of a uniformly warm planet that re-radiates all absorbed starlight (full heat redistribution, emissivity 1, no greenhouse effect). Real surfaces can be much warmer or colder; uncertainty from first-order propagation of independent errors. The archive's Ducrot et al. 2020 value is 286.2 K."
+    },
+    "equilibriumTempK_A030": {
+     "value": 261.8,
+     "uncertainty": 3.2,
+     "unit": "K",
+     "provenance": "inferred",
+     "source": "Computed from the archive's Teff, R* and a, Bond albedo A = 0.3 (Earth-like)",
+     "citation": "agol2021",
+     "note": "Teq = Teff * sqrt(R*/(2a)) * (1 - A)^(1/4): the temperature of a uniformly warm planet that re-radiates all absorbed starlight (full heat redistribution, emissivity 1, no greenhouse effect). Real surfaces can be much warmer or colder; uncertainty from first-order propagation of independent errors."
+    },
+    "insolationEarth": {
+     "value": 1.115,
+     "uncertainty": 0.043,
+     "unit": "S_earth",
+     "provenance": "inferred",
+     "source": "S = L / a^2 from the archive's luminosity and a",
+     "citation": "agol2021",
+     "note": "Starlight reaching the planet relative to what Earth receives from the Sun. Agol et al. 2021 list 1.115 (+0.043/-0.043)."
+    },
+    "densityRelEarth": {
+     "value": 0.793,
+     "uncertainty": 0.041,
+     "unit": "rho_earth",
+     "provenance": "inferred",
+     "source": "rho = M / R^3 from the archive's mass and radius",
+     "citation": "agol2021",
+     "note": "Earth = 1 (5.513 g/cm^3). The archive lists 4.367 g/cm^3. Independent-error propagation overestimates the spread: mass and radius share the stellar-mass uncertainty."
+    },
+    "surfaceGravityG": {
+     "value": 0.625,
+     "uncertainty": 0.026,
+     "unit": "g_earth",
+     "provenance": "inferred",
+     "source": "g = M / R^2 from the archive's mass and radius",
+     "citation": "agol2021",
+     "note": "Earth = 1 (9.82 m/s^2 mean)."
+    },
+    "escapeVelocityKms": {
+     "value": 7.85,
+     "uncertainty": 0.13,
+     "unit": "km/s",
+     "provenance": "inferred",
+     "source": "v_esc = 11.186 km/s * sqrt(M / R) from the archive's mass and radius",
+     "citation": "agol2021",
+     "note": "Scaled from Earth's 11.186 km/s (NASA Earth Fact Sheet)."
+    },
+    "tidallyLocked": {
+     "value": true,
+     "unit": "",
+     "provenance": "inferred",
+     "source": "Tidal spin-down timescale compared with the system's age",
+     "citation": "turbet2018",
+     "note": "Not observed. Turbet et al. 2018 find from N-body and tidal modelling that each TRAPPIST-1 planet is likely in synchronous rotation (one face always toward the star). Order-of-magnitude check (Gladman et al. 1996; Q = 100, k2 = 0.3, initial 12 h spin): spin-down in about 2,000 years, far shorter than the system's 7.6 Gyr age."
+    },
+    "ephemerisPeriodDays": {
+     "value": 4.0494997,
+     "uncertainty": 2.2e-06,
+     "unit": "d",
+     "provenance": "inferred",
+     "source": "Mean period: least-squares line through every transit time forecast by Agol et al. 2024 (2015-08-26 to 2027-07-27)",
+     "citation": "agol2024",
+     "note": "The forecast is an N-body fit to transit times measured from the ground, Spitzer, K2, HST and JWST. A straight line cannot follow the planets' mutual tugs (transit-timing variations): real transits stray from it by up to 74 min (32 min rms) over that span. The uncertainty is the formal fit error."
+    },
+    "ephemerisTransitMidBJD": {
+     "value": 2461043.38064,
+     "uncertainty": 0.02251,
+     "unit": "BJD_TDB",
+     "provenance": "inferred",
+     "source": "Mean-ephemeris transit nearest 2026-01-01, from the same least-squares line through the Agol et al. 2024 forecast",
+     "citation": "agol2024",
+     "note": "Used with ephemerisPeriodDays to place the planet on its orbit (phase 0 = mid-transit as seen from the Solar System). The uncertainty is the rms of the transit-timing variations about the line. Beyond 2027-07-27 the forecast ends and the error grows slowly."
+    },
+    "composition": {
+     "value": "rocky",
+     "unit": "",
+     "provenance": "inferred",
+     "source": "Bulk density versus interior models",
+     "citation": "agol2021",
+     "note": "Density 0.79 x Earth's. Agol et al. 2021 find all seven planets consistent with one rocky composition, slightly less iron-rich than Earth (core-mass fraction 21 +/- 4 wt% if water-free; 20 +5/-5 wt% for this planet), or Earth-like rock with added water, or iron-free oxidised rock. The data cannot decide between these. At 1.12 x Earth's insolation it lies beyond the runaway-greenhouse limit, where water could not stay condensed on the surface (Agol et al. 2021)."
+    },
+    "atmosphere": {
+     "value": "unknown",
+     "unit": "",
+     "provenance": "inferred",
+     "source": "Published observations: JWST/NIRSpec transmission spectrum",
+     "citation": "piaulet-ghorayeb2025",
+     "note": "Unknown. A JWST transmission spectrum is flat: it rules out clear hydrogen-rich atmospheres and many thicker Venus-, Titan- or Earth-like ones. A very thin or hazy atmosphere, or none, remains possible (Piaulet-Ghorayeb et al. 2025)."
+    }
+   },
+   "generated": {
+    "seed": 2614231189,
+    "terrain": "cratered",
+    "albedo": 0.12,
+    "palette": [
+     "#3d3c32",
+     "#544e48",
+     "#68635a",
+     "#8b8378",
+     "#a3968e"
+    ],
+    "iceCoverage": 0.0,
+    "nightSideGlow": 0.0,
+    "rationale": "Insolation 1.11 x Earth's is above the runaway-greenhouse limit, so no surface ice. With no sign of resurfacing, the terrain defaults to old, cratered rock. Bond albedo 0.12 (rock 0.12, ice 0.45, weighted by ice cover).",
+    "provenance": "generated",
+    "source": "Known Sky rule-based surface generator v1 (inputs: inferred insolation and equilibrium temperature, published JWST constraints)",
+    "citation": "known-sky-exo-rules"
+   }
+  },
+  {
+   "id": "trappist-1e",
+   "name": "TRAPPIST-1 e",
+   "letter": "e",
+   "defaultParameterSet": {
+    "label": "Agol et al. 2021",
+    "citation": "agol2021",
+    "published": "2021-02"
+   },
+   "measured": {
+    "periodDays": {
+     "value": 6.101013,
+     "uncertainty": 3.5e-05,
+     "unit": "d",
+     "provenance": "measured",
+     "source": "NASA Exoplanet Archive pscomppars (pl_orbper); Agol et al. 2021",
+     "citation": "agol2021",
+     "note": "The osculating period at the start of Agol et al.'s N-body fit (BJD 2457257.93), not a long-term mean; see inferred.ephemerisPeriodDays for the mean period used to place the planet."
+    },
+    "semiMajorAxisAu": {
+     "value": 0.02925,
+     "uncertainty": 0.00025,
+     "unit": "au",
+     "provenance": "measured",
+     "source": "NASA Exoplanet Archive pscomppars (pl_orbsmax); Agol et al. 2021",
+     "citation": "agol2021",
+     "note": "The archive lists +/-0.0025 au, ten times the published +/-0.00025 au (Agol et al. 2021, planetary parameters table); we use the published value."
+    },
+    "radiusEarth": {
+     "value": 0.92,
+     "uncertainty": [
+      0.012,
+      0.013
+     ],
+     "unit": "R_earth",
+     "provenance": "measured",
+     "source": "NASA Exoplanet Archive pscomppars (pl_rade); Agol et al. 2021",
+     "citation": "agol2021"
+    },
+    "massEarth": {
+     "value": 0.692,
+     "uncertainty": 0.022,
+     "unit": "M_earth",
+     "provenance": "measured",
+     "source": "NASA Exoplanet Archive pscomppars (pl_masse); Agol et al. 2021",
+     "citation": "agol2021",
+     "note": "From transit-timing variations (planet-planet tugs), scaled by the stellar mass."
+    },
+    "inclinationDeg": {
+     "value": 89.793,
+     "uncertainty": 0.048,
+     "unit": "deg",
+     "provenance": "measured",
+     "source": "NASA Exoplanet Archive pscomppars (pl_orbincl); Agol et al. 2021",
+     "citation": "agol2021"
+    },
+    "eccentricity": {
+     "value": 0.0051,
+     "uncertainty": 0.00058,
+     "unit": "",
+     "provenance": "measured",
+     "source": "NASA Exoplanet Archive pscomppars (pl_orbeccen); Grimm et al. 2018",
+     "citation": "grimm2018",
+     "note": "The default (Agol et al. 2021) parameter set gives no eccentricity, so the archive shows this older transit-timing fit. All seven orbits are nearly circular; Known Sky draws circles."
+    },
+    "transitMidBJD": {
+     "value": 2457660.3676621,
+     "uncertainty": 1.43e-05,
+     "unit": "BJD_TDB",
+     "provenance": "measured",
+     "source": "NASA Exoplanet Archive pscomppars (pl_tranmid); Ducrot et al. 2020",
+     "citation": "ducrot2020",
+     "note": "A reference transit from an older fit than the period. Paired with the archive period it misses the transit forecast by Agol et al. 2024 nearest 2026-10-11 by +21.1 h (+52 deg of orbit), because that period is an osculating value; Known Sky phases the orbit with the mean ephemeris in inferred.ephemerisTransitMidBJD instead."
+    }
+   },
+   "inferred": {
+    "equilibriumTempK_A0": {
+     "value": 249.8,
+     "uncertainty": 3.1,
+     "unit": "K",
+     "provenance": "inferred",
+     "source": "Computed from the archive's Teff, R* and a, Bond albedo A = 0",
+     "citation": "agol2021",
+     "note": "Teq = Teff * sqrt(R*/(2a)) * (1 - A)^(1/4): the temperature of a uniformly warm planet that re-radiates all absorbed starlight (full heat redistribution, emissivity 1, no greenhouse effect). Real surfaces can be much warmer or colder; uncertainty from first-order propagation of independent errors. The archive's Ducrot et al. 2020 value is 249.7 K."
+    },
+    "equilibriumTempK_A030": {
+     "value": 228.5,
+     "uncertainty": 2.8,
+     "unit": "K",
+     "provenance": "inferred",
+     "source": "Computed from the archive's Teff, R* and a, Bond albedo A = 0.3 (Earth-like)",
+     "citation": "agol2021",
+     "note": "Teq = Teff * sqrt(R*/(2a)) * (1 - A)^(1/4): the temperature of a uniformly warm planet that re-radiates all absorbed starlight (full heat redistribution, emissivity 1, no greenhouse effect). Real surfaces can be much warmer or colder; uncertainty from first-order propagation of independent errors."
+    },
+    "insolationEarth": {
+     "value": 0.6464,
+     "uncertainty": 0.025,
+     "unit": "S_earth",
+     "provenance": "inferred",
+     "source": "S = L / a^2 from the archive's luminosity and a",
+     "citation": "agol2021",
+     "note": "Starlight reaching the planet relative to what Earth receives from the Sun. Agol et al. 2021 list 0.646 (+0.025/-0.025)."
+    },
+    "densityRelEarth": {
+     "value": 0.889,
+     "uncertainty": 0.047,
+     "unit": "rho_earth",
+     "provenance": "inferred",
+     "source": "rho = M / R^3 from the archive's mass and radius",
+     "citation": "agol2021",
+     "note": "Earth = 1 (5.513 g/cm^3). The archive lists 4.902 g/cm^3. Independent-error propagation overestimates the spread: mass and radius share the stellar-mass uncertainty."
+    },
+    "surfaceGravityG": {
+     "value": 0.818,
+     "uncertainty": 0.035,
+     "unit": "g_earth",
+     "provenance": "inferred",
+     "source": "g = M / R^2 from the archive's mass and radius",
+     "citation": "agol2021",
+     "note": "Earth = 1 (9.82 m/s^2 mean)."
+    },
+    "escapeVelocityKms": {
+     "value": 9.7,
+     "uncertainty": 0.17,
+     "unit": "km/s",
+     "provenance": "inferred",
+     "source": "v_esc = 11.186 km/s * sqrt(M / R) from the archive's mass and radius",
+     "citation": "agol2021",
+     "note": "Scaled from Earth's 11.186 km/s (NASA Earth Fact Sheet)."
+    },
+    "tidallyLocked": {
+     "value": true,
+     "unit": "",
+     "provenance": "inferred",
+     "source": "Tidal spin-down timescale compared with the system's age",
+     "citation": "turbet2018",
+     "note": "Not observed. Turbet et al. 2018 find from N-body and tidal modelling that each TRAPPIST-1 planet is likely in synchronous rotation (one face always toward the star). Order-of-magnitude check (Gladman et al. 1996; Q = 100, k2 = 0.3, initial 12 h spin): spin-down in about 10,000 years, far shorter than the system's 7.6 Gyr age."
+    },
+    "ephemerisPeriodDays": {
+     "value": 6.0995506,
+     "uncertainty": 3.6e-06,
+     "unit": "d",
+     "provenance": "inferred",
+     "source": "Mean period: least-squares line through every transit time forecast by Agol et al. 2024 (2015-08-29 to 2027-07-26)",
+     "citation": "agol2024",
+     "note": "The forecast is an N-body fit to transit times measured from the ground, Spitzer, K2, HST and JWST. A straight line cannot follow the planets' mutual tugs (transit-timing variations): real transits stray from it by up to 63 min (28 min rms) over that span. The uncertainty is the formal fit error."
+    },
+    "ephemerisTransitMidBJD": {
+     "value": 2461039.5138,
+     "uncertainty": 0.01959,
+     "unit": "BJD_TDB",
+     "provenance": "inferred",
+     "source": "Mean-ephemeris transit nearest 2026-01-01, from the same least-squares line through the Agol et al. 2024 forecast",
+     "citation": "agol2024",
+     "note": "Used with ephemerisPeriodDays to place the planet on its orbit (phase 0 = mid-transit as seen from the Solar System). The uncertainty is the rms of the transit-timing variations about the line. Beyond 2027-07-26 the forecast ends and the error grows slowly."
+    },
+    "composition": {
+     "value": "rocky-or-water-rich",
+     "unit": "",
+     "provenance": "inferred",
+     "source": "Bulk density versus interior models",
+     "citation": "agol2021",
+     "note": "Density 0.89 x Earth's. Agol et al. 2021 find all seven planets consistent with one rocky composition, slightly less iron-rich than Earth (core-mass fraction 21 +/- 4 wt% if water-free; 25 +4/-5 wt% for this planet), or Earth-like rock with added water, or iron-free oxidised rock. The data cannot decide between these. With Earth-like rock (32.5 wt% core) this density allows 2.9 +1.7/-1.5 wt% water; with iron-poorer rock it needs none."
+    },
+    "atmosphere": {
+     "value": "unknown",
+     "unit": "",
+     "provenance": "inferred",
+     "source": "Published observations: JWST/NIRSpec transmission spectra",
+     "citation": "espinoza2025",
+     "note": "Unknown. JWST rules out cloudy hydrogen-dominated atmospheres (Espinoza et al. 2025) but finds no strong evidence for or against a secondary atmosphere; both bare rock and a nitrogen-rich atmosphere fit (Glidden et al. 2025)."
+    }
+   },
+   "generated": {
+    "seed": 3851611186,
+    "terrain": "mixed",
+    "albedo": 0.24,
+    "palette": [
+     "#4c453f",
+     "#6b6961",
+     "#8d9ca2",
+     "#c6ced7",
+     "#eef4f8"
+    ],
+    "iceCoverage": 0.36,
+    "nightSideGlow": 0.0,
+    "rationale": "Insolation 0.646 x Earth's; the equilibrium temperature at albedo 0.3 is 228 K, below freezing, so any water would be ice. Ice cover 36% (rule: 0% at 273 K rising linearly to 100% at 150 K). How much water the planet has is not known. Bond albedo 0.24 (rock 0.12, ice 0.45, weighted by ice cover).",
+    "provenance": "generated",
+    "source": "Known Sky rule-based surface generator v1 (inputs: inferred insolation and equilibrium temperature, published JWST constraints)",
+    "citation": "known-sky-exo-rules"
+   }
+  },
+  {
+   "id": "trappist-1f",
+   "name": "TRAPPIST-1 f",
+   "letter": "f",
+   "defaultParameterSet": {
+    "label": "Agol et al. 2021",
+    "citation": "agol2021",
+    "published": "2021-02"
+   },
+   "measured": {
+    "periodDays": {
+     "value": 9.20754,
+     "uncertainty": 3.2e-05,
+     "unit": "d",
+     "provenance": "measured",
+     "source": "NASA Exoplanet Archive pscomppars (pl_orbper); Agol et al. 2021",
+     "citation": "agol2021",
+     "note": "The osculating period at the start of Agol et al.'s N-body fit (BJD 2457257.93), not a long-term mean; see inferred.ephemerisPeriodDays for the mean period used to place the planet."
+    },
+    "semiMajorAxisAu": {
+     "value": 0.03849,
+     "uncertainty": 0.00033,
+     "unit": "au",
+     "provenance": "measured",
+     "source": "NASA Exoplanet Archive pscomppars (pl_orbsmax); Agol et al. 2021",
+     "citation": "agol2021"
+    },
+    "radiusEarth": {
+     "value": 1.045,
+     "uncertainty": [
+      0.012,
+      0.013
+     ],
+     "unit": "R_earth",
+     "provenance": "measured",
+     "source": "NASA Exoplanet Archive pscomppars (pl_rade); Agol et al. 2021",
+     "citation": "agol2021"
+    },
+    "massEarth": {
+     "value": 1.039,
+     "uncertainty": 0.031,
+     "unit": "M_earth",
+     "provenance": "measured",
+     "source": "NASA Exoplanet Archive pscomppars (pl_masse); Agol et al. 2021",
+     "citation": "agol2021",
+     "note": "From transit-timing variations (planet-planet tugs), scaled by the stellar mass."
+    },
+    "inclinationDeg": {
+     "value": 89.74,
+     "uncertainty": 0.019,
+     "unit": "deg",
+     "provenance": "measured",
+     "source": "NASA Exoplanet Archive pscomppars (pl_orbincl); Agol et al. 2021",
+     "citation": "agol2021"
+    },
+    "eccentricity": {
+     "value": 0.01007,
+     "uncertainty": 0.00068,
+     "unit": "",
+     "provenance": "measured",
+     "source": "NASA Exoplanet Archive pscomppars (pl_orbeccen); Grimm et al. 2018",
+     "citation": "grimm2018",
+     "note": "The default (Agol et al. 2021) parameter set gives no eccentricity, so the archive shows this older transit-timing fit. All seven orbits are nearly circular; Known Sky draws circles."
+    },
+    "transitMidBJD": {
+     "value": 2457671.3737299,
+     "uncertainty": 1.57e-05,
+     "unit": "BJD_TDB",
+     "provenance": "measured",
+     "source": "NASA Exoplanet Archive pscomppars (pl_tranmid); Ducrot et al. 2020",
+     "citation": "ducrot2020",
+     "note": "A reference transit from an older fit than the period. Paired with the archive period it misses the transit forecast by Agol et al. 2024 nearest 2026-10-11 by +5.9 h (+10 deg of orbit), because that period is an osculating value; Known Sky phases the orbit with the mean ephemeris in inferred.ephemerisTransitMidBJD instead."
+    }
+   },
+   "inferred": {
+    "equilibriumTempK_A0": {
+     "value": 217.7,
+     "uncertainty": 2.7,
+     "unit": "K",
+     "provenance": "inferred",
+     "source": "Computed from the archive's Teff, R* and a, Bond albedo A = 0",
+     "citation": "agol2021",
+     "note": "Teq = Teff * sqrt(R*/(2a)) * (1 - A)^(1/4): the temperature of a uniformly warm planet that re-radiates all absorbed starlight (full heat redistribution, emissivity 1, no greenhouse effect). Real surfaces can be much warmer or colder; uncertainty from first-order propagation of independent errors. The archive's Ducrot et al. 2020 value is 217.7 K."
+    },
+    "equilibriumTempK_A030": {
+     "value": 199.2,
+     "uncertainty": 2.4,
+     "unit": "K",
+     "provenance": "inferred",
+     "source": "Computed from the archive's Teff, R* and a, Bond albedo A = 0.3 (Earth-like)",
+     "citation": "agol2021",
+     "note": "Teq = Teff * sqrt(R*/(2a)) * (1 - A)^(1/4): the temperature of a uniformly warm planet that re-radiates all absorbed starlight (full heat redistribution, emissivity 1, no greenhouse effect). Real surfaces can be much warmer or colder; uncertainty from first-order propagation of independent errors."
+    },
+    "insolationEarth": {
+     "value": 0.3733,
+     "uncertainty": 0.015,
+     "unit": "S_earth",
+     "provenance": "inferred",
+     "source": "S = L / a^2 from the archive's luminosity and a",
+     "citation": "agol2021",
+     "note": "Starlight reaching the planet relative to what Earth receives from the Sun. Agol et al. 2021 list 0.373 (+0.015/-0.014)."
+    },
+    "densityRelEarth": {
+     "value": 0.91,
+     "uncertainty": 0.044,
+     "unit": "rho_earth",
+     "provenance": "inferred",
+     "source": "rho = M / R^3 from the archive's mass and radius",
+     "citation": "agol2021",
+     "note": "Earth = 1 (5.513 g/cm^3). The archive lists 5.023 g/cm^3. Independent-error propagation overestimates the spread: mass and radius share the stellar-mass uncertainty."
+    },
+    "surfaceGravityG": {
+     "value": 0.951,
+     "uncertainty": 0.037,
+     "unit": "g_earth",
+     "provenance": "inferred",
+     "source": "g = M / R^2 from the archive's mass and radius",
+     "citation": "agol2021",
+     "note": "Earth = 1 (9.82 m/s^2 mean)."
+    },
+    "escapeVelocityKms": {
+     "value": 11.15,
+     "uncertainty": 0.18,
+     "unit": "km/s",
+     "provenance": "inferred",
+     "source": "v_esc = 11.186 km/s * sqrt(M / R) from the archive's mass and radius",
+     "citation": "agol2021",
+     "note": "Scaled from Earth's 11.186 km/s (NASA Earth Fact Sheet)."
+    },
+    "tidallyLocked": {
+     "value": true,
+     "unit": "",
+     "provenance": "inferred",
+     "source": "Tidal spin-down timescale compared with the system's age",
+     "citation": "turbet2018",
+     "note": "Not observed. Turbet et al. 2018 find from N-body and tidal modelling that each TRAPPIST-1 planet is likely in synchronous rotation (one face always toward the star). Order-of-magnitude check (Gladman et al. 1996; Q = 100, k2 = 0.3, initial 12 h spin): spin-down in about 70,000 years, far shorter than the system's 7.6 Gyr age."
+    },
+    "ephemerisPeriodDays": {
+     "value": 9.2068544,
+     "uncertainty": 7.4e-06,
+     "unit": "d",
+     "provenance": "inferred",
+     "source": "Mean period: least-squares line through every transit time forecast by Agol et al. 2024 (2015-08-31 to 2027-07-25)",
+     "citation": "agol2024",
+     "note": "The forecast is an N-body fit to transit times measured from the ground, Spitzer, K2, HST and JWST. A straight line cannot follow the planets' mutual tugs (transit-timing variations): real transits stray from it by up to 80 min (32 min rms) over that span. The uncertainty is the formal fit error."
+    },
+    "ephemerisTransitMidBJD": {
+     "value": 2461041.08824,
+     "uncertainty": 0.02208,
+     "unit": "BJD_TDB",
+     "provenance": "inferred",
+     "source": "Mean-ephemeris transit nearest 2026-01-01, from the same least-squares line through the Agol et al. 2024 forecast",
+     "citation": "agol2024",
+     "note": "Used with ephemerisPeriodDays to place the planet on its orbit (phase 0 = mid-transit as seen from the Solar System). The uncertainty is the rms of the transit-timing variations about the line. Beyond 2027-07-25 the forecast ends and the error grows slowly."
+    },
+    "composition": {
+     "value": "rocky-or-water-rich",
+     "unit": "",
+     "provenance": "inferred",
+     "source": "Bulk density versus interior models",
+     "citation": "agol2021",
+     "note": "Density 0.91 x Earth's. Agol et al. 2021 find all seven planets consistent with one rocky composition, slightly less iron-rich than Earth (core-mass fraction 21 +/- 4 wt% if water-free; 20 +4/-4 wt% for this planet), or Earth-like rock with added water, or iron-free oxidised rock. The data cannot decide between these. With Earth-like rock (32.5 wt% core) this density allows 4.5 +1.8/-1.2 wt% water; with iron-poorer rock it needs none."
+    },
+    "atmosphere": {
+     "value": "unknown",
+     "unit": "",
+     "provenance": "inferred",
+     "source": "Published observations: HST/WFC3 transmission spectra",
+     "citation": "dewit2018",
+     "note": "Unknown. Hubble ruled out a cloud-free hydrogen-dominated atmosphere (de Wit et al. 2018); denser atmospheres are not yet constrained."
+    }
+   },
+   "generated": {
+    "seed": 2364645238,
+    "terrain": "icy",
+    "albedo": 0.32,
+    "palette": [
+     "#504644",
+     "#72635b",
+     "#adbac1",
+     "#cdd7dc",
+     "#f2f4f4"
+    ],
+    "iceCoverage": 0.6,
+    "nightSideGlow": 0.0,
+    "rationale": "Insolation 0.373 x Earth's; the equilibrium temperature at albedo 0.3 is 199 K, below freezing, so any water would be ice. Ice cover 60% (rule: 0% at 273 K rising linearly to 100% at 150 K). How much water the planet has is not known. Bond albedo 0.32 (rock 0.12, ice 0.45, weighted by ice cover).",
+    "provenance": "generated",
+    "source": "Known Sky rule-based surface generator v1 (inputs: inferred insolation and equilibrium temperature, published JWST constraints)",
+    "citation": "known-sky-exo-rules"
+   }
+  },
+  {
+   "id": "trappist-1g",
+   "name": "TRAPPIST-1 g",
+   "letter": "g",
+   "defaultParameterSet": {
+    "label": "Agol et al. 2021",
+    "citation": "agol2021",
+    "published": "2021-02"
+   },
+   "measured": {
+    "periodDays": {
+     "value": 12.352446,
+     "uncertainty": 5.4e-05,
+     "unit": "d",
+     "provenance": "measured",
+     "source": "NASA Exoplanet Archive pscomppars (pl_orbper); Agol et al. 2021",
+     "citation": "agol2021",
+     "note": "The osculating period at the start of Agol et al.'s N-body fit (BJD 2457257.93), not a long-term mean; see inferred.ephemerisPeriodDays for the mean period used to place the planet."
+    },
+    "semiMajorAxisAu": {
+     "value": 0.04683,
+     "uncertainty": 0.0004,
+     "unit": "au",
+     "provenance": "measured",
+     "source": "NASA Exoplanet Archive pscomppars (pl_orbsmax); Agol et al. 2021",
+     "citation": "agol2021"
+    },
+    "radiusEarth": {
+     "value": 1.129,
+     "uncertainty": [
+      0.013,
+      0.015
+     ],
+     "unit": "R_earth",
+     "provenance": "measured",
+     "source": "NASA Exoplanet Archive pscomppars (pl_rade); Agol et al. 2021",
+     "citation": "agol2021"
+    },
+    "massEarth": {
+     "value": 1.321,
+     "uncertainty": 0.038,
+     "unit": "M_earth",
+     "provenance": "measured",
+     "source": "NASA Exoplanet Archive pscomppars (pl_masse); Agol et al. 2021",
+     "citation": "agol2021",
+     "note": "From transit-timing variations (planet-planet tugs), scaled by the stellar mass."
+    },
+    "inclinationDeg": {
+     "value": 89.742,
+     "uncertainty": 0.012,
+     "unit": "deg",
+     "provenance": "measured",
+     "source": "NASA Exoplanet Archive pscomppars (pl_orbincl); Agol et al. 2021",
+     "citation": "agol2021"
+    },
+    "eccentricity": {
+     "value": 0.00208,
+     "uncertainty": 0.00058,
+     "unit": "",
+     "provenance": "measured",
+     "source": "NASA Exoplanet Archive pscomppars (pl_orbeccen); Grimm et al. 2018",
+     "citation": "grimm2018",
+     "note": "The default (Agol et al. 2021) parameter set gives no eccentricity, so the archive shows this older transit-timing fit. All seven orbits are nearly circular; Known Sky draws circles."
+    },
+    "transitMidBJD": {
+     "value": 2457665.3628439,
+     "uncertainty": 2.06e-05,
+     "unit": "BJD_TDB",
+     "provenance": "measured",
+     "source": "NASA Exoplanet Archive pscomppars (pl_tranmid); Ducrot et al. 2020",
+     "citation": "ducrot2020",
+     "note": "A reference transit from an older fit than the period. Paired with the archive period it misses the transit forecast by Agol et al. 2024 nearest 2026-10-11 by -6.2 h (-8 deg of orbit), because that period is an osculating value; Known Sky phases the orbit with the mean ephemeris in inferred.ephemerisTransitMidBJD instead."
+    }
+   },
+   "inferred": {
+    "equilibriumTempK_A0": {
+     "value": 197.4,
+     "uncertainty": 2.4,
+     "unit": "K",
+     "provenance": "inferred",
+     "source": "Computed from the archive's Teff, R* and a, Bond albedo A = 0",
+     "citation": "agol2021",
+     "note": "Teq = Teff * sqrt(R*/(2a)) * (1 - A)^(1/4): the temperature of a uniformly warm planet that re-radiates all absorbed starlight (full heat redistribution, emissivity 1, no greenhouse effect). Real surfaces can be much warmer or colder; uncertainty from first-order propagation of independent errors. The archive's Ducrot et al. 2020 value is 197.3 K."
+    },
+    "equilibriumTempK_A030": {
+     "value": 180.6,
+     "uncertainty": 2.2,
+     "unit": "K",
+     "provenance": "inferred",
+     "source": "Computed from the archive's Teff, R* and a, Bond albedo A = 0.3 (Earth-like)",
+     "citation": "agol2021",
+     "note": "Teq = Teff * sqrt(R*/(2a)) * (1 - A)^(1/4): the temperature of a uniformly warm planet that re-radiates all absorbed starlight (full heat redistribution, emissivity 1, no greenhouse effect). Real surfaces can be much warmer or colder; uncertainty from first-order propagation of independent errors."
+    },
+    "insolationEarth": {
+     "value": 0.2522,
+     "uncertainty": 0.0098,
+     "unit": "S_earth",
+     "provenance": "inferred",
+     "source": "S = L / a^2 from the archive's luminosity and a",
+     "citation": "agol2021",
+     "note": "Starlight reaching the planet relative to what Earth receives from the Sun. Agol et al. 2021 list 0.252 (+0.01/-0.01)."
+    },
+    "densityRelEarth": {
+     "value": 0.918,
+     "uncertainty": 0.045,
+     "unit": "rho_earth",
+     "provenance": "inferred",
+     "source": "rho = M / R^3 from the archive's mass and radius",
+     "citation": "agol2021",
+     "note": "Earth = 1 (5.513 g/cm^3). The archive lists 5.056 g/cm^3. Independent-error propagation overestimates the spread: mass and radius share the stellar-mass uncertainty."
+    },
+    "surfaceGravityG": {
+     "value": 1.036,
+     "uncertainty": 0.041,
+     "unit": "g_earth",
+     "provenance": "inferred",
+     "source": "g = M / R^2 from the archive's mass and radius",
+     "citation": "agol2021",
+     "note": "Earth = 1 (9.82 m/s^2 mean)."
+    },
+    "escapeVelocityKms": {
+     "value": 12.1,
+     "uncertainty": 0.19,
+     "unit": "km/s",
+     "provenance": "inferred",
+     "source": "v_esc = 11.186 km/s * sqrt(M / R) from the archive's mass and radius",
+     "citation": "agol2021",
+     "note": "Scaled from Earth's 11.186 km/s (NASA Earth Fact Sheet)."
+    },
+    "tidallyLocked": {
+     "value": true,
+     "unit": "",
+     "provenance": "inferred",
+     "source": "Tidal spin-down timescale compared with the system's age",
+     "citation": "turbet2018",
+     "note": "Not observed. Turbet et al. 2018 find from N-body and tidal modelling that each TRAPPIST-1 planet is likely in synchronous rotation (one face always toward the star). Order-of-magnitude check (Gladman et al. 1996; Q = 100, k2 = 0.3, initial 12 h spin): spin-down in about 200,000 years, far shorter than the system's 7.6 Gyr age."
+    },
+    "ephemerisPeriodDays": {
+     "value": 12.3534222,
+     "uncertainty": 1.1e-05,
+     "unit": "d",
+     "provenance": "inferred",
+     "source": "Mean period: least-squares line through every transit time forecast by Agol et al. 2024 (2015-09-04 to 2027-07-19)",
+     "citation": "agol2024",
+     "note": "The forecast is an N-body fit to transit times measured from the ground, Spitzer, K2, HST and JWST. A straight line cannot follow the planets' mutual tugs (transit-timing variations): real transits stray from it by up to 75 min (31 min rms) over that span. The uncertainty is the formal fit error."
+    },
+    "ephemerisTransitMidBJD": {
+     "value": 2461037.84636,
+     "uncertainty": 0.02176,
+     "unit": "BJD_TDB",
+     "provenance": "inferred",
+     "source": "Mean-ephemeris transit nearest 2026-01-01, from the same least-squares line through the Agol et al. 2024 forecast",
+     "citation": "agol2024",
+     "note": "Used with ephemerisPeriodDays to place the planet on its orbit (phase 0 = mid-transit as seen from the Solar System). The uncertainty is the rms of the transit-timing variations about the line. Beyond 2027-07-19 the forecast ends and the error grows slowly."
+    },
+    "composition": {
+     "value": "rocky-or-water-rich",
+     "unit": "",
+     "provenance": "inferred",
+     "source": "Bulk density versus interior models",
+     "citation": "agol2021",
+     "note": "Density 0.92 x Earth's. Agol et al. 2021 find all seven planets consistent with one rocky composition, slightly less iron-rich than Earth (core-mass fraction 21 +/- 4 wt% if water-free; 16 +4/-4 wt% for this planet), or Earth-like rock with added water, or iron-free oxidised rock. The data cannot decide between these. With Earth-like rock (32.5 wt% core) this density allows 6.4 +2.0/-1.6 wt% water; with iron-poorer rock it needs none."
+    },
+    "atmosphere": {
+     "value": "unknown",
+     "unit": "",
+     "provenance": "inferred",
+     "source": "Published observations: HST/WFC3 transmission spectra",
+     "citation": "dewit2018",
+     "note": "Unknown. Hubble could not exclude even a cloud-free hydrogen-dominated atmosphere for g (de Wit et al. 2018); nothing is known about denser ones."
+    }
+   },
+   "generated": {
+    "seed": 3696686371,
+    "terrain": "icy",
+    "albedo": 0.37,
+    "palette": [
+     "#6e4b40",
+     "#947157",
+     "#a9afba",
+     "#d8dde7",
+     "#fbfbff"
+    ],
+    "iceCoverage": 0.75,
+    "nightSideGlow": 0.0,
+    "rationale": "Insolation 0.252 x Earth's; the equilibrium temperature at albedo 0.3 is 181 K, below freezing, so any water would be ice. Ice cover 75% (rule: 0% at 273 K rising linearly to 100% at 150 K). How much water the planet has is not known. Bond albedo 0.37 (rock 0.12, ice 0.45, weighted by ice cover). Turbet et al. 2018 suggest photochemical hazes could settle as reddish tholins on the coldest TRAPPIST-1 surfaces, so the bare ground is tinted reddish-brown.",
+    "provenance": "generated",
+    "source": "Known Sky rule-based surface generator v1 (inputs: inferred insolation and equilibrium temperature, published JWST constraints)",
+    "citation": "known-sky-exo-rules"
+   }
+  },
+  {
+   "id": "trappist-1h",
+   "name": "TRAPPIST-1 h",
+   "letter": "h",
+   "defaultParameterSet": {
+    "label": "Agol et al. 2021",
+    "citation": "agol2021",
+    "published": "2021-02"
+   },
+   "measured": {
+    "periodDays": {
+     "value": 18.772866,
+     "uncertainty": 0.000214,
+     "unit": "d",
+     "provenance": "measured",
+     "source": "NASA Exoplanet Archive pscomppars (pl_orbper); Agol et al. 2021",
+     "citation": "agol2021",
+     "note": "The osculating period at the start of Agol et al.'s N-body fit (BJD 2457257.93), not a long-term mean; see inferred.ephemerisPeriodDays for the mean period used to place the planet."
+    },
+    "semiMajorAxisAu": {
+     "value": 0.06189,
+     "uncertainty": 0.00053,
+     "unit": "au",
+     "provenance": "measured",
+     "source": "NASA Exoplanet Archive pscomppars (pl_orbsmax); Agol et al. 2021",
+     "citation": "agol2021"
+    },
+    "radiusEarth": {
+     "value": 0.755,
+     "uncertainty": 0.014,
+     "unit": "R_earth",
+     "provenance": "measured",
+     "source": "NASA Exoplanet Archive pscomppars (pl_rade); Agol et al. 2021",
+     "citation": "agol2021"
+    },
+    "massEarth": {
+     "value": 0.326,
+     "uncertainty": 0.02,
+     "unit": "M_earth",
+     "provenance": "measured",
+     "source": "NASA Exoplanet Archive pscomppars (pl_masse); Agol et al. 2021",
+     "citation": "agol2021",
+     "note": "From transit-timing variations (planet-planet tugs), scaled by the stellar mass."
+    },
+    "inclinationDeg": {
+     "value": 89.805,
+     "uncertainty": 0.013,
+     "unit": "deg",
+     "provenance": "measured",
+     "source": "NASA Exoplanet Archive pscomppars (pl_orbincl); Agol et al. 2021",
+     "citation": "agol2021"
+    },
+    "eccentricity": {
+     "value": 0.00567,
+     "uncertainty": 0.00121,
+     "unit": "",
+     "provenance": "measured",
+     "source": "NASA Exoplanet Archive pscomppars (pl_orbeccen); Grimm et al. 2018",
+     "citation": "grimm2018",
+     "note": "The default (Agol et al. 2021) parameter set gives no eccentricity, so the archive shows this older transit-timing fit. All seven orbits are nearly circular; Known Sky draws circles."
+    },
+    "transitMidBJD": {
+     "value": 2457662.5741486,
+     "uncertainty": 9.13e-05,
+     "unit": "BJD_TDB",
+     "provenance": "measured",
+     "source": "NASA Exoplanet Archive pscomppars (pl_tranmid); Ducrot et al. 2020",
+     "citation": "ducrot2020",
+     "note": "A reference transit from an older fit than the period. Paired with the archive period it misses the transit forecast by Agol et al. 2024 nearest 2026-10-11 by +27.1 h (+22 deg of orbit), because that period is an osculating value; Known Sky phases the orbit with the mean ephemeris in inferred.ephemerisTransitMidBJD instead."
+    }
+   },
+   "inferred": {
+    "equilibriumTempK_A0": {
+     "value": 171.7,
+     "uncertainty": 2.1,
+     "unit": "K",
+     "provenance": "inferred",
+     "source": "Computed from the archive's Teff, R* and a, Bond albedo A = 0",
+     "citation": "agol2021",
+     "note": "Teq = Teff * sqrt(R*/(2a)) * (1 - A)^(1/4): the temperature of a uniformly warm planet that re-radiates all absorbed starlight (full heat redistribution, emissivity 1, no greenhouse effect). Real surfaces can be much warmer or colder; uncertainty from first-order propagation of independent errors. The archive's Ducrot et al. 2020 value is 171.7 K."
+    },
+    "equilibriumTempK_A030": {
+     "value": 157.1,
+     "uncertainty": 1.9,
+     "unit": "K",
+     "provenance": "inferred",
+     "source": "Computed from the archive's Teff, R* and a, Bond albedo A = 0.3 (Earth-like)",
+     "citation": "agol2021",
+     "note": "Teq = Teff * sqrt(R*/(2a)) * (1 - A)^(1/4): the temperature of a uniformly warm planet that re-radiates all absorbed starlight (full heat redistribution, emissivity 1, no greenhouse effect). Real surfaces can be much warmer or colder; uncertainty from first-order propagation of independent errors."
+    },
+    "insolationEarth": {
+     "value": 0.1444,
+     "uncertainty": 0.0056,
+     "unit": "S_earth",
+     "provenance": "inferred",
+     "source": "S = L / a^2 from the archive's luminosity and a",
+     "citation": "agol2021",
+     "note": "Starlight reaching the planet relative to what Earth receives from the Sun. Agol et al. 2021 list 0.144 (+0.006/-0.006)."
+    },
+    "densityRelEarth": {
+     "value": 0.757,
+     "uncertainty": 0.063,
+     "unit": "rho_earth",
+     "provenance": "inferred",
+     "source": "rho = M / R^3 from the archive's mass and radius",
+     "citation": "agol2021",
+     "note": "Earth = 1 (5.513 g/cm^3). The archive lists 4.163 g/cm^3. Independent-error propagation overestimates the spread: mass and radius share the stellar-mass uncertainty."
+    },
+    "surfaceGravityG": {
+     "value": 0.572,
+     "uncertainty": 0.041,
+     "unit": "g_earth",
+     "provenance": "inferred",
+     "source": "g = M / R^2 from the archive's mass and radius",
+     "citation": "agol2021",
+     "note": "Earth = 1 (9.82 m/s^2 mean)."
+    },
+    "escapeVelocityKms": {
+     "value": 7.35,
+     "uncertainty": 0.24,
+     "unit": "km/s",
+     "provenance": "inferred",
+     "source": "v_esc = 11.186 km/s * sqrt(M / R) from the archive's mass and radius",
+     "citation": "agol2021",
+     "note": "Scaled from Earth's 11.186 km/s (NASA Earth Fact Sheet)."
+    },
+    "tidallyLocked": {
+     "value": true,
+     "unit": "",
+     "provenance": "inferred",
+     "source": "Tidal spin-down timescale compared with the system's age",
+     "citation": "turbet2018",
+     "note": "Not observed. Turbet et al. 2018 find from N-body and tidal modelling that each TRAPPIST-1 planet is likely in synchronous rotation (one face always toward the star). Order-of-magnitude check (Gladman et al. 1996; Q = 100, k2 = 0.3, initial 12 h spin): spin-down in about 1,000,000 years, far shorter than the system's 7.6 Gyr age."
+    },
+    "ephemerisPeriodDays": {
+     "value": 18.766947,
+     "uncertainty": 3.1e-05,
+     "unit": "d",
+     "provenance": "inferred",
+     "source": "Mean period: least-squares line through every transit time forecast by Agol et al. 2024 (2015-09-02 to 2027-07-17)",
+     "citation": "agol2024",
+     "note": "The forecast is an N-body fit to transit times measured from the ground, Spitzer, K2, HST and JWST. A straight line cannot follow the planets' mutual tugs (transit-timing variations): real transits stray from it by up to 107 min (45 min rms) over that span. The uncertainty is the formal fit error."
+    },
+    "ephemerisTransitMidBJD": {
+     "value": 2461040.61597,
+     "uncertainty": 0.03115,
+     "unit": "BJD_TDB",
+     "provenance": "inferred",
+     "source": "Mean-ephemeris transit nearest 2026-01-01, from the same least-squares line through the Agol et al. 2024 forecast",
+     "citation": "agol2024",
+     "note": "Used with ephemerisPeriodDays to place the planet on its orbit (phase 0 = mid-transit as seen from the Solar System). The uncertainty is the rms of the transit-timing variations about the line. Beyond 2027-07-17 the forecast ends and the error grows slowly."
+    },
+    "composition": {
+     "value": "rocky-or-water-rich",
+     "unit": "",
+     "provenance": "inferred",
+     "source": "Bulk density versus interior models",
+     "citation": "agol2021",
+     "note": "Density 0.76 x Earth's. Agol et al. 2021 find all seven planets consistent with one rocky composition, slightly less iron-rich than Earth (core-mass fraction 21 +/- 4 wt% if water-free; 17 +9/-10 wt% for this planet), or Earth-like rock with added water, or iron-free oxidised rock. The data cannot decide between these. With Earth-like rock (32.5 wt% core) this density allows 5.5 +4.5/-3.1 wt% water; with iron-poorer rock it needs none."
+    },
+    "atmosphere": {
+     "value": "unknown",
+     "unit": "",
+     "provenance": "inferred",
+     "source": "Published observations: HST/WFC3 transmission spectra",
+     "citation": "garcia2022",
+     "note": "Unknown. Hubble makes an aerosol-free hydrogen/helium atmosphere unlikely; the flat spectrum fits a heavy atmosphere, an opaque haze, or none (Garcia et al. 2022)."
+    }
+   },
+   "generated": {
+    "seed": 3970655979,
+    "terrain": "icy",
+    "albedo": 0.43,
+    "palette": [
+     "#684c39",
+     "#97785d",
+     "#aebcc7",
+     "#ced8dc",
+     "#e5eceb"
+    ],
+    "iceCoverage": 0.94,
+    "nightSideGlow": 0.0,
+    "rationale": "Insolation 0.144 x Earth's; the equilibrium temperature at albedo 0.3 is 157 K, below freezing, so any water would be ice. Ice cover 94% (rule: 0% at 273 K rising linearly to 100% at 150 K). How much water the planet has is not known. Bond albedo 0.43 (rock 0.12, ice 0.45, weighted by ice cover). Turbet et al. 2018 suggest photochemical hazes could settle as reddish tholins on the coldest TRAPPIST-1 surfaces, so the bare ground is tinted reddish-brown.",
+    "provenance": "generated",
+    "source": "Known Sky rule-based surface generator v1 (inputs: inferred insolation and equilibrium temperature, published JWST constraints)",
+    "citation": "known-sky-exo-rules"
+   }
+  }
+ ],
+ "citations": {
+  "agol2021": {
+   "authors": "Agol, E., Dorn, C., Grimm, S. L. et al.",
+   "year": 2021,
+   "title": "Refining the Transit-timing and Photometric Analysis of TRAPPIST-1: Masses, Radii, Densities, Dynamics, and Ephemerides",
+   "venue": "The Planetary Science Journal 2, 1",
+   "doi": "10.3847/PSJ/abd022",
+   "url": "https://arxiv.org/abs/2010.01074"
+  },
+  "agol2024": {
+   "authors": "Agol, E. et al.",
+   "year": 2024,
+   "title": "Updated Forecast for TRAPPIST-1 Times of Transit for All Seven Exoplanets Incorporating JWST Data",
+   "venue": "Research Notes of the AAS 8, 274",
+   "doi": "10.3847/2515-5172/ad8b46",
+   "url": "https://arxiv.org/abs/2409.11620"
+  },
+  "costa2006": {
+   "authors": "Costa, E., Mendez, R. A., Jao, W.-C., Henry, T. J., Subasavage, J. P. & Ianna, P. A.",
+   "year": 2006,
+   "title": "The Solar Neighborhood. XVI. Parallaxes from CTIOPI: Final Results from the 1.5 m Telescope Program",
+   "venue": "The Astronomical Journal 132, 1234-1247",
+   "doi": "10.1086/505706",
+   "url": "https://ui.adsabs.harvard.edu/abs/2006AJ....132.1234C"
+  },
+  "dewit2018": {
+   "authors": "de Wit, J., Wakeford, H. R., Lewis, N. K. et al.",
+   "year": 2018,
+   "title": "Atmospheric reconnaissance of the habitable-zone Earth-sized planets orbiting TRAPPIST-1",
+   "venue": "Nature Astronomy 2, 214-219",
+   "doi": "10.1038/s41550-017-0374-z",
+   "url": "https://arxiv.org/abs/1802.02250"
+  },
+  "ducrot2020": {
+   "authors": "Ducrot, E., Gillon, M., Delrez, L. et al.",
+   "year": 2020,
+   "title": "TRAPPIST-1: Global results of the Spitzer Exploration Science Program Red Worlds",
+   "venue": "Astronomy & Astrophysics 640, A112",
+   "doi": "10.1051/0004-6361/201937392",
+   "url": "https://arxiv.org/abs/2006.13826"
+  },
+  "ducrot2025": {
+   "authors": "Ducrot, E., Lagage, P.-O., Min, M. et al.",
+   "year": 2025,
+   "title": "Combined analysis of the 12.8 and 15 um JWST/MIRI eclipse observations of TRAPPIST-1 b",
+   "venue": "Nature Astronomy 9, 358-369 (published online December 2024)",
+   "doi": "10.1038/s41550-024-02428-z",
+   "url": "https://arxiv.org/abs/2412.11627"
+  },
+  "espinoza2025": {
+   "authors": "Espinoza, N., Glidden, A., Gressier, A. et al.",
+   "year": 2025,
+   "title": "JWST-TST DREAMS: NIRSpec/PRISM Transmission Spectroscopy of the Habitable Zone Planet TRAPPIST-1 e",
+   "venue": "The Astrophysical Journal Letters 990, L52",
+   "doi": "10.3847/2041-8213/adf42e",
+   "url": "https://arxiv.org/abs/2509.05414"
+  },
+  "gaia-dr2": {
+   "authors": "Gaia Collaboration, Brown, A. G. A. et al.",
+   "year": 2018,
+   "title": "Gaia Data Release 2. Summary of the contents and survey properties",
+   "venue": "Astronomy & Astrophysics 616, A1",
+   "doi": "10.1051/0004-6361/201833051",
+   "url": "https://arxiv.org/abs/1804.09365"
+  },
+  "gaia-dr3": {
+   "authors": "Gaia Collaboration, Vallenari, A. et al.",
+   "year": 2023,
+   "title": "Gaia Data Release 3. Summary of the content and survey properties",
+   "venue": "Astronomy & Astrophysics 674, A1",
+   "doi": "10.1051/0004-6361/202243940",
+   "url": "https://arxiv.org/abs/2208.00211"
+  },
+  "garcia2022": {
+   "authors": "Garcia, L. J., Moran, S. E., Rackham, B. V. et al.",
+   "year": 2022,
+   "title": "HST/WFC3 transmission spectroscopy of the cold rocky planet TRAPPIST-1h",
+   "venue": "Astronomy & Astrophysics 665, A19",
+   "doi": "10.1051/0004-6361/202142603",
+   "url": "https://arxiv.org/abs/2203.13698"
+  },
+  "gillon2026": {
+   "authors": "Gillon, M., Ducrot, E., Bell, T. J. et al.",
+   "year": 2026,
+   "title": "No thick atmosphere around TRAPPIST-1 b and c from JWST thermal phase curves",
+   "venue": "Nature Astronomy 10, 674-694",
+   "doi": "10.1038/s41550-026-02806-9",
+   "url": "https://arxiv.org/abs/2509.02128"
+  },
+  "gladman1996": {
+   "authors": "Gladman, B., Quinn, D. D., Nicholson, P. & Rand, R.",
+   "year": 1996,
+   "title": "Synchronous Locking of Tidally Evolving Satellites",
+   "venue": "Icarus 122, 166-192",
+   "doi": "10.1006/icar.1996.0117"
+  },
+  "glidden2025": {
+   "authors": "Glidden, A., Espinoza, N., Gressier, A. et al.",
+   "year": 2025,
+   "title": "JWST-TST DREAMS: Secondary Atmosphere Constraints for the Habitable Zone Planet TRAPPIST-1 e",
+   "venue": "The Astrophysical Journal Letters 990, L53",
+   "doi": "10.3847/2041-8213/adf62e",
+   "url": "https://arxiv.org/abs/2509.05407"
+  },
+  "greene2023": {
+   "authors": "Greene, T. P., Bell, T. J., Ducrot, E. et al.",
+   "year": 2023,
+   "title": "Thermal emission from the Earth-sized exoplanet TRAPPIST-1 b using JWST",
+   "venue": "Nature 618, 39-42",
+   "doi": "10.1038/s41586-023-05951-7",
+   "url": "https://arxiv.org/abs/2303.14849"
+  },
+  "grimm2018": {
+   "authors": "Grimm, S. L., Demory, B.-O., Gillon, M. et al.",
+   "year": 2018,
+   "title": "The nature of the TRAPPIST-1 exoplanets",
+   "venue": "Astronomy & Astrophysics 613, A68",
+   "doi": "10.1051/0004-6361/201732233",
+   "url": "https://arxiv.org/abs/1802.01377"
+  },
+  "known-sky-exo-rules": {
+   "authors": "Known Sky contributors",
+   "year": 2026,
+   "title": "TRAPPIST-1 data pipeline: inference formulas and surface-generation rules",
+   "venue": "Known Sky source repository, docs/EXO_TRAPPIST1.md and tools/pipeline/exoplanets.py (MIT licence)",
+   "url": "docs/EXO_TRAPPIST1.md"
+  },
+  "nasa-exoplanet-archive": {
+   "authors": "NASA Exoplanet Science Institute",
+   "year": 2020,
+   "title": "Planetary Systems Composite Table",
+   "venue": "NASA Exoplanet Archive, IPAC/Caltech (queried through the TAP service)",
+   "doi": "10.26133/NEA13",
+   "url": "https://exoplanetarchive.ipac.caltech.edu/"
+  },
+  "piaulet-ghorayeb2025": {
+   "authors": "Piaulet-Ghorayeb, C., Benneke, B., Turbet, M. et al.",
+   "year": 2025,
+   "title": "Strict Limits on Potential Secondary Atmospheres on the Temperate Rocky Exo-Earth TRAPPIST-1 d",
+   "venue": "The Astrophysical Journal 989, 181",
+   "doi": "10.3847/1538-4357/adf207",
+   "url": "https://arxiv.org/abs/2508.08416"
+  },
+  "stassun2019": {
+   "authors": "Stassun, K. G., Oelkers, R. J., Paegert, M. et al.",
+   "year": 2019,
+   "title": "The Revised TESS Input Catalog and Candidate Target List (TICv8)",
+   "venue": "The Astronomical Journal 158, 138",
+   "doi": "10.3847/1538-3881/ab3467",
+   "url": "https://arxiv.org/abs/1905.10694"
+  },
+  "turbet2018": {
+   "authors": "Turbet, M., Bolmont, E., Leconte, J. et al.",
+   "year": 2018,
+   "title": "Modeling climate diversity, tidal dynamics and the fate of volatiles on TRAPPIST-1 planets",
+   "venue": "Astronomy & Astrophysics 612, A86",
+   "doi": "10.1051/0004-6361/201731620",
+   "url": "https://arxiv.org/abs/1707.06927"
+  },
+  "zieba2023": {
+   "authors": "Zieba, S., Kreidberg, L., Ducrot, E. et al.",
+   "year": 2023,
+   "title": "No thick carbon dioxide atmosphere on the rocky exoplanet TRAPPIST-1 c",
+   "venue": "Nature 620, 746-749",
+   "doi": "10.1038/s41586-023-06232-z",
+   "url": "https://arxiv.org/abs/2306.10150"
+  }
+ }
+}
