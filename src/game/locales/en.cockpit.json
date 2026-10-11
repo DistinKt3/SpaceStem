@@ -16,6 +16,7 @@
   "cockpit.alertLevel": "Alert level",
   "cockpit.nominal": "Nominal",
   "cockpit.alert": "Alert",
+  "cockpit.percent": "{value}%",
   "cockpit.demo.title": "Cockpit demo",
   "cockpit.demo.note": "The planet and stars here are a generated backdrop for previewing the cockpit, not real data.",
   "cockpit.demo.presets": "Presets",

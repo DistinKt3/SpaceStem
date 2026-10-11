@@ -7,13 +7,17 @@
  * the cockpit scene at the origin without rotation; head look rotates the cockpit camera, never the group.
  *
  * Brightness: CockpitState.sunIntensity is display-referred (already exposure-adjusted). FrameRenderer multiplies the
- * whole HDR buffer, cockpit included, by its exposure; set `exposureCompensation = 1 / exposure` so the instruments
- * and interior keep a constant brightness while the eye adapts to the world (see the module notes in the result).
+ * whole HDR buffer, cockpit included, by its exposure, so the cockpit must undo that: call
+ * `bindExposure(frame.exposure)` once (the cockpit then follows the exposure every frame), or set
+ * `exposureCompensation = 1 / exposure` yourself before each `update()`. In development builds the cockpit warns once
+ * if neither happened.
+ *
+ * Localisation: display labels are drawn into a texture with t(). After changing the locale, call `relocalize()`.
  */
 import * as THREE from 'three/webgpu';
 import { buildCockpitGeometry, triangleCount, type CockpitGeometry, type PanelKind } from './geometry';
-import { buildGlassTexture } from './glassTexture';
-import { ATLAS_H, ATLAS_W, LAYOUT, MODE_KEYS, drawDisplayAtlas } from './displayAtlas';
+import { glassTexture } from './glassTexture';
+import { LAYOUT, MODE_KEYS, drawDisplayAtlas, type DisplayAtlas } from './displayAtlas';
 import {
   CockpitUniforms,
   createLights,
@@ -27,6 +31,7 @@ import {
   type CockpitLights,
 } from './materials';
 import { canopyTransmission, type V3 } from './layout';
+import { attitudeMarker, clamp01, panelLook } from './state';
 
 export type FlightMode = 'thrusters' | 'impulse' | 'cruise' | 'hyperspeed';
 
@@ -48,30 +53,40 @@ export interface CockpitStats {
   triangles: number;
 }
 
-/** Accent #7fd4ff and the alert colours (linear). */
-const ACCENT = new THREE.Color('#7fd4ff');
-const AMBER = new THREE.Color('#ffb03a');
-const RED = new THREE.Color('#ff3b30');
+/** Anything holding the renderer's current exposure (FrameRenderer.exposure is a TSL uniform with `.value`). */
+export interface ExposureSource {
+  readonly value: number;
+}
+
 const SUN_COLOR = new THREE.Color(1.0, 0.97, 0.92);
 
-const clamp01 = (v: number): number => Math.min(1, Math.max(0, v));
+const finiteOr = (v: number, fallback: number): number => (Number.isFinite(v) ? v : fallback);
 
 export class Cockpit {
   readonly group: THREE.Group;
-  /** Multiply interior lighting and panel emission (set to 1 / FrameRenderer.exposure when the world adapts). */
-  exposureCompensation = 1;
   /** Overall instrument brightness (user setting). */
   panelBrightness = 1;
+  /** Milliseconds the constructor took (geometry, textures, materials). */
+  readonly buildMs: number;
 
+  private compensation = 1;
+  private compensationSet = false;
+  private exposureSource: ExposureSource | null = null;
+  private warned = false;
   private readonly u = new CockpitUniforms();
   private readonly lights: CockpitLights;
   private readonly geo: CockpitGeometry;
+  private readonly atlasScale: number;
+  private readonly atlas: DisplayAtlas;
+  private readonly atlasTexture: THREE.CanvasTexture;
   private readonly materials: THREE.Material[] = [];
   private readonly textures: THREE.Texture[] = [];
   private readonly meshes: THREE.Mesh[] = [];
-  private readonly tmpColor = new THREE.Color();
+  private readonly sun = new THREE.Vector3();
+  private readonly planet = new THREE.Vector3();
 
   constructor(opts?: { quality?: 'low' | 'high' }) {
+    const t0 = performance.now();
     const quality = opts?.quality ?? 'high';
     this.group = new THREE.Group();
     this.group.name = 'cockpit';
@@ -83,7 +98,7 @@ export class Cockpit {
     for (const o of this.lights.objects) this.group.add(o);
 
     // Textures generated in code.
-    const wearData = buildGlassTexture(quality === 'high' ? 1024 : 512);
+    const wearData = glassTexture(quality === 'high' ? 1024 : 512);
     const wear = new THREE.DataTexture(wearData.data, wearData.size, wearData.size, THREE.RGBAFormat, THREE.UnsignedByteType);
     wear.wrapS = THREE.RepeatWrapping;
     wear.wrapT = THREE.RepeatWrapping;
@@ -93,14 +108,21 @@ export class Cockpit {
     wear.anisotropy = 4;
     wear.colorSpace = THREE.NoColorSpace;
     wear.needsUpdate = true;
-    const atlas = new THREE.DataTexture(drawDisplayAtlas(), ATLAS_W, ATLAS_H, THREE.RGBAFormat, THREE.UnsignedByteType);
+    this.atlasScale = quality === 'high' ? 1 : 0.5;
+    this.atlas = drawDisplayAtlas(this.atlasScale);
+    const atlas = new THREE.CanvasTexture(this.atlas.canvas);
+    // Row 0 of the canvas is v = 0 (the panel shaders use canvas coordinates); the data is not colour.
+    atlas.flipY = false;
+    atlas.premultiplyAlpha = false;
     atlas.generateMipmaps = true;
     atlas.minFilter = THREE.LinearMipmapLinearFilter;
     atlas.magFilter = THREE.LinearFilter;
     atlas.anisotropy = 8;
     atlas.colorSpace = THREE.NoColorSpace;
     atlas.needsUpdate = true;
+    this.atlasTexture = atlas;
     this.textures.push(wear, atlas);
+    this.applyPercentLayout();
 
     const interior = this.lights.interior;
     const anchor = g.glowAnchors[0]!;
@@ -126,11 +148,8 @@ export class Cockpit {
     for (const p of g.panels) {
       if (p.type === 'screen') add(p.geometry, screenMaterial(p.kind, atlas, u, this.lights.screens, anchor), `screen.${p.kind}`);
     }
-    // Transparent layers last: holo panes, then the canopy glass over everything.
-    for (const p of g.panels) {
-      if (p.type === 'holo') add(p.geometry, holoMaterial(p.kind, atlas, u), `holo.${p.kind}`, 10);
-    }
-    // Displays as seen in reflection: their plan-view footprint on the dashboard.
+    // Transparent layers, back to front: the canopy glass (the farthest surface), then the holo panes, which always
+    // float inside the canopy and so in front of the glass.
     const sources = g.panels.map((p) => ({
       x: p.center.x,
       z: p.center.z,
@@ -138,7 +157,29 @@ export class Cockpit {
       halfD: (p.height / 2) * Math.max(0.2, Math.abs(p.normal.y)),
       weight: p.type === 'holo' ? 0.9 : 1,
     }));
-    add(g.glass, glassMaterial(u, wear, sources), 'glass', 20);
+    add(g.glass, glassMaterial(u, wear, sources), 'glass', 5);
+    for (const p of g.panels) {
+      if (p.type === 'holo') add(p.geometry, holoMaterial(p.kind, atlas, u), `holo.${p.kind}`, 10);
+    }
+    this.buildMs = performance.now() - t0;
+  }
+
+  /**
+   * Multiplier on interior lighting and panel emission that undoes FrameRenderer's exposure (1 / exposure). Prefer
+   * `bindExposure()`, which keeps it in step automatically.
+   */
+  get exposureCompensation(): number {
+    return this.compensation;
+  }
+
+  set exposureCompensation(v: number) {
+    this.compensation = Number.isFinite(v) && v > 0 ? v : 1;
+    this.compensationSet = true;
+  }
+
+  /** Follow a renderer exposure (e.g. FrameRenderer.exposure): each update() uses 1 / source.value. */
+  bindExposure(source: ExposureSource | null): void {
+    this.exposureSource = source;
   }
 
   /** Physical panels (for tests and tooling). */
@@ -146,35 +187,57 @@ export class Cockpit {
     return this.geo.panels.map((p) => p.kind);
   }
 
+  /** The display atlas canvas (debug tooling: R primary art, G glow, B secondary art). */
+  get atlasCanvas(): HTMLCanvasElement {
+    return this.atlas.canvas;
+  }
+
+  /** Redraw the display labels after a locale change (i18n setLocale). */
+  relocalize(): void {
+    const next = drawDisplayAtlas(this.atlasScale, this.atlas.canvas);
+    this.atlas.percent = next.percent;
+    this.applyPercentLayout();
+    this.atlasTexture.needsUpdate = true;
+  }
+
+  private applyPercentLayout(): void {
+    this.u.pctBefore.value = this.atlas.percent.before ? 1 : 0;
+    this.u.pctGap.value = this.atlas.percent.gap ? 0.35 : 0;
+  }
+
   update(_dt: number, s: CockpitState): void {
     const u = this.u;
-    const comp = Math.max(0, this.exposureCompensation);
-    u.time.value = s.time;
-    u.throttle.value = clamp01(s.throttle);
-    u.speed.value = clamp01(s.speedFraction);
+    if (this.exposureSource) {
+      const e = this.exposureSource.value;
+      this.compensation = Number.isFinite(e) && e > 0 ? 1 / e : 1;
+    } else if (!this.compensationSet && !this.warned && import.meta.env.DEV) {
+      this.warned = true;
+      console.warn('Cockpit: no exposure source bound; call bindExposure(frame.exposure) so the instruments ignore the world exposure.');
+    }
+    const comp = this.compensation;
+    const time = finiteOr(s.time, 0);
+    u.time.value = time;
+    u.throttle.value = clamp01(finiteOr(s.throttle, 0));
+    u.speed.value = clamp01(finiteOr(s.speedFraction, 0));
     u.mode.value = Math.max(0, MODE_KEYS.indexOf(s.mode));
-    const alert = clamp01(s.alert);
+    const alert = clamp01(finiteOr(s.alert, 0));
     u.alert.value = alert;
     u.still.value = s.reducedMotion ? 1 : 0;
     u.gain.value = comp;
 
-    // Panel colour: the accent until an alert, then amber shading to red with the alert level. The alert pulses
-    // between amber and red with a brightness beat; under reduced motion it holds steady.
-    const beat = s.reducedMotion ? 0.5 : 0.5 - 0.5 * Math.cos(s.time * Math.PI * 2 * 1.1);
-    const hue = clamp01(alert * 0.7 + (s.reducedMotion ? 0.15 : 0.3) * beat * alert);
-    const alertCol = this.tmpColor.copy(AMBER).lerp(RED, hue);
-    const toAlert = clamp01((alert - 0.04) / 0.18);
-    u.accent.value.copy(ACCENT).lerp(alertCol, toAlert * toAlert * (3 - 2 * toAlert));
-    const pulseGain = 1 - toAlert * (s.reducedMotion ? 0.1 : 0.4 * beat);
-    const gain = comp * this.panelBrightness * pulseGain;
+    // Panel colour: the accent until an alert, then amber shading to red with a pulse (steady under reduced motion).
+    const look = panelLook(alert, time, s.reducedMotion);
+    u.accent.value.setRGB(...look.emission);
+    const gain = comp * this.panelBrightness * look.gain;
     u.panelGain.value = gain;
 
     // Sun.
-    const sun = s.sunDirLocal.clone();
-    if (sun.lengthSq() < 1e-12) sun.set(0, 0, -1);
+    const sun = this.sun.copy(s.sunDirLocal);
+    if (!(sun.lengthSq() > 1e-12) || !Number.isFinite(sun.lengthSq())) sun.set(0, 0, -1);
     sun.normalize();
     u.sunDir.value.copy(sun);
-    const sunI = Math.max(0, s.sunIntensity) * comp;
+    const sunDisplay = Math.max(0, finiteOr(s.sunIntensity, 0));
+    const sunI = sunDisplay * comp;
     u.sunI.value = sunI;
     u.sunColor.value.copy(SUN_COLOR).multiplyScalar(sunI * Math.PI);
     for (const l of [this.lights.sunShadowed, this.lights.sunPlain]) {
@@ -184,8 +247,10 @@ export class Cockpit {
 
     // Planet glow.
     const pg = s.planetGlow;
-    if (pg && pg.intensity > 0) {
-      const pd = pg.dirLocal.clone().normalize();
+    const pd = pg ? this.planet.copy(pg.dirLocal) : null;
+    const planetOn = pg !== null && pd !== null && pg.intensity > 0 && pd.lengthSq() > 1e-12;
+    if (planetOn) {
+      pd.normalize();
       u.planetDir.value.copy(pd);
       u.planetColor.value.copy(pg.color).multiplyScalar(pg.intensity * Math.PI * comp);
       for (const l of [this.lights.planetShadowed, this.lights.planetPlain]) l.position.copy(pd).multiplyScalar(5);
@@ -193,27 +258,22 @@ export class Cockpit {
       u.planetColor.value.setRGB(0, 0, 0);
     }
 
-    // Soft interior ambient, lifted a little by sunlight bouncing around the cabin.
+    // Soft interior ambient, lifted a little by sunlight bouncing around the cabin (display-referred, so the
+    // compensation is applied once, below).
     const eyeSun = canopyTransmission([0, -0.25, -0.35], [sun.x, sun.y, sun.z] as V3, 0.0047);
-    const bounce = Math.min(0.6, sunI * eyeSun * 0.05);
+    const bounce = Math.min(0.6, sunDisplay * eyeSun * 0.05);
     this.lights.hemi.intensity = (0.05 + bounce) * comp * Math.PI;
     // Instrument glow on nearby surfaces follows the panel colour.
     this.lights.glows.forEach((l, i) => {
-      l.color.copy(u.accent.value);
+      l.color.setRGB(...look.light);
       l.intensity = (i === 0 ? 0.05 : 0.03) * gain;
     });
 
-    // Attitude display markers: polar plot centred on forward, radius = angle from forward.
-    const A = LAYOUT.attitude;
-    const place = (d: THREE.Vector3, out: THREE.Vector3, vis: number): void => {
-      const ang = Math.acos(Math.min(1, Math.max(-1, -d.z)));
-      const roll = Math.atan2(d.x, d.y);
-      const deg = ang / (Math.PI / 180);
-      const r = deg <= 90 ? (A.r90 * deg) / 90 : A.r90 + ((A.rMax - 4 - A.r90) * (deg - 90)) / 90;
-      out.set(A.cx + Math.sin(roll) * r, A.cy - Math.cos(roll) * r, vis);
-    };
-    place(sun, u.sunMarker.value, s.sunIntensity > 0 ? 1 : 0.35);
-    if (pg && pg.intensity > 0) place(pg.dirLocal.clone().normalize(), u.planetMarker.value, 1);
+    // Attitude display markers: polar plot centred on the nose, radius = angle from the nose.
+    const sm = attitudeMarker(sun, LAYOUT.attitude);
+    u.sunMarker.value.set(sm ? sm[0] : 0, sm ? sm[1] : 0, s.sunIntensity > 0 ? 1 : 0.35);
+    const pm = planetOn ? attitudeMarker(pd, LAYOUT.attitude) : null;
+    if (pm) u.planetMarker.value.set(pm[0], pm[1], 1);
     else u.planetMarker.value.set(0, 0, 0);
   }
 

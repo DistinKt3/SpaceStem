@@ -13,7 +13,7 @@ import { createRenderer, effectiveDepthMode, type BackendRequest, type DepthMode
 import { FrameRenderer } from '../render/frameRenderer';
 import { Cockpit, type CockpitState, type FlightMode } from '../render/cockpit/cockpit';
 import { Rng } from '../core/rng';
-import { t, formatNumber } from '../game/i18n';
+import { t, formatNumber, setLocale } from '../game/i18n';
 
 type N = any;
 
@@ -42,6 +42,10 @@ interface DemoSettings {
   time: number | null;
   /** Show the cockpit (off shows the backdrop alone). */
   cockpitOn: boolean;
+  /** Show the generated backdrop (off leaves the cockpit alone over black, for exposure tests). */
+  backdropOn: boolean;
+  /** FrameRenderer exposure; the cockpit is bound to it, so the instruments keep their brightness. */
+  exposure: number;
 }
 
 const PRESETS: Record<string, Partial<DemoSettings>> = {
@@ -67,6 +71,8 @@ const settings: DemoSettings = {
   lookPitch: 0,
   time: null,
   cockpitOn: true,
+  backdropOn: true,
+  exposure: 1,
 };
 
 /** A few hundred stars as one mesh of small camera-facing quads in the background pass. */
@@ -147,8 +153,8 @@ function buildSun(): { mesh: THREE.Mesh; dir: N } {
   const m = new THREE.MeshBasicNodeMaterial({ transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false });
   const r: N = length(uv().sub(0.5)).mul(2);
   // Disc (~0.53 deg) plus a soft halo; HDR so the bloom pass blooms it.
-  const disc = smoothstep(0.034, 0.026, r).mul(60);
-  const halo = exp(r.mul(-9)).mul(1.4).add(exp(r.mul(-3.2)).mul(0.12)).mul(smoothstep(1.0, 0.6, r));
+  const disc = float(1).sub(smoothstep(0.026, 0.034, r)).mul(60);
+  const halo = exp(r.mul(-9)).mul(1.4).add(exp(r.mul(-3.2)).mul(0.12)).mul(float(1).sub(smoothstep(0.6, 1.0, r)));
   m.colorNode = vec3(1.0, 0.95, 0.86).mul(disc.add(halo));
   const mesh = new THREE.Mesh(g, m);
   mesh.frustumCulled = false;
@@ -175,7 +181,7 @@ function buildPlanet(radius: number, sunDir: N): THREE.Mesh {
   const lit = albedo.mul(lambert.mul(1.25)).add(albedo.mul(0.004));
   // Atmosphere: a thin Rayleigh-blue limb on the day side, warming slightly toward the terminator.
   const rim = pow(float(1).sub(clamp(dot(n, V.negate()), 0, 1)), 6);
-  const atmCol = mix(vec3(0.3, 0.55, 1.0), vec3(1.0, 0.55, 0.3), smoothstep(0.25, -0.05, ndl).mul(0.4));
+  const atmCol = mix(vec3(0.3, 0.55, 1.0), vec3(1.0, 0.55, 0.3), float(1).sub(smoothstep(-0.05, 0.25, ndl)).mul(0.4));
   const atm = atmCol.mul(rim.mul(1.3)).mul(smoothstep(-0.12, 0.25, ndl));
   // Specular sun glint on the ocean.
   const H = normalize(sunDir.sub(V));
@@ -317,7 +323,8 @@ async function main(): Promise<void> {
 
   // Backdrop.
   const stars = buildStars(Number(params.get('stars') ?? 1400));
-  fr.backgroundScene.add(buildMilkyWay(), stars);
+  const milkyWay = buildMilkyWay();
+  fr.backgroundScene.add(milkyWay, stars);
   const sun = buildSun();
   fr.backgroundScene.add(sun.mesh);
   const planetRadius = 6.4e6;
@@ -329,6 +336,8 @@ async function main(): Promise<void> {
   const quality = params.get('quality') === 'low' ? 'low' : 'high';
   const cockpit = new Cockpit({ quality });
   fr.cockpitScene.add(cockpit.group);
+  // The integration contract: the cockpit undoes FrameRenderer's exposure so the instruments keep their brightness.
+  cockpit.bindExposure(fr.exposure);
 
   const preset = params.get('preset');
   if (preset && PRESETS[preset]) Object.assign(settings, PRESETS[preset]);
@@ -363,11 +372,13 @@ async function main(): Promise<void> {
     sun.dir.value.copy(sd);
     sun.mesh.position.copy(sd).multiplyScalar(2e6);
     sun.mesh.lookAt(0, 0, 0);
-    sun.mesh.visible = settings.sunIntensity > 0;
+    sun.mesh.visible = settings.sunIntensity > 0 && settings.backdropOn;
+    stars.visible = settings.backdropOn;
+    milkyWay.visible = settings.backdropOn;
     const pd = dirAzEl(settings.planetAz, settings.planetEl);
     planet.position.copy(pd).multiplyScalar(planetDist);
     uniformCenter.value.copy(planet.position);
-    planet.visible = settings.planetOn;
+    planet.visible = settings.planetOn && settings.backdropOn;
     skyGain.value = settings.planetOn && settings.sunIntensity > 0 ? 0.45 : 1;
     // Planet fill: sunlit fraction of the visible disc (phase) times the disc's solid angle, Earth-like colour.
     if (settings.planetOn) {
@@ -378,6 +389,7 @@ async function main(): Promise<void> {
       state.planetGlow = null;
     }
     cockpit.setVisible(settings.cockpitOn);
+    fr.exposure.value = settings.exposure > 0 ? settings.exposure : 1;
     look.setFromEuler(new THREE.Euler(settings.lookPitch * DEG, -settings.lookYaw * DEG, 0, 'YXZ'));
     fr.camera.quaternion.copy(look);
     fr.cockpitCamera.quaternion.copy(look);
@@ -463,6 +475,14 @@ async function main(): Promise<void> {
     },
     preset: (name: string) => setPreset(name),
     stats,
+    /** Cockpit construction time and the display atlas (debug tooling). */
+    timing: { cockpitBuildMs: cockpit.buildMs },
+    atlas: () => cockpit.atlasCanvas.toDataURL('image/png'),
+    /** Switch the page locale (messages missing from `messages` fall back to English) and redraw the displays. */
+    relocalize: (code: string, messages: Record<string, string>) => {
+      setLocale(code, messages);
+      cockpit.relocalize();
+    },
     renderOnce: () => render(),
     /** Render and read back in the same task (canvas contents are only valid right after a render). */
     capture: (type = 'image/png', quality = 0.92) => {

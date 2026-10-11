@@ -56,24 +56,25 @@ export function buildGlassTexture(size = 1024, seed = 0x6b5c_a11d): GlassTexture
   const ox = new Float32Array(n);
   const oy = new Float32Array(n);
 
-  /** Splat an anti-aliased point with orientation (double-angle components c2, s2). */
+  /** Keep the strongest scratch per texel, with its orientation (double-angle components c2, s2). */
+  const put = (px: number, py: number, v: number, c2: number, s2: number): void => {
+    const i = (((py % size) + size) % size) * size + (((px % size) + size) % size);
+    if (v > strength[i]!) {
+      strength[i] = v;
+      ox[i] = c2;
+      oy[i] = s2;
+    }
+  };
+  /** Splat an anti-aliased point (bilinear weights over the four nearest texels). */
   const splat = (x: number, y: number, s: number, c2: number, s2: number): void => {
     const xi = Math.floor(x);
     const yi = Math.floor(y);
     const fx = x - xi;
     const fy = y - yi;
-    const w = [(1 - fx) * (1 - fy), fx * (1 - fy), (1 - fx) * fy, fx * fy];
-    for (let k = 0; k < 4; k++) {
-      const px = (((xi + (k & 1)) % size) + size) % size;
-      const py = (((yi + (k >> 1)) % size) + size) % size;
-      const i = py * size + px;
-      const v = s * w[k]!;
-      if (v > strength[i]!) {
-        strength[i] = v;
-        ox[i] = c2;
-        oy[i] = s2;
-      }
-    }
+    put(xi, yi, s * (1 - fx) * (1 - fy), c2, s2);
+    put(xi + 1, yi, s * fx * (1 - fy), c2, s2);
+    put(xi, yi + 1, s * (1 - fx) * fy, c2, s2);
+    put(xi + 1, yi + 1, s * fx * fy, c2, s2);
   };
 
   // Micro-scratches: short straight lines, random orientation, log-uniform length.
@@ -146,17 +147,19 @@ export function buildGlassTexture(size = 1024, seed = 0x6b5c_a11d): GlassTexture
     const len = Math.abs(span) * r;
     const steps = Math.ceil(len / 0.8);
     const across = Math.ceil(width / 0.7);
+    const edgeW = Array.from({ length: 2 * across + 1 }, (_, j) => Math.exp(-(((j - across) / across) ** 2) * 2.5));
     for (let k = 0; k <= steps; k++) {
       const t = k / steps;
       const a = a0 + span * t;
       const ends = Math.min(1, Math.min(t, 1 - t) * 5);
+      const ca = Math.cos(a);
+      const sa = Math.sin(a);
+      const ny = t * 6 + w * 3.7;
       for (let j = -across; j <= across; j++) {
-        const o = (j / across) * width;
-        const rr = r + o;
+        const rr = r + (j / across) * width;
         // Fibre striations along the stroke, soft edges across it.
-        const stri = 0.55 + 0.45 * n2.at((rr / scale) * 0.9, t * 6 + w * 3.7);
-        const edge = Math.exp(-((o / width) ** 2) * 2.5);
-        deposit(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr, dens * ends * edge * stri);
+        const stri = 0.55 + 0.45 * n2.at((rr / scale) * 0.9, ny);
+        deposit(cx + ca * rr, cy + sa * rr, dens * ends * edgeW[j + across]! * stri);
       }
     }
   }
@@ -195,4 +198,17 @@ export function buildGlassTexture(size = 1024, seed = 0x6b5c_a11d): GlassTexture
     data[i * 4 + 3] = Math.round(Math.min(1, film[i]!) * 255);
   }
   return { size, data };
+}
+
+const cache = new Map<string, GlassTexture>();
+
+/** buildGlassTexture, memoised: the texture is deterministic, so every cockpit built on a page shares one copy. */
+export function glassTexture(size = 1024, seed = 0x6b5c_a11d): GlassTexture {
+  const key = `${size}:${seed}`;
+  let tex = cache.get(key);
+  if (!tex) {
+    tex = buildGlassTexture(size, seed);
+    cache.set(key, tex);
+  }
+  return tex;
 }
