@@ -136,5 +136,9 @@
   "codex.log.optionLabelNew": "{title}, {kind}, discovered {when}, new",
   "codex.search.sub": "{kind} · {summary}",
   "codex.entry.eyebrow": "{kind} · {where}",
-  "codex.cite.unverifiedSr": "Unverified: this citation has not yet been checked against the original source."
+  "codex.cite.unverifiedSr": "Unverified: this citation has not yet been checked against the original source.",
+  "codex.system.alpha-centauri": "the Alpha Centauri system",
+  "codex.system.trappist-1": "the TRAPPIST-1 system",
+  "codex.systemLabel.alpha-centauri": "Alpha Centauri system",
+  "codex.systemLabel.trappist-1": "TRAPPIST-1 system"
 }

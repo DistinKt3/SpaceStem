@@ -1575,6 +1575,23 @@ dialog.ks-hwk[data-compact='true'] .ks-hwk-foot {
   }
 }
 
+/* --- Motion: a short rise on open (entry changes fade in from script) ------------------------------------------- */
+
+dialog.ks-cx[open] .ks-cx-frame,
+dialog.ks-hwk[open] .ks-hwk-frame {
+  animation: ks-cx-rise 0.22s cubic-bezier(0.2, 0.85, 0.25, 1) both;
+}
+@keyframes ks-cx-rise {
+  from {
+    opacity: 0;
+    transform: translateY(0.6rem) scale(0.992);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* --- Reduced motion, forced colours ------------------------------------------------------------------------------ */
 
 @media (prefers-reduced-motion: reduce) {
@@ -1589,6 +1606,14 @@ dialog.ks-hwk[data-compact='true'] .ks-hwk-foot {
   .ks-hwk * {
     transition: none !important;
   }
+  dialog.ks-cx[open] .ks-cx-frame,
+  dialog.ks-hwk[open] .ks-hwk-frame {
+    animation: none;
+  }
+}
+:root[data-reduced-motion='true'] dialog.ks-cx[open] .ks-cx-frame,
+:root[data-reduced-motion='true'] dialog.ks-hwk[open] .ks-hwk-frame {
+  animation: none;
 }
 :root[data-reduced-motion='true'] .ks-cx-toast,
 :root[data-reduced-motion='true'] .ks-cx-toast.is-leaving {

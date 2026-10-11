@@ -13,7 +13,7 @@ import { hasKey, t } from '../i18n';
 import { provenanceBadge } from '../ui/badge';
 import '../ui/codex.css';
 import type { CodexStore } from './codexStore';
-import { citationView, h, icon, moveFocus, richText, showDialog, srOnly, trapTab } from './dom';
+import { citationView, h, icon, moveFocus, prefersReducedMotion, richText, showDialog, srOnly, trapTab } from './dom';
 import { kindLabel, lockedHint, relativeTime, tCount } from './format';
 import { factValueView, type HowWeKnowPanel } from './howWeKnow';
 import { pushNavTarget, removeNavTarget, type CodexNavCommand, type CodexNavTarget } from './nav';
@@ -957,6 +957,10 @@ export class CodexPanel implements CodexNavTarget {
     }
 
     this.article.replaceChildren(...parts.filter((p): p is HTMLElement => p !== null));
+    // A short fade marks the new entry (skipped under reduced motion).
+    if (!prefersReducedMotion() && typeof this.article.animate === 'function') {
+      this.article.animate([{ opacity: 0.25 }, { opacity: 1 }], { duration: 160, easing: 'ease-out' });
+    }
     this.main.scrollTop = 0;
   }
 }
