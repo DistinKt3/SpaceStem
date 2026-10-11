@@ -7,15 +7,15 @@
  * page says so. Exposes window.__ksFuel for tests/e2e/fuel.spec.ts.
  *
  * URL parameters: star=0..3|sun|alphaCenA|proxima|siriusA, r=<stellar radii>, throttle=0..1, fuel=0..1, heat=0..1,
- * jump=<ly>|none, paused=1, speed=1|5|20, climb=0 (no automatic emergency climb), colorblind=<mode>,
- * textScale=0.8..2, reducedMotion=1|0.
+ * jump=<ly, 0..60; 0 or none means no target>, paused=1, speed=1|5|20, climb=0 (no automatic emergency climb),
+ * colorblind=<mode>, textScale=0.8..2, reducedMotion=1|0.
  */
 import '../game/styles.css';
 import '../game/ui/ui.css';
 import { LIGHT_YEAR_M, PARSEC_M, SUN_RADIUS_M } from '../core/constants';
 import { formatDistance, formatDuration } from '../game/format';
 import { formatNumber, t } from '../game/i18n';
-import { bindingLabel } from '../game/input/labels';
+import { bindingLabel, loadKeyboardLayout } from '../game/input/labels';
 import type { Binding } from '../game/input/bindings';
 import { COLORBLIND_MODES, Settings, type ColorblindMode } from '../game/settings/settings';
 import {
@@ -71,6 +71,8 @@ const PRESETS: readonly { key: string; ly: number | null }[] = [
 
 const R_MIN = 1.05;
 const R_MAX = 100;
+/** Jump slider range (ly); the URL parameter uses the same range and the same "0 means no target" rule. */
+const JUMP_MAX = 60;
 const SPEEDS = [1, 5, 20] as const;
 /** Simulation step for the model (s); matches FUEL.maxSubstepS. */
 const STEP = 0.1;
@@ -95,12 +97,14 @@ if (params.has('textScale')) settings.set({ textScale: num('textScale', 0.8, 2, 
 if (params.has('reducedMotion')) settings.set({ reducedMotion: params.get('reducedMotion') === '1' });
 settings.applyToDocument();
 
+/** Jump distance from the slider or the URL: 0 (or less) means no target, as on the slider. */
+const jumpFrom = (v: number): number | null => (v > 0 ? Math.min(JUMP_MAX, v) : null);
 const jumpParam = params.get('jump');
 const state = {
   star: starIndex,
   radii: num('r', R_MIN, R_MAX, 4),
   throttle: num('throttle', 0, 1, 1),
-  jumpLy: jumpParam === 'none' ? null : num('jump', 0, 80, PRESETS[0]!.ly!),
+  jumpLy: jumpParam === 'none' ? null : jumpFrom(num('jump', 0, JUMP_MAX, PRESETS[0]!.ly!)),
   speed: SPEEDS.includes(Number(params.get('speed')) as 1) ? Number(params.get('speed')) : 1,
   running: params.get('paused') !== '1',
   autoClimb: params.get('climb') !== '0',
@@ -162,7 +166,8 @@ const mark = h('div', { class: 'lab-mark', 'aria-hidden': 'true' });
 mark.innerHTML =
   '<svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="6.5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="16" cy="16" r="12" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="2 3" opacity="0.6"/><path d="M27 9 20.5 13.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
 const simTimeEl = h('span', { class: 'simtime', 'aria-hidden': 'true' });
-const runBtn = h('button', { class: 'btn', type: 'button', 'aria-pressed': 'false' });
+// Its label names the action (Run or Pause), so it is a plain button, not a toggle with aria-pressed.
+const runBtn = h('button', { class: 'btn', type: 'button' });
 const speedBtns = SPEEDS.map((s) => h('button', { class: 'btn', type: 'button', 'data-speed': String(s), text: t('fuel.demo.speedValue', { v: s }) }));
 app.append(
   h(
@@ -198,7 +203,7 @@ const distCtl = slider('distance', t('fuel.demo.distance'), 0, 1000, 1, toSlider
 const distHint = h('div', { class: 'hint' });
 distCtl.wrap.append(distHint);
 const thrCtl = slider('throttle', t('fuel.demo.throttle'), 0, 100, 1, Math.round(state.throttle * 100));
-const jumpCtl = slider('jump', t('fuel.demo.jumpDistance'), 0, 60, 0.05, state.jumpLy ?? 0);
+const jumpCtl = slider('jump', t('fuel.demo.jumpDistance'), 0, JUMP_MAX, 0.05, state.jumpLy ?? 0);
 const presetBtns = PRESETS.map((p) => h('button', { class: 'btn', type: 'button', 'data-preset': p.key, text: t(`fuel.demo.preset.${p.key}`) }));
 const jumpBtn = h('button', { class: 'btn primary', type: 'button', id: 'jump-btn' });
 const flash = h('div', { class: 'flash', role: 'status', 'aria-live': 'polite' });
@@ -239,11 +244,12 @@ grid.append(
 );
 jumpBtn.style.width = '100%';
 
-// Preview with the live gauge.
+// Preview with the live gauge. The gauge is in flow (not absolutely placed), so the preview grows with it at large
+// text instead of clipping it; the note sits under the drawing.
 const previewCanvas = h('canvas', { 'aria-hidden': 'true' });
 const preview = h('div', { class: 'preview' }, previewCanvas);
-const gauge = new FuelGauge(preview, { placement: 'hud' });
-preview.append(h('div', { class: 'preview-tag', text: t('fuel.demo.previewNote') }));
+const gauge = new FuelGauge(preview, { placement: 'inline' });
+const previewNote = h('p', { class: 'preview-note', text: t('fuel.demo.previewNote') });
 
 const ro = (key: string): { el: HTMLDivElement; v: HTMLDivElement; s: HTMLDivElement } => {
   const v = h('div', { class: 'v' });
@@ -261,7 +267,7 @@ grid.append(
   h(
     'section',
     { class: 'col col-preview' },
-    h('div', { class: 'panel' }, h('h2', { text: t('fuel.demo.preview') }), preview),
+    h('div', { class: 'panel' }, h('h2', { text: t('fuel.demo.preview') }), preview, previewNote),
     h('div', { class: 'panel' }, h('h2', { text: t('fuel.demo.readouts') }), h('div', { class: 'readouts' }, roFlux.el, roBand.el, roRate.el, roHeat.el)),
     h('div', { class: 'panel' }, h('h2', { text: t('fuel.demo.events') }), logList),
   ),
@@ -373,13 +379,17 @@ function renderLog(): void {
 function onEvents(events: FuelEvent[]): void {
   for (const e of events) {
     eventLog.push({ time: state.simTime, event: e });
-    if (e === 'heat-emergency' && state.autoClimb) {
-      // As in the game: the ship climbs until the hull would settle comfortably below the warning level.
-      state.climbTo = Math.min(R_MAX, Math.max(state.radii * 1.2, radiiForFlux(fluxForHeat(FUEL.heatWarning - 0.1))));
-      say(t('fuel.msg.emergencyClimb'), true);
-    }
+    if (e === 'heat-emergency') startClimb();
   }
   if (events.length) renderLog();
+}
+
+/** As in the game: the ship climbs until the hull would settle comfortably below the warning level. */
+function startClimb(): void {
+  if (!state.autoClimb || state.climbTo !== null) return;
+  state.climbTo = Math.min(R_MAX, Math.max(state.radii * 1.2, radiiForFlux(fluxForHeat(FUEL.heatWarning - 0.1))));
+  // The gauge's live region already says the hull is at its limit; this line names the action.
+  say(t('fuel.warn.emergencyClimb'), true);
 }
 
 /** Advance the simulation by `seconds` of game time in fixed steps (deterministic). */
@@ -401,6 +411,8 @@ function advance(seconds: number): FuelEvent[] {
     state.simTime += dt;
     const ev = fuel.update(dt, envAt(state.radii), { mode: 'cruise', throttle: state.throttle, landed: false });
     onEvents(ev);
+    // As in the game, a hull at its limit always climbs, even without a fresh event.
+    if (fuel.heatState === 'emergency') startClimb();
     all.push(...ev);
   }
   refresh();
@@ -737,6 +749,8 @@ function drawCharts(): void {
     hlines: [
       { y: FUEL.heatWarning * 100, label: t('fuel.demo.limit.warning', { v: FUEL.heatWarning * 100 }), color: warn },
       { y: FUEL.heatCritical * 100, label: t('fuel.demo.limit.critical', { v: FUEL.heatCritical * 100 }), color: danger },
+      // The hull limit (heat 1.0): at or above it the ship climbs away. Labelled on the left, clear of the other two.
+      { y: FUEL.heatEmergency * 100, label: t('fuel.demo.limit.emergency'), color: danger, align: 'left' },
     ],
     cursor: { x: state.radii, label: youLabel },
     tip: tipR,
@@ -803,7 +817,6 @@ function refresh(): void {
   }
   for (const b of speedBtns) b.setAttribute('aria-pressed', String(Number(b.dataset['speed']) === state.speed));
   runBtn.textContent = state.running ? t('fuel.demo.pause') : t('fuel.demo.run');
-  runBtn.setAttribute('aria-pressed', String(!state.running));
   simTimeEl.textContent = t('fuel.demo.simTime', { t: clock(state.simTime) });
 
   // Readouts.
@@ -821,7 +834,7 @@ function refresh(): void {
   roHeat.v.textContent = eq > 1 ? t('fuel.demo.overLimit') : t('fuel.demo.eqHeatValue', { v: Math.round(eq * 100) });
   roHeat.s.textContent = t('fuel.demo.heatNow', { v: Math.round(fuel.heat * 100), state: t(`fuel.heat.${fuel.heatState}`) });
 
-  // Gauge (as the HUD would feed it).
+  // Gauge (as the HUD feeds it).
   gauge.update({
     hyperFuel: fuel.hyperFuel,
     heat: fuel.heat,
@@ -857,8 +870,7 @@ thrCtl.input.addEventListener('input', () => {
   refresh();
 });
 jumpCtl.input.addEventListener('input', () => {
-  const v = Number(jumpCtl.input.value);
-  state.jumpLy = v > 0 ? v : null;
+  state.jumpLy = jumpFrom(Number(jumpCtl.input.value));
   refresh();
 });
 for (const b of presetBtns)
@@ -891,8 +903,18 @@ coolBtn.addEventListener('click', () => {
   fuel.heat = 0;
   refresh();
 });
+/** Keys a focused control uses itself (activation and navigation); a shortcut bound to one of them must not steal it. */
+const CONTROL_KEYS = new Set(['Enter', 'NumpadEnter', 'Space', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown', 'Tab', 'Escape']);
+const TEXT_INPUTS = new Set(['text', 'search', 'email', 'number', 'password', 'tel', 'url']);
+/** True when the focused element needs this key for itself (the Jump button excepted: the key does the same there). */
+function controlOwnsKey(el: EventTarget | null, code: string): boolean {
+  if (!(el instanceof HTMLElement) || el === jumpBtn) return false;
+  // Text entry takes every key.
+  if (el.isContentEditable || el instanceof HTMLTextAreaElement || (el instanceof HTMLInputElement && TEXT_INPUTS.has(el.type))) return true;
+  return CONTROL_KEYS.has(code) && el.closest('input, select, button, summary, a[href], [tabindex]') !== null;
+}
 window.addEventListener('keydown', (e) => {
-  if (e.repeat || e.altKey || e.ctrlKey || e.metaKey) return;
+  if (e.repeat || e.altKey || e.ctrlKey || e.metaKey || controlOwnsKey(e.target, e.code)) return;
   const slots = settings.data.bindings['hyperspeed'] ?? [null, null];
   if (slots.some((b) => b?.type === 'key' && b.code === e.code)) {
     e.preventDefault();
@@ -913,6 +935,10 @@ window.addEventListener('resize', () => refresh());
 settings.onChange(() => refresh());
 
 setJumpLabel();
+// Name the key as the player's own layout prints it (Keyboard Map API, where available).
+void loadKeyboardLayout().then((ok) => {
+  if (ok) setJumpLabel();
+});
 renderLog();
 refresh();
 

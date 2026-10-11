@@ -75,7 +75,10 @@ export const FUEL = {
   scoopIdleFactor: 0.5,
   /** Flux whose radiative equilibrium is exactly the hull limit (heat 1). */
   heatLimitFlux: 20_000,
-  /** Thermal time constant at the hull limit (s): heat rises from 0.5 to 1 in about 6 s at the limit flux. */
+  /**
+   * Thermal time constant at the hull limit (s). At exactly the limit flux the heat approaches 1 asymptotically (0.5 to
+   * 0.99 takes about 15 s); above it the hull reaches 1 in finite time.
+   */
   heatTimeConstantS: 12,
   /** Heat levels for warnings; each clears `heatHysteresis` below its level. */
   heatWarning: 0.7,
@@ -89,7 +92,7 @@ export const FUEL = {
   rangeLy: 50,
   costExponent: 0.75,
   minJumpCost: 0.04,
-  /** Integration substep (s) and the longest update honoured in one call (s). */
+  /** Longest integration substep (s): an update is split into equal substeps of at most this length. Also the longest update honoured in one call (s). */
   maxSubstepS: 0.1,
   maxUpdateS: 3_600,
 } as const;
@@ -154,11 +157,10 @@ export function fluxForHeat(heat: number): number {
   return FUEL.heatLimitFlux * Math.max(0, heat) ** 4;
 }
 
-/** Fraction of a full tank one jump of `lightYears` costs. Infinity for invalid distances. */
+/** Fraction of a full tank one jump of `lightYears` costs. Infinity for invalid distances (NaN, infinite, negative). */
 export function jumpCost(lightYears: number): number {
-  if (Number.isNaN(lightYears) || lightYears === Infinity) return Infinity;
-  const ly = Math.max(0, lightYears);
-  return Math.max(FUEL.minJumpCost, Math.pow(ly / FUEL.rangeLy, FUEL.costExponent));
+  if (!Number.isFinite(lightYears) || lightYears < 0) return Infinity;
+  return Math.max(FUEL.minJumpCost, Math.pow(lightYears / FUEL.rangeLy, FUEL.costExponent));
 }
 
 /** Longest jump (ly) a given amount of fuel allows (inverse of jumpCost). */
@@ -208,6 +210,11 @@ export class FuelSystem {
   private _flux = 0;
   private _rate = 0;
   private _heatState: HeatState = 'nominal';
+  /**
+   * Highest heat level already reported by an event (0 nominal .. 3 emergency). It starts at nominal, so a system
+   * created or restored with a hot hull reports its level on the first update, like 'fuel-low' does.
+   */
+  private announcedLevel = 0;
   private fuelLowArmed = true;
 
   constructor(init: { hyperFuel?: number; heat?: number } = {}) {
@@ -314,13 +321,13 @@ export class FuelSystem {
     this._rate = nowScooping ? rate : 0;
 
     // Heat warnings: one event for the highest newly reached level; levels fall back with hysteresis.
-    const prev = STATES.indexOf(this._heatState);
     this._heatState = heatStateFor(this._heatState, this.heat);
     const level = STATES.indexOf(this._heatState);
-    if (level > prev) {
+    if (level > this.announcedLevel) {
       const ev = LEVEL_EVENTS[level];
       if (ev) events.push(ev);
     }
+    this.announcedLevel = level;
 
     // Low fuel: once per crossing (re-armed above the hysteresis band).
     const low = fuelLowFor(!this.fuelLowArmed, this.hyperFuel);

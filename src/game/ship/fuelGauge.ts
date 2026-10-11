@@ -9,10 +9,12 @@
  * - A "Scooping" chip while the scoop collects fuel.
  * - One polite live region announces state changes only (scooping, heat level, low fuel, jump feasibility), never
  *   per-frame values. The meters carry their values for assistive technology.
- * - Sizes are in rem (text scaling); animations stop under reduced motion (the OS preference or the game setting,
- *   which sets html[data-reduced-motion]).
+ * - Sizes are in rem (text scaling) and text wraps instead of being cut off; animations stop under reduced motion (the
+ *   OS preference or the game setting, which sets html[data-reduced-motion]).
+ * - In the game HUD (placement 'hud') the host positions it with fuelLayout.ts, which keeps it clear of the HUD panels
+ *   at any text scale and sets data-density='compact' on short screens.
  *
- * Hyper-fuel, scooping and hull heat are game mechanics; the widget says so in its header.
+ * Hyper-fuel, scooping and hull heat are game mechanics; the widget says so in its header and in its description.
  */
 import { formatDuration } from '../format';
 import { t } from '../i18n';
@@ -24,8 +26,16 @@ export interface FuelGaugeState {
   /** 0..1 of the hull limit. */
   heat: number;
   scooping: boolean;
-  /** Fraction of the tank the selected jump costs, or null without a jump target. */
+  /**
+   * Fraction of the tank the selected jump costs, or null without a jump target. While `jumpStatus` is 'underway' it is
+   * the cost already paid for the jump in progress (or null).
+   */
   nextJumpCost: number | null;
+  /**
+   * Optional: 'tooClose' when a star is targeted but too close to jump to (no cost to show); 'underway' while a jump is
+   * in progress, so the gauge does not judge the selected target against a tank the jump has already paid from.
+   */
+  jumpStatus?: 'tooClose' | 'underway' | null;
   /** Optional: seconds until the tank is full while scooping. */
   secondsToFull?: number | null;
   /**
@@ -41,6 +51,7 @@ export interface FuelGaugeOptions {
 }
 
 const STYLE_ID = 'ks-fuel-gauge-style';
+let nextId = 0;
 
 const CSS = `
 .ks-fuel {
@@ -62,8 +73,8 @@ const CSS = `
 .ks-fuel-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.2rem 0.5rem; margin-bottom: 0.4rem; }
 .ks-fuel-title { font-size: 0.64rem; font-weight: 600; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ks-accent); }
 .ks-fuel-tag {
-  font-size: 0.54rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ks-dim); white-space: nowrap;
-  border: 1px dotted currentColor; border-radius: 1rem; padding: 0.02rem 0.4rem;
+  font-size: 0.54rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ks-dim); max-width: 100%;
+  box-sizing: border-box; overflow-wrap: anywhere; border: 1px dotted currentColor; border-radius: 1rem; padding: 0.02rem 0.4rem;
 }
 .ks-fuel-row + .ks-fuel-row { margin-top: 0.5rem; }
 .ks-fuel-line { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.1rem 0.4rem; }
@@ -112,7 +123,7 @@ const CSS = `
 }
 .ks-fuel[data-jump='short'] .ks-fuel-mark, .ks-fuel[data-jump='short'] .ks-fuel-mark::before { background: var(--ks-danger); border-top-color: var(--ks-danger); }
 .ks-fuel[data-jump='short'] .ks-fuel-mark::before { background: none; }
-.ks-fuel-sub { margin-top: 0.32rem; font-size: 0.62rem; color: var(--ks-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ks-fuel-sub { margin-top: 0.32rem; font-size: 0.62rem; color: var(--ks-dim); overflow-wrap: anywhere; }
 .ks-fuel[data-jump='short'] .ks-fuel-sub { color: var(--ks-fg); }
 .ks-fuel[data-jump='short'] .ks-fuel-sub::before { content: '\\2715\\00a0'; color: var(--ks-danger); font-weight: 700; }
 .ks-fuel[data-low='true'] .ks-fuel-fill { background: linear-gradient(90deg, color-mix(in srgb, var(--ks-warn) 40%, transparent), var(--ks-warn)); }
@@ -131,7 +142,8 @@ const CSS = `
 .ks-fuel[data-heat='emergency'] .ks-fuel-flag--heat { background: color-mix(in srgb, var(--ks-danger) 22%, transparent); }
 .ks-fuel[data-heat='critical'] .ks-heat-fill, .ks-fuel[data-heat='emergency'] .ks-heat-fill { animation: ks-fuel-throb 0.9s ease-in-out infinite alternate; }
 .ks-fuel-scoop {
-  display: none; align-items: center; justify-content: center; gap: 0.35rem; margin-top: 0.55rem; padding: 0.2rem 0.4rem;
+  display: none; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0.1rem 0.35rem; margin-top: 0.55rem; padding: 0.2rem 0.4rem;
+  text-align: center; overflow-wrap: anywhere;
   font-size: 0.62rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ks-accent);
   border: 1px solid color-mix(in srgb, var(--ks-accent) 55%, transparent); border-radius: 0.3rem;
   background: repeating-linear-gradient(90deg, color-mix(in srgb, var(--ks-accent) 14%, transparent) 0 0.5rem, transparent 0.5rem 1rem);
@@ -149,17 +161,19 @@ const CSS = `
 @keyframes ks-fuel-flow { to { background-position: 1rem 0; } }
 @keyframes ks-fuel-flow-fill { to { background-position: 0.75rem 0, 0 0; } }
 @keyframes ks-fuel-throb { from { opacity: 1; } to { opacity: 0.55; } }
-/* Short screens: tighter spacing so the HUD's centred side panels keep clear of the gauge. */
-@media (max-height: 36rem) {
-  .ks-fuel { padding: 0.4rem 0.6rem 0.45rem; }
-  .ks-fuel--hud { top: 0.75rem; }
-  .ks-fuel-head { margin-bottom: 0.2rem; }
-  .ks-fuel-row + .ks-fuel-row { margin-top: 0.3rem; }
-  .ks-fuel-bar { margin-top: 0.22rem; height: 0.42rem; }
-  .ks-fuel-sub { margin-top: 0.2rem; }
-  .ks-fuel-v { font-size: 0.78rem; }
-  .ks-fuel-scoop { margin-top: 0.35rem; padding: 0.08rem 0.4rem; }
-}
+/*
+ * Short screens (set by fuelLayout.ts from the HUD height in rem, so it follows the text-scale setting; a rem media
+ * query would not): tighter spacing.
+ */
+.ks-fuel[data-density='compact'] { padding: 0.4rem 0.6rem 0.45rem; }
+.ks-fuel[data-density='compact'] .ks-fuel-head { margin-bottom: 0.2rem; }
+.ks-fuel[data-density='compact'] .ks-fuel-row + .ks-fuel-row { margin-top: 0.3rem; }
+.ks-fuel[data-density='compact'] .ks-fuel-bar { margin-top: 0.22rem; height: 0.42rem; }
+.ks-fuel[data-density='compact'] .ks-fuel-sub { margin-top: 0.2rem; }
+.ks-fuel[data-density='compact'] .ks-fuel-v { font-size: 0.78rem; }
+.ks-fuel[data-density='compact'] .ks-fuel-scoop { margin-top: 0.35rem; padding: 0.08rem 0.4rem; }
+/* The HUD's target panel moves below the gauge when they would overlap (fuelLayout.ts sets the position). */
+.ks-hud[data-fuel-push] > .ks-hud-right { top: var(--ks-fuel-target-top, 50%); transform: none; }
 @media (prefers-reduced-motion: reduce) {
   .ks-fuel, .ks-fuel *, .ks-fuel *::before { animation: none !important; transition: none !important; }
 }
@@ -212,7 +226,7 @@ interface Snapshot {
   scooping: boolean;
   heat: HeatState;
   low: boolean;
-  jump: 'none' | 'ok' | 'short';
+  jump: 'none' | 'ok' | 'short' | 'tooClose' | 'underway';
 }
 
 export class FuelGauge {
@@ -245,8 +259,13 @@ export class FuelGauge {
 
     const head = div('ks-fuel-head', root);
     span('ks-fuel-title', head, t('fuel.gauge.title'));
-    const tag = span('ks-fuel-tag', head, t('fuel.gauge.fiction'));
-    tag.title = t('fuel.gauge.fictionNote');
+    span('ks-fuel-tag', head, t('fuel.gauge.fiction'));
+    // What is fiction and what is real, for assistive technology (a hover title would never show: the HUD ignores the
+    // pointer). Sighted players get the same note in the Codex ("The drive is fiction").
+    const note = span('ks-fuel-note', root, t('fuel.gauge.fictionNote'));
+    note.hidden = true;
+    note.id = `ks-fuel-note-${++nextId}`;
+    root.setAttribute('aria-describedby', note.id);
 
     // Fuel row.
     const fuelRow = div('ks-fuel-row', root);
@@ -310,6 +329,11 @@ export class FuelGauge {
     return !this.root.hidden;
   }
 
+  /** Spacing: 'compact' on short screens (the HUD layout decides; see fuelLayout.ts). */
+  setDensity(d: 'normal' | 'compact'): void {
+    if (this.root.dataset['density'] !== d) this.root.dataset['density'] = d;
+  }
+
   dispose(): void {
     this.root.remove();
   }
@@ -317,10 +341,13 @@ export class FuelGauge {
   update(state: FuelGaugeState): void {
     const fuel = finite01(state.hyperFuel);
     const heat = finite01(state.heat);
-    const cost = state.nextJumpCost !== null && Number.isFinite(state.nextJumpCost) ? Math.max(0, state.nextJumpCost) : null;
+    const given = state.nextJumpCost !== null && Number.isFinite(state.nextJumpCost) ? Math.max(0, state.nextJumpCost) : null;
+    const status = state.jumpStatus ?? null;
+    // A paid jump in progress, or a target too close to jump to, has no cost to compare with the tank.
+    const cost = status === null ? given : null;
     this.heatState = state.heatState ?? heatStateFor(this.heatState, heat);
     this.low = fuelLowFor(this.low, fuel);
-    const jump: Snapshot['jump'] = cost === null ? 'none' : fuel + 1e-9 >= cost ? 'ok' : 'short';
+    const jump: Snapshot['jump'] = status ?? (cost === null ? 'none' : fuel + 1e-9 >= cost ? 'ok' : 'short');
     const r = this.root;
     const d = r.dataset;
     if (d['heat'] !== this.heatState) d['heat'] = this.heatState;
@@ -358,11 +385,17 @@ export class FuelGauge {
     const heatText = t('fuel.gauge.percent', { v: pct(heat) });
     if (w.heatText !== heatText) this.heatVal.textContent = w.heatText = heatText;
     const sub =
-      cost === null
-        ? t('fuel.gauge.noJump')
-        : jump === 'ok'
-          ? t('fuel.gauge.jump', { cost: pct(cost), left: pct(fuel - cost) })
-          : t('fuel.gauge.jumpShort', { cost: Math.round(cost * 100) });
+      jump === 'underway'
+        ? given === null
+          ? t('fuel.gauge.underway')
+          : t('fuel.gauge.underwayPaid', { cost: pct(given) })
+        : jump === 'tooClose'
+          ? t('fuel.gauge.tooClose')
+          : cost === null
+            ? t('fuel.gauge.noJump')
+            : jump === 'ok'
+              ? t('fuel.gauge.jump', { cost: pct(cost), left: pct(fuel - cost) })
+              : t('fuel.gauge.jumpShort', { cost: Math.round(cost * 100) });
     if (w.sub !== sub) this.sub.textContent = w.sub = sub;
     const eta =
       state.scooping && typeof state.secondsToFull === 'number' && Number.isFinite(state.secondsToFull)

@@ -20,7 +20,8 @@ import {
   type FuelStorage,
   type StarEnv,
 } from '../../src/game/ship/fuel';
-import { hasKey, t } from '../../src/game/i18n';
+import { hasKey, keySources, t } from '../../src/game/i18n';
+import { readFileSync } from 'node:fs';
 
 /** Measured stellar parameters (see docs/FUEL.md for sources). */
 const SUN = { radiusM: SUN_RADIUS_M, luminositySun: 1, teffK: SUN_TEFF_K };
@@ -90,7 +91,6 @@ describe('jump cost', () => {
   it('has a minimum cost per jump', () => {
     expect(jumpCost(0)).toBe(FUEL.minJumpCost);
     expect(jumpCost(0.01)).toBe(FUEL.minJumpCost);
-    expect(jumpCost(-3)).toBe(FUEL.minJumpCost);
   });
   it('never decreases with distance and grows more slowly than distance', () => {
     let prev = 0;
@@ -103,13 +103,17 @@ describe('jump cost', () => {
     expect(jumpCost(20) / jumpCost(10)).toBeLessThan(2);
     expect(jumpCost(40) / jumpCost(20)).toBeCloseTo(2 ** FUEL.costExponent, 9);
   });
-  it('refuses invalid distances', () => {
+  it('refuses invalid distances (NaN, infinite, negative)', () => {
     const f = new FuelSystem();
-    expect(jumpCost(Number.NaN)).toBe(Infinity);
-    expect(f.canJump(Number.NaN)).toBe(false);
-    expect(f.canJump(Infinity)).toBe(false);
-    f.consumeJump(Number.NaN);
+    for (const bad of [Number.NaN, Infinity, -Infinity, -3, -1e-9]) {
+      expect(jumpCost(bad), String(bad)).toBe(Infinity);
+      expect(f.canJump(bad), String(bad)).toBe(false);
+      f.consumeJump(bad);
+    }
     expect(f.hyperFuel).toBe(1);
+    // Review: a nearly empty tank must not afford a jump of -Infinity.
+    expect(new FuelSystem({ hyperFuel: 0.05 }).canJump(-Infinity)).toBe(false);
+    expect(jumpCost(0)).toBe(FUEL.minJumpCost);
   });
   it('consumeJump subtracts the cost and never empties below zero', () => {
     const f = new FuelSystem({ hyperFuel: 0.5 });
@@ -329,14 +333,40 @@ describe('serialisation', () => {
   });
 });
 
+describe('heat events for a system created or restored hot', () => {
+  const far: StarEnv = { ...SUN, distanceM: 1e15 };
+  const ctx = { mode: 'cruise', throttle: 0, landed: false };
+  it('reports the hull limit on the first update, so the ship climbs (review: no climb after restoring at the limit)', () => {
+    const f = new FuelSystem({ hyperFuel: 0.5, heat: 1 });
+    expect(f.heatState).toBe('emergency');
+    // Far above the limit flux (Sirius A at 3 radii) the first update reports the emergency once.
+    const sirius: StarEnv = { ...SIRIUS_A, distanceM: 3 * SIRIUS_A.radiusM };
+    expect(f.update(0.1, sirius, ctx)).toContain('heat-emergency');
+    expect(f.update(0.1, sirius, ctx)).not.toContain('heat-emergency');
+    expect(FuelSystem.fromJSON({ version: 1, hyperFuel: 0.5, heat: 1 }).update(0, null, ctx)).toContain('heat-emergency');
+  });
+  it('reports the highest level reached, once, for warning and critical starts too', () => {
+    expect(new FuelSystem({ heat: 0.75 }).update(0, far, ctx)).toEqual(['heat-warning']);
+    expect(new FuelSystem({ heat: 0.95 }).update(0, far, ctx)).toEqual(['heat-critical']);
+    const f = new FuelSystem({ heat: 0.95 });
+    f.update(0, far, ctx);
+    expect(f.update(0.1, far, ctx)).toEqual([]);
+    expect(new FuelSystem({ heat: 0.2 }).update(0, far, ctx)).toEqual([]);
+  });
+});
+
 describe('fuel strings', () => {
   it('has every key the gauge and integration use', () => {
     for (const k of [
       'fuel.gauge.label',
       'fuel.gauge.fiction',
+      'fuel.gauge.noJump',
+      'fuel.gauge.tooClose',
+      'fuel.gauge.underway',
+      'fuel.gauge.underwayPaid',
       'fuel.error.insufficient',
-      'fuel.msg.emergencyClimb',
-      'fuel.warn.heatCritical',
+      'fuel.warn.emergencyClimb',
+      'fuel.demo.limit.emergency',
       'fuel.say.fuelLow',
       ...['nominal', 'warning', 'critical', 'emergency'].flatMap((s) => [`fuel.heat.${s}`, `fuel.say.heat.${s}`]),
       ...(['scoop-start', 'scoop-stop', 'tank-full', 'heat-warning', 'heat-critical', 'heat-emergency', 'fuel-low'] as FuelEvent[]).map(
@@ -344,6 +374,23 @@ describe('fuel strings', () => {
       ),
     ])
       expect(hasKey(k), k).toBe(true);
+  });
+  it('has no unused strings (review: dead keys)', () => {
+    const files = ['src/game/ship/fuel.ts', 'src/game/ship/fuelGauge.ts', 'src/game/ship/shipFuel.ts', 'src/game/ship/shipController.ts', 'src/spike/fuelDemo.ts'];
+    const src = files.map((f) => readFileSync(f, 'utf8')).join('\n');
+    const keys = keySources()
+      .filter((k) => k.file.endsWith('en.fuel.json'))
+      .map((k) => k.key);
+    expect(keys.length).toBeGreaterThan(50);
+    // A key is used when the source names it, or builds it from a template prefix and names its varying part.
+    const used = (key: string): boolean => {
+      if (src.includes(`'${key}'`)) return true;
+      const cut = key.lastIndexOf('.');
+      const prefix = key.slice(0, cut + 1);
+      const last = key.slice(cut + 1).replace(/Sub$/, '');
+      return src.includes(`\`${prefix}\${`) && new RegExp(`['"\`]${last}['"\`]`).test(src);
+    };
+    expect(keys.filter((k) => !used(k))).toEqual([]);
   });
   it('labels the mechanic as fiction in player-facing text', () => {
     for (const k of ['fuel.gauge.label', 'fuel.gauge.fiction', 'fuel.gauge.fictionNote', 'fuel.error.insufficient', 'fuel.demo.subtitle']) {

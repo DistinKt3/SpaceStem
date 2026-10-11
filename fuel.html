@@ -115,10 +115,14 @@
       .flash.bad { color: var(--ks-fg); }
       .flash.bad::before { content: '\2715\00a0'; color: var(--ks-danger); font-weight: 700; }
 
-      .preview { position: relative; height: 15.5rem; border-radius: 0.5rem; overflow: hidden; background: #01030a; border: 1px solid rgba(127, 212, 255, 0.14); }
+      /* The gauge is in flow at the top-right, so the drawing grows with it at large text instead of clipping it. */
+      .preview {
+        position: relative; display: flex; justify-content: flex-end; align-items: flex-start; box-sizing: border-box;
+        min-height: 15.5rem; padding: 0.75rem; border-radius: 0.5rem; overflow: hidden; background: #01030a; border: 1px solid rgba(127, 212, 255, 0.14);
+      }
       .preview canvas { position: absolute; inset: 0; }
-      .preview .ks-fuel--hud { top: 0.75rem; right: 0.75rem; }
-      .preview-tag { position: absolute; left: 0.6rem; bottom: 0.5rem; font: 0.6rem var(--ks-mono); color: rgba(216, 230, 255, 0.7); text-shadow: 0 0 3px #000; }
+      .preview .ks-fuel { flex: 0 1 auto; }
+      .preview-note { margin: 0.4rem 0 0; font: 0.62rem/1.4 var(--ks-mono); color: var(--ks-dim); }
 
       .readouts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem 0.9rem; }
       @container (max-width: 30rem) { .readouts { grid-template-columns: minmax(0, 1fr); } }
