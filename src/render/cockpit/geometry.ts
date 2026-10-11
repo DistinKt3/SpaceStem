@@ -6,7 +6,7 @@
 import * as THREE from 'three/webgpu';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { CANOPY, DEG, FRAME, LIP_PATH, PILLAR, azElOf, canopyExit, canopyNormal, canopyPoint, dirAzEl, pillarAz, type V3 } from './layout';
+import { CANOPY, DEG, FRAME, HOLO_PANES, LIP_PATH, PILLAR, azElOf, canopyExit, canopyNormal, canopyPoint, dirAzEl, pillarAz, type V3 } from './layout';
 
 const v3 = (p: V3): THREE.Vector3 => new THREE.Vector3(p[0], p[1], p[2]);
 
@@ -53,24 +53,51 @@ export function resample(points: THREE.Vector3[], n: number): THREE.Vector3[] {
   return curve.getSpacedPoints(n - 1);
 }
 
-/** Sweep a closed profile (b = sideways, r = along the canopy normal, outward positive) along a path on the canopy. */
-export function sweepOnCanopy(path: THREE.Vector3[], profile: [number, number][]): THREE.BufferGeometry {
+/** A flat fan closing a tube end: ring of points, outward normal. */
+function capFan(ring: THREE.Vector3[], normal: THREE.Vector3): THREE.BufferGeometry {
+  const c = ring.reduce((a, p) => a.add(p), new THREE.Vector3()).divideScalar(ring.length);
+  const pos = new Float32Array((ring.length + 1) * 3);
+  const nrm = new Float32Array((ring.length + 1) * 3);
+  [c, ...ring].forEach((p, i) => {
+    pos.set([p.x, p.y, p.z], i * 3);
+    nrm.set([normal.x, normal.y, normal.z], i * 3);
+  });
+  const idx: number[] = [];
+  for (let i = 0; i < ring.length; i++) idx.push(0, 1 + i, 1 + ((i + 1) % ring.length));
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setAttribute('normal', new THREE.BufferAttribute(nrm, 3));
+  g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array((ring.length + 1) * 2), 2));
+  g.setIndex(idx);
+  return g;
+}
+
+/**
+ * Sweep a closed profile (b = sideways, r = along the canopy normal, outward positive) along a path on the canopy.
+ * `caps` closes both tube ends with flat fans (for members whose ends can be seen).
+ */
+export function sweepOnCanopy(path: THREE.Vector3[], profile: [number, number][], caps = false): THREE.BufferGeometry {
   const rows: THREE.Vector3[][] = [];
   const closed = [...profile, profile[0]!];
   const T = new THREE.Vector3();
   const B = new THREE.Vector3();
   const R = new THREE.Vector3();
+  const tangents: THREE.Vector3[] = [];
   for (let i = 0; i < path.length; i++) {
     const p = path[i]!;
     const prev = path[Math.max(0, i - 1)]!;
     const next = path[Math.min(path.length - 1, i + 1)]!;
     T.subVectors(next, prev).normalize();
+    tangents.push(T.clone());
     R.copy(v3(canopyNormal([p.x, p.y, p.z])));
     B.crossVectors(T, R).normalize();
     R.crossVectors(B, T).normalize();
     rows.push(closed.map(([b, r]) => p.clone().addScaledVector(B, b).addScaledVector(R, r)));
   }
-  return gridGeometry(rows);
+  const tube = gridGeometry(rows);
+  if (!caps) return tube;
+  const n = profile.length;
+  return mergeOrThrow([tube, capFan(rows[0]!.slice(0, n), tangents[0]!.clone().negate()), capFan(rows[rows.length - 1]!.slice(0, n), tangents[tangents.length - 1]!)]);
 }
 
 /** Rounded-rectangle cross-section: width w (sideways), depth d (inward from just outside the glass). */
@@ -107,32 +134,55 @@ export function pillarArchPoints(n = 120): THREE.Vector3[] {
   return resample(raw.filter((p, i) => i === 0 || p.distanceTo(raw[i - 1]!) > 1e-5), n);
 }
 
-/** Spine over the pilot's head: from the arch apex back to the rear bow. */
-export function spinePoints(n = 40): THREE.Vector3[] {
+/**
+ * Points along the canopy at a fixed azimuth or elevation, from `start` in steps of `step`, ending exactly on the plane
+ * z = zEnd (interpolated), so a member that runs into the rear bow ends inside it rather than poking out behind.
+ */
+function canopyRunToZ(at: (s: number) => V3, start: number, step: number, limit: number, zEnd: number): THREE.Vector3[] {
   const raw: THREE.Vector3[] = [];
-  for (let el = PILLAR.apexEl - 3; el <= 170; el += 2) {
-    const p = canopyPoint(0, el);
+  let prevS = start;
+  for (let s = start; Math.abs(s - start) <= Math.abs(limit - start); s += step) {
+    const p = at(s);
+    if (p[2] >= zEnd) {
+      // Bisect between the previous sample and this one for the crossing of z = zEnd.
+      let lo = prevS;
+      let hi = s;
+      for (let it = 0; it < 40; it++) {
+        const mid = (lo + hi) / 2;
+        if (at(mid)[2] < zEnd) lo = mid;
+        else hi = mid;
+      }
+      raw.push(v3(at((lo + hi) / 2)));
+      break;
+    }
     raw.push(v3(p));
-    if (p[2] > CANOPY.bowZ) break;
+    prevS = s;
   }
-  return resample(raw, n);
+  return raw;
 }
 
-/** Rear canopy bow: the ellipse where the plane z = bowZ - bowWidth/2 cuts the canopy, from sill to sill. */
-export function bowPoints(n = 64): THREE.Vector3[] {
+/** Centre plane of the rear bow (the bow tube spans bowZ - bowWidth .. bowZ). */
+export const BOW_MID_Z = CANOPY.bowZ - FRAME.bowWidth / 2;
+
+/** Spine over the pilot's head: from the arch apex (its end is buried in the arch) back to the rear bow. */
+export function spinePoints(n = 40): THREE.Vector3[] {
+  return resample(canopyRunToZ((el) => canopyPoint(0, el), PILLAR.apexEl, 2, 175, BOW_MID_Z), n);
+}
+
+/** Ring where the plane z = zPlane cuts the canopy, from one side to the other over the top, ending at elevation elEnd. */
+export function ringPoints(zPlane: number, elEnd: number, n = 64): THREE.Vector3[] {
   const [cx, cy, cz] = CANOPY.center;
   const [sx, sy, sz] = CANOPY.semi;
-  const zb = CANOPY.bowZ - FRAME.bowWidth / 2;
-  const k = Math.sqrt(Math.max(0, 1 - ((zb - cz) / sz) ** 2));
-  const at = (phi: number): THREE.Vector3 => new THREE.Vector3(cx + sx * k * Math.cos(phi), cy + sy * k * Math.sin(phi), zb);
-  // Find the angle where the bow meets the sill on the right (elevation = sillEl - 3).
+  const k = Math.sqrt(Math.max(0, 1 - ((zPlane - cz) / sz) ** 2));
+  const at = (phi: number): THREE.Vector3 => new THREE.Vector3(cx + sx * k * Math.cos(phi), cy + sy * k * Math.sin(phi), zPlane);
+  // Find the angle where the ring reaches elEnd on the right.
   let lo = -Math.PI / 2;
   let hi = Math.PI / 2;
   for (let it = 0; it < 40; it++) {
     const mid = (lo + hi) / 2;
     const p = at(mid);
     const [, el] = azElOf([p.x, p.y, p.z]);
-    if (el < CANOPY.sillEl - 3) lo = mid;
+    if (el < elEnd) lo = mid;
     else hi = mid;
   }
   const pts: THREE.Vector3[] = [];
@@ -143,29 +193,57 @@ export function bowPoints(n = 64): THREE.Vector3[] {
   return pts;
 }
 
-/** Side sill along the bottom edge of the side glass, from the pillar base back to the rear bow (right side). */
-export function sillPoints(sign: 1 | -1, n = 40): THREE.Vector3[] {
-  const raw: THREE.Vector3[] = [];
-  const el = CANOPY.sillEl - 0.6;
-  for (let az = pillarAz(el) - 2; az < 175; az += 2) {
-    const p = canopyPoint(sign * az, el);
-    raw.push(v3(p));
-    if (p[2] > CANOPY.bowZ) break;
-  }
-  return resample(raw, n);
+/** Rear canopy bow: the ring at the bow's centre plane, from below one sill to below the other. */
+export function bowPoints(n = 64): THREE.Vector3[] {
+  return ringPoints(BOW_MID_Z, CANOPY.sillEl - 3, n);
 }
 
-/** All canopy frame members, merged (one draw call). */
+/** Hull ribs behind the bow (seen on head look): plane positions (z, metres). */
+export const RIB_Z = [0.3, 0.47];
+
+/** Side sill along the bottom edge of the side glass, from inside the pillar base back into the rear bow. */
+export function sillPoints(sign: 1 | -1, n = 40): THREE.Vector3[] {
+  const el = CANOPY.sillEl - 0.6;
+  return resample(canopyRunToZ((az) => canopyPoint(sign * az, el), pillarAz(el) - 2, 2, 178, BOW_MID_Z), n);
+}
+
+/** All canopy frame members and the hull ribs, merged (one draw call). */
 export function buildFrame(quality: 'low' | 'high'): THREE.BufferGeometry {
   const hi = quality === 'high';
   const parts = [
-    sweepOnCanopy(pillarArchPoints(hi ? 140 : 80), strutProfile(PILLAR.width, PILLAR.depth, hi ? 14 : 10)),
-    sweepOnCanopy(spinePoints(hi ? 40 : 24), strutProfile(FRAME.spineWidth, 0.04, hi ? 12 : 8)),
-    sweepOnCanopy(bowPoints(hi ? 64 : 40), strutProfile(FRAME.bowWidth, 0.07, hi ? 12 : 8)),
-    sweepOnCanopy(sillPoints(1, hi ? 40 : 24), strutProfile(FRAME.sillWidth, 0.05, hi ? 12 : 8)),
-    sweepOnCanopy(sillPoints(-1, hi ? 40 : 24), strutProfile(FRAME.sillWidth, 0.05, hi ? 12 : 8)),
+    sweepOnCanopy(pillarArchPoints(hi ? 140 : 80), strutProfile(PILLAR.width, PILLAR.depth, hi ? 14 : 10), true),
+    sweepOnCanopy(spinePoints(hi ? 40 : 24), strutProfile(FRAME.spineWidth, 0.04, hi ? 12 : 8), true),
+    sweepOnCanopy(bowPoints(hi ? 64 : 40), strutProfile(FRAME.bowWidth, 0.07, hi ? 12 : 8), true),
+    sweepOnCanopy(sillPoints(1, hi ? 40 : 24), strutProfile(FRAME.sillWidth, 0.05, hi ? 12 : 8), true),
+    sweepOnCanopy(sillPoints(-1, hi ? 40 : 24), strutProfile(FRAME.sillWidth, 0.05, hi ? 12 : 8), true),
+    ...RIB_Z.map((z) => sweepOnCanopy(ringPoints(z, CANOPY.sillEl - 8, hi ? 56 : 32), strutProfile(0.034, 0.035, hi ? 10 : 8), true)),
   ];
   return mergeOrThrow(parts);
+}
+
+/** Dim accent ribbons along the inner faces of the hull ribs (upper part only), fading toward the sides. */
+export function ribLightStrips(): THREE.BufferGeometry[] {
+  const inner = 0.004 - 0.035 - 0.0009;
+  const profile: [number, number][] = [
+    [-0.0022, inner + 0.0004],
+    [0.0022, inner + 0.0004],
+    [0.0022, inner - 0.0004],
+    [-0.0022, inner - 0.0004],
+  ];
+  return RIB_Z.map((z) => {
+    const pts = ringPoints(z, 4, 40);
+    const g = sweepOnCanopy(pts, profile);
+    const n = (g.getAttribute('position') as THREE.BufferAttribute).count;
+    const per = n / pts.length;
+    const tint = new Float32Array(n * 4);
+    for (let i = 0; i < n; i++) {
+      const s = Math.floor(i / per) / (pts.length - 1);
+      const f = 0.08 + 0.3 * Math.pow(Math.sin(Math.PI * s), 3);
+      tint.set([f, f, f, 1], i * 4);
+    }
+    g.setAttribute('tint', new THREE.BufferAttribute(tint, 4));
+    return g;
+  });
 }
 
 /** Thin light ribbons on the inner faces of the A-pillars, bright at the base and fading upward. */
@@ -465,9 +543,10 @@ export function buildSeat(hi: boolean): THREE.BufferGeometry[] {
     g.translate(...at);
     return g;
   };
-  // The pilot's head fills ~12 cm around the eye, so the headrest starts behind that.
+  // The pilot's head fills ~12 cm around the eye, so the headrest starts behind that; kept small and low so a look
+  // over the shoulder sees past it.
   return [
-    part(0.17, 0.17, 0.06, 0.025, [0, -0.04, 0.2], -8),
+    part(0.135, 0.12, 0.055, 0.022, [0, -0.085, 0.22], -8),
     part(0.4, 0.56, 0.09, 0.04, [0, -0.46, 0.3], 14),
     part(0.06, 0.46, 0.14, 0.028, [-0.215, -0.48, 0.25], 14, 10),
     part(0.06, 0.46, 0.14, 0.028, [0.215, -0.48, 0.25], 14, -10),
@@ -687,27 +766,29 @@ export function buildCockpitGeometry(quality: 'low' | 'high' = 'high'): CockpitG
     const vm = (v0 + v1) / 2;
     panels.push({ kind, type: 'screen', geometry: g, width: w, height: h, center: dash.point(uc, vm), normal: dash.normal(uc, vm) });
   };
-  screenAt('attitude', 0, REGION_ASPECT.attitude, vBot, vTop);
   screenAt('mode', -0.215, REGION_ASPECT.mode, vBot, vTop);
   screenAt('status', 0.215, REGION_ASPECT.status, vBot, vTop);
 
-  // --- Holographic panes floating above the dashboard, either side of the clear forward view.
-  const holo = (kind: PanelKind, az: number): void => {
-    const w = 0.135;
-    const h = 0.09;
-    const q = eyeFacingQuad(az, -12.2, 0.6, w, h, 14);
-    panels.push({ kind, type: 'holo', geometry: q.geometry, width: w, height: h, center: q.center, normal: q.normal });
+  // --- Holographic panes: throttle and speed float above the dashboard either side of the clear forward view,
+  // inboard of the A-pillars; the attitude ring floats in front of the dashboard glass, below the lip line.
+  const holo = (kind: 'throttle' | 'speed' | 'attitude'): PanelPlacement => {
+    const sp = HOLO_PANES[kind];
+    const q = eyeFacingQuad(sp.az, sp.el, sp.dist, sp.w, sp.h, sp.tilt);
+    const p: PanelPlacement = { kind, type: 'holo', geometry: q.geometry, width: sp.w, height: sp.h, center: q.center, normal: q.normal };
+    panels.push(p);
+    return p;
   };
-  holo('throttle', -25.4);
-  holo('speed', 25.4);
+  const holoPanes = [holo('attitude'), holo('throttle'), holo('speed')];
 
-  // Projector emitters under the holo panes (small lit slots on the lip).
+  // Projector emitters under the holo panes: small lit slots on the lip for the side panes, and one on the dashboard
+  // face just below the glass band for the attitude pane.
   const emitters: THREE.BufferGeometry[] = [];
-  for (const x of [-0.25, 0.25]) {
-    const u0 = dash.uAtX(x - 0.06);
-    const u1 = dash.uAtX(x + 0.06);
+  for (const p of holoPanes.slice(1)) {
+    const u0 = dash.uAtX(p.center.x - 0.055);
+    const u1 = dash.uAtX(p.center.x + 0.055);
     emitters.push(withTint(dash.patch(u0, u1, vLip - 0.004, vLip + 0.004, 0.0028, 12, 2), 1.6, 1.6, 1.6, 1));
   }
+  emitters.push(withTint(dash.patch(dash.uAtX(-0.05), dash.uAtX(0.05), vBot - 0.032, vBot - 0.025, 0.0028, 12, 2), 1.3, 1.3, 1.3, 1));
 
   // --- Controls: throttle on the left console, side stick on the right.
   const consoleTop = (x: number, inset: number): { at: THREE.Vector3; up: THREE.Vector3 } => {
@@ -749,7 +830,7 @@ export function buildCockpitGeometry(quality: 'low' | 'high' = 'high'): CockpitG
   // Kept 15+ cm from any surface so the point lights read as a soft glow rather than a hot spot.
   const glowAnchors = [
     new THREE.Vector3(0, LIP_PATH[0]![2] + 0.07, LIP_PATH[0]![1] + 0.2),
-    ...panels.filter((p) => p.type === 'holo').map((p) => p.center.clone().addScaledVector(p.normal, 0.14).add(new THREE.Vector3(0, -0.02, 0))),
+    ...holoPanes.slice(1).map((p) => p.center.clone().addScaledVector(p.normal, 0.14).add(new THREE.Vector3(0, -0.02, 0))),
   ];
 
   return {
@@ -758,7 +839,7 @@ export function buildCockpitGeometry(quality: 'low' | 'high' = 'high'): CockpitG
     skin: canopyEllipsoid(0.994, quality),
     glass: canopyEllipsoid(1.0, quality),
     trim: mergeOrThrow([...trimParts, ...throttle.trim, ...stick.trim]),
-    lights: mergeOrThrow([lipStrip, ...emitters, ...pillarLightStrips(), ...throttle.glow, ...stick.glow]),
+    lights: mergeOrThrow([lipStrip, ...emitters, ...pillarLightStrips(), ...ribLightStrips(), ...throttle.glow, ...stick.glow]),
     controls: mergeOrThrow([...throttle.body, ...stick.body, ...buildSeat(hi)]),
     buttons: mergeOrThrow(buttons),
     glassBand: band,
