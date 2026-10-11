@@ -14,6 +14,7 @@
 }
 html, body { margin: 0; height: 100%; background: var(--ks-bg); color: var(--ks-fg); overflow: hidden; font-family: var(--ks-font); }
 canvas { display: block; width: 100vw; height: 100vh; }
+canvas:focus { outline: none; } /* Focused from script only (tabIndex -1), as the return target for dialogs. */
 #hud {
   position: fixed; left: 1.2rem; bottom: 1.2rem; min-width: 18rem; padding: 0.7rem 0.9rem;
   background: var(--ks-panel); border: 1px solid var(--ks-border); border-radius: 0.6rem;

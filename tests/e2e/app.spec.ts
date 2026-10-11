@@ -136,6 +136,37 @@ test('switching from cruise to thrusters drops drive speed to the local frame (r
   expect(errors).toEqual([]);
 });
 
+test('Codex opens with C, explains the target with I, and unlocks on arrival', async ({ page }) => {
+  const errors: string[] = [];
+  await boot(page, errors);
+  await page.locator('canvas').click();
+  await page.keyboard.press('KeyC');
+  await expect(page.getByRole('dialog', { name: /Codex/i })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog', { name: /Codex/i })).toBeHidden();
+  // The default target is the Moon.
+  await page.keyboard.press('KeyI');
+  const how = page.getByRole('dialog', { name: /How do we know this/i });
+  await expect(how).toBeVisible();
+  await expect(how).toContainText('Moon');
+  await expect(how.locator('[role="img"]').first()).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(how).toBeHidden();
+  const discovered = await page.evaluate(() => {
+    const ks = (window as unknown as { __ks: KS }).__ks;
+    const app = ks.app as unknown as { codex: { arrived(a: string): void; ui: { store: { discovered(id: string): boolean } } }; catalog: KsApp['catalog'] };
+    const cat = app.catalog!;
+    const here = { x: 0, y: 0, z: 0, length: () => 0 };
+    const idx = cat.destinations(here, 2, 20).find((i) => cat.name(i) === 'Proxima Centauri');
+    const before = app.codex.ui.store.discovered('proxima-centauri');
+    app.codex.arrived(`*${idx}`);
+    return { before, after: app.codex.ui.store.discovered('proxima-centauri') };
+  });
+  expect(discovered).toEqual({ before: false, after: true });
+  await expect(page.locator('.ks-codex-toast, [class*="toast"]').first()).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
 test('map lists destinations and sets the target', async ({ page }) => {
   const errors: string[] = [];
   await boot(page, errors);

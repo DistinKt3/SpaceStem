@@ -234,6 +234,9 @@ export class HowWeKnowPanel implements CodexNavTarget {
     const rf = this.returnFocus;
     this.returnFocus = null;
     if (restoreFocus && rf?.isConnected) rf.focus({ preventScroll: true });
+    // Focus must not stay in the closed dialog: its key handler would keep swallowing game keys.
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && this.element.contains(active)) active.blur();
     for (const cb of [...this.closeCbs]) cb();
   }
 

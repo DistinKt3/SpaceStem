@@ -8,6 +8,7 @@ import type { Provenance } from '../../core/provenance';
 import type { Vec3d } from '../../core/vec3d';
 import { formatDistance, formatDuration, formatSpeed } from '../format';
 import { formatNumber, t } from '../i18n';
+import { provenanceBadge } from '../ui/badge';
 import type { FlightMode } from '../ship/ship';
 
 export interface HudTarget {
@@ -161,7 +162,7 @@ export class Hud {
       this.right.style.display = '';
       this.right.innerHTML =
         `<div class="k">${t('hud.target')}</div><div class="v ks-target-name">${s.target.name}</div>` +
-        `<div class="ks-prov ks-prov-${s.target.provenance}">${t(`prov.${s.target.provenance}`)}</div>` +
+        `<div class="ks-prov-badge">${provenanceBadge(s.target.provenance).outerHTML}</div>` +
         `<div class="k">${t('hud.distance')}</div><div class="v">${formatDistance(surf)}</div>` +
         `<div class="k">${t('hud.lightTime')}</div><div class="v">${formatDuration(d / SPEED_OF_LIGHT_M_PER_S)}</div>` +
         `<div class="k">${t('hud.eta')}</div><div class="v">${Number.isFinite(eta) ? formatDuration(eta) : '—'}</div>` +

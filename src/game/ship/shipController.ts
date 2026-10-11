@@ -79,6 +79,7 @@ export class ShipController implements Controller {
           for (const def of system.bodyDefs()) await app.sys.addBody(def, app.pool, app.frame);
         })();
       }
+      app.codex.arrived(anchor);
     };
   }
 

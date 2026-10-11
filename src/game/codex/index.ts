@@ -24,8 +24,8 @@ export interface CodexUI {
 }
 
 export interface CodexUIOptions {
-  /** KeyboardEvent.code values that close the Codex while it has focus (usually the key that opens it). */
-  closeKeys?: readonly string[];
+  /** KeyboardEvent.code values that close the Codex while it has focus (usually the key that opens it); see CodexPanelOptions. */
+  closeKeys?: readonly string[] | (() => readonly string[]);
   parent?: HTMLElement;
   toastDurationMs?: number;
 }

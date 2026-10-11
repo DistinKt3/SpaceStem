@@ -19,6 +19,9 @@ import { SettingsPanel } from './ui/settingsPanel';
 import { Captions } from './ui/captions';
 import { AudioEngine } from './audio/audioEngine';
 import { Cockpit } from '../render/cockpit/cockpit';
+import { createCodexUI } from './codex';
+import { CodexStore } from './codex/codexStore';
+import { CodexDirector } from './codexDirector';
 import type { ExoSystem } from '../world/exo/exoSystem';
 import { loadExoSystems } from '../world/exo/systemLoader';
 import { PARSEC_M } from '../core/constants';
@@ -45,6 +48,8 @@ export interface Controller {
   updateHud?(app: App): void;
   /** Called when the App teleports the camera (named views, share links). */
   onPlace?(app: App): void;
+  /** Current target (body id, catalogue star "*i" or exoplanet id), for the Codex and HUD. */
+  readonly targetId?: string | null;
   /** Called instead of update while the simulation is paused (settings, map): keep audio and HUD calm. */
   idle?(dt: number, app: App): void;
 }
@@ -83,6 +88,10 @@ export class App {
   readonly captions: Captions;
   readonly audio: AudioEngine;
   cockpit: Cockpit | null = null;
+  /** The Codex (entries, citations, "How do we know this?") and its link to play. */
+  readonly codex: CodexDirector;
+  /** True while the camera is inside a sunlit atmosphere (set by updateSky). */
+  inDaylightAtmosphere = false;
   /** Real exoplanet systems that can be visited (M4). */
   exo: ExoSystem[] = [];
 
@@ -94,10 +103,18 @@ export class App {
   constructor(readonly canvas: HTMLCanvasElement) {
     this.hud = document.getElementById('hud')!;
     this.settings.applyToDocument();
+    // Focusable from script only, so dialogs can return focus to the game when they close.
+    canvas.tabIndex = -1;
     this.input = new InputManager(canvas, this.settings);
     this.panel = new SettingsPanel(this.settings, this.input);
     this.captions = new Captions(this.settings);
     this.audio = new AudioEngine({ seed: SCORE_SEED, onCaption: (key, secs) => this.captions.show(key, secs) });
+    // The key bound to the Codex also closes it (the panel keeps keyboard focus while open).
+    const codexKeys = (): string[] =>
+      [this.input.binding('toggleCodex', 0, 'kbm'), this.input.binding('toggleCodex', 1, 'kbm')].flatMap((b) => (b?.type === 'key' ? [b.code] : []));
+    const codexUi = createCodexUI(new CodexStore(), { closeKeys: codexKeys });
+    void codexUi.store.load();
+    this.codex = new CodexDirector(this, codexUi);
     this.reducedMotion = this.settings.data.reducedMotion;
     // Browsers only start audio from a user gesture.
     const unlock = (): void => {
@@ -279,25 +296,40 @@ export class App {
     if (this.frameTimes.length > 240) this.frameTimes.shift();
     this.last = now;
     this.input.update(dt);
-    if (this.input.justPressed('pause')) {
-      if (this.map?.isOpen) this.map.close();
-      else this.panel.open();
-    }
-    if (this.input.justPressed('toggleMap') && this.map) {
-      if (!this.map.isOpen) this.input.releasePointerLock();
-      this.map.toggle();
+    const codexOpen = this.codex.ui.isOpen;
+    if (!codexOpen) {
+      if (this.input.justPressed('pause')) {
+        if (this.map?.isOpen) this.map.close();
+        else this.panel.open();
+      }
+      if (this.input.justPressed('toggleMap') && this.map) {
+        if (!this.map.isOpen) this.input.releasePointerLock();
+        this.map.toggle();
+      }
+      if (this.input.justPressed('toggleCodex')) {
+        this.input.releasePointerLock();
+        this.canvas.focus({ preventScroll: true });
+        this.codex.ui.panel.open();
+      }
+      if (this.input.justPressed('howWeKnow') && this.controller?.targetId) {
+        this.input.releasePointerLock();
+        this.canvas.focus({ preventScroll: true });
+        this.codex.explain(this.controller.targetId);
+      }
     }
     // The map is a planning view: the simulation pauses with it (otherwise sim time would advance while the ship's
     // offset stays frozen relative to a rotating body).
-    const paused = this.paused || this.panel.isOpen || (this.map?.isOpen ?? false);
+    const paused = this.paused || this.panel.isOpen || (this.map?.isOpen ?? false) || codexOpen;
     if (paused) this.controller?.idle?.(dt, this);
     if (!paused) this.simTime = this.sys.ephemeris.clampTime(this.simTime + dt * this.timeScale);
     if (this.map?.isOpen) {
       this.map.render();
+      this.codex.update(this.controller?.targetId ?? null, this.cam.pos.anchor, { inDaylightAtmosphere: false, mapOpen: true });
       return;
     }
     if (!paused) this.controller?.update(dt, this);
     this.renderFrame();
+    this.codex.update(this.controller?.targetId ?? null, this.cam.pos.anchor, { inDaylightAtmosphere: this.inDaylightAtmosphere, mapOpen: false });
     if (this.settings.data.showFps && this.controller?.updateHud) {
       this.hudTimer -= dt;
       if (this.hudTimer <= 0) {
@@ -344,6 +376,7 @@ export class App {
     const sunSsb = this.sys.ephemeris.ssb('10', this.simTime, new Vec3d());
     this.stars.camPc.value.set((camSsb.x - sunSsb.x) / PARSEC_M, (camSsb.y - sunSsb.y) / PARSEC_M, (camSsb.z - sunSsb.z) / PARSEC_M);
     let v = 1;
+    this.inDaylightAtmosphere = false;
     const [near, alt] = this.sys.nearest(this.cam.pos, this.simTime);
     const atm = near.def.atmosphere;
     if (atm && alt < atm.heightM) {
@@ -353,6 +386,7 @@ export class App {
       const day = Math.min(1, Math.max(0, (elev + 0.12) / 0.17));
       const density = Math.exp(-Math.max(0, alt) / atm.rayleighScaleHeightM);
       v *= 1 - 0.985 * Math.min(1, density * day * 4);
+      this.inDaylightAtmosphere = near.def.key === 'earth' && density * day > 0.5;
     }
     const cover = Math.min(1, near.angularRadiusPx / (this.renderer.domElement.height * 0.5));
     v *= 1 - 0.5 * cover;

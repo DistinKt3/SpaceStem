@@ -26,8 +26,11 @@ export interface CodexPanelOptions {
   /** Enables the "How do we know this?" button in entries. */
   howWeKnow?: HowWeKnowPanel;
   parent?: HTMLElement;
-  /** KeyboardEvent.code values that also close the Codex (e.g. the key that opens it); ignored while typing. */
-  closeKeys?: readonly string[];
+  /**
+   * KeyboardEvent.code values that also close the Codex (e.g. the key that opens it); ignored while typing. A function
+   * is read on each key press, so it can follow rebinding.
+   */
+  closeKeys?: readonly string[] | (() => readonly string[]);
   /** Clock for relative times (ms). */
   now?: () => number;
 }
@@ -363,6 +366,11 @@ export class CodexPanel implements CodexNavTarget {
 
   // --- Internals ------------------------------------------------------------------------------------------------------
 
+  private closeKeyCodes(): readonly string[] {
+    const k = this.opts.closeKeys;
+    return typeof k === 'function' ? k() : (k ?? []);
+  }
+
   private finishClose(): void {
     removeNavTarget(this);
     window.clearInterval(this.timer);
@@ -370,6 +378,9 @@ export class CodexPanel implements CodexNavTarget {
     const rf = this.returnFocus;
     this.returnFocus = null;
     if (rf?.isConnected) rf.focus({ preventScroll: true });
+    // Focus must not stay in the closed panel: its key handler would keep swallowing game keys.
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && this.element.contains(active)) active.blur();
     for (const cb of [...this.closeCbs]) cb();
   }
 
@@ -511,7 +522,7 @@ export class CodexPanel implements CodexNavTarget {
       e.preventDefault();
       this.search.focus();
       this.search.select();
-    } else if (this.opts.closeKeys?.includes(e.code)) {
+    } else if (this.closeKeyCodes().includes(e.code)) {
       e.preventDefault();
       this.close();
     }

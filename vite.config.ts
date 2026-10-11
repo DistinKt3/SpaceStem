@@ -19,6 +19,7 @@ export default defineConfig({
         ui: resolve(import.meta.dirname, 'ui.html'),
         codexdata: resolve(import.meta.dirname, 'codexdata.html'),
         exo: resolve(import.meta.dirname, 'exo.html'),
+        codex: resolve(import.meta.dirname, 'codex.html'),
       },
     },
   },
