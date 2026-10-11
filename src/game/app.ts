@@ -33,6 +33,8 @@ export interface Controller {
   update(dt: number, app: App): void;
   /** Optional per-frame HUD/overlay update after the world has been positioned. */
   updateHud?(app: App): void;
+  /** Called when the App teleports the camera (named views, share links). */
+  onPlace?(app: App): void;
 }
 
 export class App {
@@ -118,6 +120,7 @@ export class App {
   place(p: Placement): void {
     this.cam.pos = p.pos;
     this.cam.quat.copy(p.quat);
+    this.controller?.onPlace?.(this);
   }
 
   /** Named placements (also used by tests). */

@@ -77,6 +77,13 @@ export class Hyperspeed {
     if (this.phase === 'spool') this.phase = 'idle';
   }
 
+  /** Drop out of any phase immediately (teleports). */
+  abort(): void {
+    this.phase = 'idle';
+    this.speed = 0;
+    this.elapsed = 0;
+  }
+
   update(dt: number, sys: SolarSystem, ship: Ship, t: number): void {
     if (this.phase === 'idle') return;
     this.elapsed += dt;

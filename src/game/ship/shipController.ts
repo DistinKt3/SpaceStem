@@ -45,18 +45,26 @@ export class ShipController implements Controller {
     map.onSelect = (id) => {
       if (id) this.targetId = id;
     };
+    map.getSelected = () => this.targetId;
     app.map = map;
-    window.addEventListener('keydown', (e) => {
-      if (e.code === 'KeyM' && app.map && !app.map.isOpen) {
-        app.map.selectedId = this.targetId;
-        app.map.open();
-      }
-    });
     this.hyper.onArrive = (anchor) => {
       // The destination star becomes a real, lit body; other visited stars are released.
       for (const v of [...app.sys.views]) if (v.def.id.startsWith('*') && v.def.id !== anchor) app.sys.removeBody(v.def.id, app.frame);
       if (anchor.startsWith('*') && app.catalog) void app.sys.addBody(app.catalog.bodyDef(Number(anchor.slice(1))), app.pool, app.frame);
     };
+  }
+
+  /** Teleport: the ship takes the App's new camera placement, at rest relative to the local surface frame. */
+  onPlace(app: App): void {
+    const ship = this.ship;
+    this.hyper.abort();
+    ship.resetFlight();
+    ship.pos = { anchor: app.cam.pos.anchor, offset: app.cam.pos.offset.clone() };
+    ship.quat.copy(app.cam.quat);
+    this.headLook.identity();
+    const anchor = app.sys.byId.get(ship.pos.anchor);
+    ship.vel.set(0, 0, 0);
+    if (anchor && anchor.def.kind !== 'star') ship.vel.copy(Ship.bodyOmega(anchor, app.simTime).cross(ship.pos.offset));
   }
 
   /** Camera-relative info for a body ("399") or catalog star ("*<index>"). */

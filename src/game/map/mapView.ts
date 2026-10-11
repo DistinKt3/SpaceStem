@@ -86,6 +86,8 @@ export class MapView {
   private ringEls: HTMLSpanElement[] = [];
   /** Currently selected destination (highlighted; drawn with label priority). */
   selectedId: string | null = null;
+  /** Supplies the current target when the map opens. */
+  getSelected: (() => string | null) | null = null;
   onSelect: ((id: string) => void) | null = null;
 
   constructor(private readonly app: App) {
@@ -104,11 +106,18 @@ export class MapView {
     this.overlay.append(this.labels, this.title, this.list);
     this.overlay.style.display = 'none';
     document.body.appendChild(this.overlay);
-    this.overlay.addEventListener('keydown', (e) => {
-      if (e.code === 'Escape' || e.code === 'KeyM') {
+    // M toggles the map and Esc closes it wherever focus is (rebuilding the list can drop focus to the body).
+    window.addEventListener('keydown', (e) => {
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (e.code === 'KeyM' || (e.code === 'Escape' && this.isOpen)) {
         e.preventDefault();
-        this.close();
-      } else if (e.code === 'Tab' && !e.shiftKey && document.activeElement === this.overlay) {
+        this.toggle();
+      }
+    });
+    this.overlay.addEventListener('keydown', (e) => {
+      if (e.code === 'Tab' && !e.shiftKey && document.activeElement === this.overlay) {
+        e.preventDefault();
         this.list.querySelector<HTMLButtonElement>('button')?.focus();
       }
     });
@@ -117,6 +126,7 @@ export class MapView {
   open(mode?: MapMode): void {
     const anchor = this.app.cam.pos.anchor;
     this.mode = mode ?? (anchor === 'ism' ? 'stars' : 'system');
+    if (this.getSelected) this.selectedId = this.getSelected();
     this.build();
     this.isOpen = true;
     document.body.classList.add('ks-map-open');
@@ -174,6 +184,7 @@ export class MapView {
     modeBtn.addEventListener('click', () => {
       this.mode = this.mode === 'system' ? 'stars' : 'system';
       this.build();
+      this.list.querySelector<HTMLButtonElement>('.ks-map-mode')?.focus();
     });
     this.list.appendChild(modeBtn);
     for (const it of this.items) {

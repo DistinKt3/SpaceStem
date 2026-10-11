@@ -103,6 +103,15 @@ export class Ship {
     this.quat.copy(quat);
   }
 
+  /** Back to thrusters, at rest in attitude, not landed (used when teleporting). */
+  resetFlight(): void {
+    this.mode = 'thrusters';
+    this.throttle = 0;
+    this.angVel.set(0, 0, 0);
+    this.landed = false;
+    this.landedBf = null;
+  }
+
   forward(out = new Vec3d()): Vec3d {
     tmpV.set(0, 0, -1).applyQuaternion(this.quat);
     return out.set(tmpV.x, tmpV.y, tmpV.z);
