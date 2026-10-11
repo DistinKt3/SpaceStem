@@ -232,8 +232,8 @@
     },
     {
      "claim": "The radar-bright material at Mercury's north pole is mainly water ice.",
-     "method": "MESSENGER neutron spectrometer measurements",
-     "provenance": "measured",
+     "method": "MESSENGER neutron spectrometer hydrogen measurements combined with thermal models",
+     "provenance": "inferred",
      "citation": "lawrence2013"
     },
     {
@@ -657,7 +657,7 @@
      "citation": "jpl-ephemerides"
     },
     {
-     "claim": "Lunar topography is known to about 10 m vertically from laser altimetry.",
+     "claim": "By 2010, laser altimetry had tied lunar heights to the Moon's centre of mass to about 10 m.",
      "method": "Lunar Orbiter Laser Altimeter (LOLA) on LRO",
      "provenance": "measured",
      "citation": "lola"
@@ -872,7 +872,7 @@
     },
     {
      "label": "Discovered",
-     "value": 1877,
+     "value": "1877",
      "provenance": "measured",
      "method": "Asaph Hall",
      "citation": "jpl-sat-discovery"
@@ -978,7 +978,7 @@
     },
     {
      "label": "Discovered",
-     "value": 1877,
+     "value": "1877",
      "provenance": "measured",
      "method": "Asaph Hall",
      "citation": "jpl-sat-discovery"
@@ -1195,7 +1195,7 @@
     },
     {
      "label": "Discovered",
-     "value": 1610,
+     "value": "1610",
      "provenance": "measured",
      "method": "Galileo Galilei",
      "citation": "jpl-sat-discovery"
@@ -1309,7 +1309,7 @@
     },
     {
      "label": "Discovered",
-     "value": 1610,
+     "value": "1610",
      "provenance": "measured",
      "method": "Galileo Galilei",
      "citation": "jpl-sat-discovery"
@@ -1420,7 +1420,7 @@
     },
     {
      "label": "Discovered",
-     "value": 1610,
+     "value": "1610",
      "provenance": "measured",
      "method": "Galileo Galilei",
      "citation": "jpl-sat-discovery"
@@ -1533,7 +1533,7 @@
     },
     {
      "label": "Discovered",
-     "value": 1610,
+     "value": "1610",
      "provenance": "measured",
      "method": "Galileo Galilei",
      "citation": "jpl-sat-discovery"
@@ -1764,7 +1764,7 @@
     },
     {
      "label": "Discovered",
-     "value": 1789,
+     "value": "1789",
      "provenance": "measured",
      "method": "William Herschel",
      "citation": "jpl-sat-discovery"
@@ -1890,7 +1890,7 @@
     },
     {
      "label": "Discovered",
-     "value": 1655,
+     "value": "1655",
      "provenance": "measured",
      "method": "Christiaan Huygens",
      "citation": "jpl-sat-discovery"
@@ -1905,8 +1905,8 @@
     },
     {
      "claim": "Liquids once flowed across Titan's surface.",
-     "method": "Huygens Descent Imager/Spectral Radiometer images",
-     "provenance": "measured",
+     "method": "Branching drainage channels in Huygens Descent Imager/Spectral Radiometer images",
+     "provenance": "inferred",
      "citation": "tomasko2005"
     },
     {
@@ -2236,7 +2236,7 @@
     },
     {
      "label": "Discovered",
-     "value": 1846,
+     "value": "1846",
      "provenance": "measured",
      "method": "William Lassell",
      "citation": "jpl-sat-discovery"
@@ -2462,7 +2462,7 @@
     },
     {
      "label": "Discovered",
-     "value": 1978,
+     "value": "1978",
      "provenance": "measured",
      "method": "James W. Christy",
      "citation": "jpl-sat-discovery"
@@ -2715,7 +2715,7 @@
     },
     {
      "label": "Discovered",
-     "value": 2016,
+     "value": "2016",
      "provenance": "measured",
      "method": "Transit photometry; year as listed in the NASA Exoplanet Archive",
      "citation": "gillon2016"
@@ -2742,7 +2742,7 @@
      "citation": "agol2021"
     },
     {
-     "claim": "It has no thick atmosphere.",
+     "claim": "Atmospheres thicker than about 1 bar are strongly disfavoured; the data fit a dark, airless surface.",
      "method": "JWST MIRI eclipses and phase curve compared with atmosphere models",
      "provenance": "inferred",
      "citation": "gillon2026"
@@ -2867,7 +2867,7 @@
     },
     {
      "label": "Discovered",
-     "value": 2016,
+     "value": "2016",
      "provenance": "measured",
      "method": "Transit photometry; year as listed in the NASA Exoplanet Archive",
      "citation": "gillon2016"
@@ -2894,7 +2894,7 @@
      "citation": "agol2021"
     },
     {
-     "claim": "It has no thick CO2-rich atmosphere.",
+     "claim": "Its hot day side disfavours a thick, CO2-rich atmosphere.",
      "method": "JWST MIRI eclipse depth compared with atmosphere models",
      "provenance": "inferred",
      "citation": "zieba2023"
@@ -2994,7 +2994,7 @@
     },
     {
      "label": "Discovered",
-     "value": 2016,
+     "value": "2016",
      "provenance": "measured",
      "method": "Transit photometry; year as listed in the NASA Exoplanet Archive",
      "citation": "gillon2016"
@@ -3122,7 +3122,7 @@
     },
     {
      "label": "Discovered",
-     "value": 2017,
+     "value": "2017",
      "provenance": "measured",
      "method": "Transit photometry; year as listed in the NASA Exoplanet Archive",
      "citation": "gillon2017"
@@ -3255,7 +3255,7 @@
     },
     {
      "label": "Discovered",
-     "value": 2017,
+     "value": "2017",
      "provenance": "measured",
      "method": "Transit photometry; year as listed in the NASA Exoplanet Archive",
      "citation": "gillon2017"
@@ -3282,8 +3282,8 @@
      "citation": "agol2021"
     },
     {
-     "claim": "Hydrogen/helium atmospheres thicker than about 20 mbar are ruled out.",
-     "method": "JWST NIRISS SOSS transit spectra (five transits)",
+     "claim": "Hydrogen/helium-dominated atmospheres above about 20 mbar are ruled out at 95% confidence.",
+     "method": "JWST NIRISS SOSS transit spectra from the visits least affected by flares",
      "provenance": "inferred",
      "citation": "lim2026"
     },
@@ -3382,7 +3382,7 @@
     },
     {
      "label": "Discovered",
-     "value": 2017,
+     "value": "2017",
      "provenance": "measured",
      "method": "Transit photometry; year as listed in the NASA Exoplanet Archive",
      "citation": "gillon2017"
@@ -3515,7 +3515,7 @@
     },
     {
      "label": "Discovered",
-     "value": 2017,
+     "value": "2017",
      "provenance": "measured",
      "method": "Transit photometry; year as listed in the NASA Exoplanet Archive",
      "citation": "gillon2017"
@@ -3978,7 +3978,7 @@
      "citation": "kervella2017"
     },
     {
-     "claim": "Proxima d is a real planet.",
+     "claim": "Proxima d was confirmed in 2025, with stable parameters across instruments.",
      "method": "NIRPS, HARPS and archival radial velocities",
      "provenance": "measured",
      "citation": "suarezmascareno2025"
@@ -4047,7 +4047,7 @@
     },
     {
      "label": "Discovered",
-     "value": 2016,
+     "value": "2016",
      "provenance": "measured",
      "method": "Radial velocities",
      "citation": "anglada2016"
@@ -4062,8 +4062,8 @@
    ],
    "howWeKnow": [
     {
-     "claim": "Proxima b exists.",
-     "method": "Independent radial-velocity detections with several spectrographs",
+     "claim": "Proxima b was confirmed independently by a second spectrograph, ESPRESSO.",
+     "method": "Radial velocities from ESPRESSO compared with the earlier HARPS and UVES detection",
      "provenance": "measured",
      "citation": "suarezmascareno2020"
     },
@@ -4188,7 +4188,7 @@
      "citation": "lubin2021"
     },
     {
-     "claim": "Barnard b is a sub-Earth-mass planet with a 3.15-day orbit.",
+     "claim": "Barnard b has a 3.15-day orbit and a minimum mass below Earth's.",
      "method": "156 ESPRESSO radial velocities",
      "provenance": "measured",
      "citation": "gonzalezhernandez2024"
@@ -4544,8 +4544,8 @@
      "citation": "aumann1984"
     },
     {
-     "claim": "No Saturn-mass planet orbits beyond about 10 au.",
-     "method": "Smoothness of the JWST disc image",
+     "claim": "Vega probably has no Saturn-mass planet beyond about 10 au.",
+     "method": "Smoothness of the JWST disc image, assuming any such planet would sit inside the broad disc",
      "provenance": "inferred",
      "citation": "su2024"
     }
@@ -5249,8 +5249,8 @@
      "citation": "kopparapu2013"
     },
     {
-     "claim": "The habitable-zone concept was defined for main-sequence stars in 1993.",
-     "method": "Climate modelling",
+     "claim": "Kasting and colleagues calculated habitable-zone limits for main-sequence stars in 1993.",
+     "method": "1D climate modelling",
      "provenance": "inferred",
      "citation": "kasting1993"
     },

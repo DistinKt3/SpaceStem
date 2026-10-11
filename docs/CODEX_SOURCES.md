@@ -52,6 +52,7 @@ These are outside the Codex module; they are reported for the integrator.
 - Run `python3 tools/pipeline/codex_check.py` and `npx vitest run tests/unit/codex.test.ts` after any edit. Both fail on unknown citation keys, missing provenance, Measured facts resting on unverified sources, unknown `bodyId` or `starName`, broken `related` links and numeric drift from `bodies.json` and the TRAPPIST-1 pipeline values.
 - To refresh the exoplanet count, run `https://exoplanetarchive.ipac.caltech.edu/TAP/sync?query=select+count(*)+from+pscomppars&format=csv`, update the facts in `concept-exoplanet-count`, `concept-transit` and `concept-radial-velocity`, and update the date in the `nea-pscomppars` note.
 - New citation keys must be fetched and checked before `verified` is set to `true`.
+- To proofread entries as players would read them, run `npx vite` and open `/codexdata.html` (optionally `?id=<entry id>` or `?kind=star`). The page shows every fact with its provenance badge, method and numbered source, and flags any citation key it cannot resolve. `tests/e2e/codexdata.spec.ts` opens every entry on that page.
 
 ## Citation registry
 
