@@ -1,7 +1,10 @@
-"""Tests for tools/pipeline/exoplanets.py: physics helpers, deterministic hashing, and the committed output.
+"""Tests for tools/pipeline/exoplanets.py: physics helpers, deterministic hashing, the build gate, and the committed
+output checked against the archive.
 
 Run: tools/.venv/bin/python -m pytest tools/pipeline/test_exoplanets.py -q
-Tests that compare against the raw archive responses are skipped when tools/.cache/exoarchive/ is absent.
+The archive comparisons use the raw responses in tools/.cache/exoarchive/ when present, and otherwise the committed
+fixtures in tools/pipeline/fixtures/ (the raw pscomppars response and a subset of the Agol et al. 2024 forecast,
+written by `exoplanets.py --write-fixtures`), so they never skip on a fresh checkout.
 """
 from __future__ import annotations
 
@@ -26,12 +29,20 @@ def system() -> dict:
     return json.loads(OUT.read_text())
 
 
+def archive_rows() -> list[dict]:
+    cached = ex.CACHE / "pscomppars_trappist-1.json"
+    return json.loads((cached if cached.exists() else ex.FIXTURE_ARCHIVE).read_text())
+
+
 @pytest.fixture(scope="module")
 def archive() -> dict:
-    path = ex.CACHE / "pscomppars_trappist-1.json"
-    if not path.exists():
-        pytest.skip("archive cache not present (run tools/pipeline/exoplanets.py)")
-    return {r["pl_letter"]: r for r in json.loads(path.read_text())}
+    return {r["pl_letter"]: r for r in archive_rows()}
+
+
+@pytest.fixture(scope="module")
+def forecast() -> list[ex.ForecastTransit]:
+    cached = ex.CACHE / "agol2024_arxiv_eprint.tar.gz"
+    return ex.read_forecast(cached.read_bytes()) if cached.exists() else ex.read_forecast_fixture()
 
 
 def all_sourced(obj, path=""):
@@ -283,15 +294,120 @@ def test_read_forecast_from_tarball():
     assert fc[0].bjd == pytest.approx(2_457_259.061227615)
 
 
-def test_mean_ephemeris_follows_cached_forecast(system):
-    path = ex.CACHE / "agol2024_arxiv_eprint.tar.gz"
-    if not path.exists():
-        pytest.skip("forecast cache not present")
-    fc = ex.read_forecast(path.read_bytes())
-    ex.check_forecast(fc)
+def test_mean_ephemeris_follows_the_forecast(system, forecast):
+    """Every forecast transit (all of them from the cache, or the committed subset) lies within the 'up to N min'
+    the note states for that planet's mean ephemeris, and the forecast reproduces the JWST transits."""
+    ex.check_forecast(forecast)
     for i, p in enumerate(system["planets"], start=1):
         inf = p["inferred"]
-        e = ex.fit_ephemeris(fc, i)
+        period, t0 = inf["ephemerisPeriodDays"]["value"], inf["ephemerisTransitMidBJD"]["value"]
+        stated = float(re.search(r"up to (\d+) min", inf["ephemerisPeriodDays"]["note"]).group(1))
+        pts = [x for x in forecast if x.planet == i]
+        assert len(pts) > 20, p["id"]
+        worst = max(abs((t0 + round((x.bjd - t0) / period) * period - x.bjd) * 1440) for x in pts)
+        assert worst <= stated + 0.5, (p["id"], worst, stated)
+        assert worst >= stated - 0.5 or len(pts) < 200, (p["id"], worst, stated)  # the full forecast hits the bound
         for at in (2_460_311.5, 2_461_041.5, 2_461_600.0):  # 2024-01-01, 2026-01-01, 2027-07
-            m, _ = ex.phase_error(fc, i, inf["ephemerisPeriodDays"]["value"], inf["ephemerisTransitMidBJD"]["value"], at)
-            assert abs(m) <= e.max_min + 0.5, (p["id"], at, m)
+            m, _ = ex.phase_error(forecast, i, period, t0, at)
+            assert abs(m) <= stated + 0.5, (p["id"], at, m)
+
+
+def test_full_forecast_refits_to_the_published_ephemeris(system):
+    path = ex.CACHE / "agol2024_arxiv_eprint.tar.gz"
+    if not path.exists():
+        pytest.skip("full forecast only in the cache; test_mean_ephemeris_follows_the_forecast covers the fixture")
+    fc = ex.read_forecast(path.read_bytes())
+    for i, p in enumerate(system["planets"], start=1):
+        e = ex.fit_ephemeris(fc, i)
+        assert round(e.period, 7) == p["inferred"]["ephemerisPeriodDays"]["value"]
+        assert round(e.t0, 5) == p["inferred"]["ephemerisTransitMidBJD"]["value"]
+
+
+def test_fixture_subset_matches_the_cache():
+    cached = ex.CACHE / "agol2024_arxiv_eprint.tar.gz"
+    arch = ex.CACHE / "pscomppars_trappist-1.json"
+    if not (cached.exists() and arch.exists()):
+        pytest.skip("cache not present")
+    full = {(x.planet, x.epoch): x.bjd for x in ex.read_forecast(cached.read_bytes())}
+    for x in ex.read_forecast_fixture():
+        assert full[(x.planet, x.epoch)] == x.bjd
+    assert json.loads(arch.read_text()) == json.loads(ex.FIXTURE_ARCHIVE.read_text())
+
+
+def test_forecast_subset_keeps_ends_and_jwst_transits():
+    fc = [ex.ForecastTransit(p, k, 2_457_000.0 + k * p) for p in range(1, 8) for k in range(1, 95)]
+    sub = ex.forecast_subset(fc)
+    for p in range(1, 8):
+        epochs = [x.epoch for x in sub if x.planet == p]
+        assert epochs[0] == 1 and epochs[-1] == 94 and 10 <= len(epochs) <= 13
+
+
+# --- Build gate: nothing is written unless every check passes -------------------------------------------------------
+
+@pytest.fixture()
+def gated(monkeypatch, tmp_path):
+    """main() with the network and the build stubbed, writing to temporary paths."""
+    out, doc = tmp_path / "trappist-1.json", tmp_path / "doc.md"
+    doc.write_text("before <!-- crosscheck:begin -->old<!-- crosscheck:end --> after")
+    monkeypatch.setattr(ex, "OUT", out)
+    monkeypatch.setattr(ex, "DOC", doc)
+    monkeypatch.setattr(ex, "ROOT", tmp_path)
+    comp = [{"pl_name": f"T b{i}", "st_teff": 2566, "sy_dist": 12.43} for i in range(7)]
+    monkeypatch.setattr(ex, "query_all", lambda refresh, offline: {"comp": comp})
+    monkeypatch.setattr(ex, "build", lambda data: {"exoplanetCount": {"value": 1, "asOf": "2026-01-01"},
+                                                   "retrieved": "2026-01-01", "planets": []})
+    monkeypatch.setattr(ex, "phase_check", lambda out_, data: [])
+    state = {"rows": [], "default": []}
+    monkeypatch.setattr(ex, "cross_check", lambda out_, data: (state["rows"], 3))
+    monkeypatch.setattr(ex, "default_set_check", lambda data: state["default"])
+    return out, doc, state, comp
+
+
+def test_gate_writes_output_and_doc_when_checks_pass(gated):
+    out, doc, _, _ = gated
+    assert ex.main([]) == 0
+    assert json.loads(out.read_text())["retrieved"] == "2026-01-01"
+    assert "3 values agree" in doc.read_text() and "old" not in doc.read_text()
+    assert not list(out.parent.glob(".*.tmp"))
+
+
+def test_gate_blocks_unexplained_rows(gated):
+    out, doc, state, _ = gated
+    state["rows"] = [["star.mass", "1", "2", "UNEXPLAINED: investigate before release"]]
+    assert ex.main([]) == 1
+    assert not out.exists() and "old" in doc.read_text()
+
+
+def test_gate_blocks_default_set_differences_unless_accepted(gated):
+    out, _, state, _ = gated
+    state["default"] = ["TRAPPIST-1 b pl_orbper: composite 1 vs default set 2"]
+    assert ex.main([]) == 1 and not out.exists()
+    assert ex.main(["--accept-default-set-differences"]) == 0 and out.exists()
+
+
+def test_gate_blocks_rows_with_different_stellar_values(gated):
+    out, _, _, comp = gated
+    comp[3]["st_teff"] = 2600
+    assert ex.check_rows_agree(comp) == ["T b3 st_teff: 2600 differs from T b0 2566"]
+    assert ex.main([]) == 1 and not out.exists()
+
+
+def test_refresh_and_offline_are_exclusive():
+    with pytest.raises(SystemExit) as e:
+        ex.main(["--refresh", "--offline"])
+    assert e.value.code == 2
+
+
+def test_citation_surname_parsing():
+    assert ex.listed_surnames("Espinoza, N., Allen, N. H., Glidden, A. et al.") == ["Espinoza", "Allen", "Glidden"]
+    assert ex.listed_surnames("Grimm, S. L., Demory, B.-O., Gillon, M. et al.") == ["Grimm", "Demory", "Gillon"]
+    assert ex.listed_surnames("Vinson, A. M., Tamayo, D. & Hansen, B. M. S.") == ["Vinson", "Tamayo", "Hansen"]
+    assert ex.fold("Méndez") == "mendez" and ex.fold("Cañas") == "canas"
+
+
+def test_crossref_author_order_from_cache():
+    """With cached Crossref records (from --verify-citations), every listed author order matches."""
+    if not list(ex.CACHE.glob("crossref_*.json")):
+        pytest.skip("no cached Crossref records")
+    problems, checked = ex.verify_citations(refresh=False, offline=True)
+    assert problems == [] and checked >= 20

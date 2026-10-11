@@ -299,7 +299,7 @@
      "provenance": "inferred",
      "source": "Tidal spin-down timescale compared with the system's age",
      "citation": "turbet2018",
-     "note": "Not observed. Turbet et al. 2018 find from N-body and tidal modelling that each TRAPPIST-1 planet is likely in synchronous rotation (one face always toward the star). Order-of-magnitude check (Gladman et al. 1996; Q = 100, k2 = 0.3, initial 12 h spin): spin-down in about 60 years, far shorter than the system's 7.6 Gyr age."
+     "note": "Not observed. Turbet et al. 2018 find from N-body and tidal modelling that each TRAPPIST-1 planet is likely in synchronous rotation (one face always toward the star). Order-of-magnitude check (Gladman et al. 1996; Q = 100, k2 = 0.3, initial 12 h spin): spin-down in about 60 years, far shorter than the system's 7.6 Gyr age. Caveat: Vinson et al. 2019 show that mutual tugs in the resonant chain can push d, e and f into effectively non-synchronous spin states (the point under the star librates or even drifts around the planet); they did not model this planet."
     },
     "ephemerisPeriodDays": {
      "value": 1.5108737,
@@ -333,7 +333,7 @@
      "provenance": "inferred",
      "source": "JWST/MIRI 15 um secondary eclipses",
      "citation": "greene2023",
-     "note": "JWST detected the dayside's thermal emission; it is most consistent with little or no atmosphere and no CO2 absorption (Greene et al. 2023). Adding 12.8 um eclipses, an airless fresh-rock surface fits, but so does a hazy CO2 atmosphere (Ducrot et al. 2025); phase curves then strongly disfavoured atmospheres of 1 bar or more (Gillon et al. 2026)."
+     "note": "JWST detected the dayside's thermal emission; it is most consistent with little or no atmosphere and no CO2 absorption (Greene et al. 2023). Adding 12.8 um eclipses, an airless fresh-rock surface fits, but so does a hazy CO2 atmosphere (Ducrot et al. 2025). Phase curves then strongly disfavoured atmospheres with surface pressures of 1 bar or more and efficient greenhouse effects (Gillon et al. 2026)."
     }
    },
    "generated": {
@@ -490,7 +490,7 @@
      "provenance": "inferred",
      "source": "Tidal spin-down timescale compared with the system's age",
      "citation": "turbet2018",
-     "note": "Not observed. Turbet et al. 2018 find from N-body and tidal modelling that each TRAPPIST-1 planet is likely in synchronous rotation (one face always toward the star). Order-of-magnitude check (Gladman et al. 1996; Q = 100, k2 = 0.3, initial 12 h spin): spin-down in about 400 years, far shorter than the system's 7.6 Gyr age."
+     "note": "Not observed. Turbet et al. 2018 find from N-body and tidal modelling that each TRAPPIST-1 planet is likely in synchronous rotation (one face always toward the star). Order-of-magnitude check (Gladman et al. 1996; Q = 100, k2 = 0.3, initial 12 h spin): spin-down in about 400 years, far shorter than the system's 7.6 Gyr age. Caveat: Vinson et al. 2019 show that mutual tugs in the resonant chain can push d, e and f into effectively non-synchronous spin states (the point under the star librates or even drifts around the planet); they did not model this planet."
     },
     "ephemerisPeriodDays": {
      "value": 2.4218107,
@@ -524,7 +524,7 @@
      "provenance": "inferred",
      "source": "JWST/MIRI 15 um secondary eclipses",
      "citation": "zieba2023",
-     "note": "The dayside brightness temperature (380 +/- 31 K) disfavours a thick CO2-rich atmosphere; thinner atmospheres or bare rock remain possible (Zieba et al. 2023). Phase curves disfavour atmospheres of 1 bar or more; a thin O2-rich one is still allowed (Gillon et al. 2026)."
+     "note": "The dayside brightness temperature (380 +/- 31 K) disfavours a thick CO2-rich atmosphere; thinner atmospheres or bare rock remain possible (Zieba et al. 2023). Phase curves strongly disfavour atmospheres with surface pressures of 1 bar or more and efficient greenhouse effects; a tenuous, greenhouse-poor O2-dominated one is still allowed (Gillon et al. 2026)."
     }
    },
    "generated": {
@@ -681,7 +681,7 @@
      "provenance": "inferred",
      "source": "Tidal spin-down timescale compared with the system's age",
      "citation": "turbet2018",
-     "note": "Not observed. Turbet et al. 2018 find from N-body and tidal modelling that each TRAPPIST-1 planet is likely in synchronous rotation (one face always toward the star). Order-of-magnitude check (Gladman et al. 1996; Q = 100, k2 = 0.3, initial 12 h spin): spin-down in about 2,000 years, far shorter than the system's 7.6 Gyr age."
+     "note": "Not observed. Turbet et al. 2018 find from N-body and tidal modelling that each TRAPPIST-1 planet is likely in synchronous rotation (one face always toward the star). Order-of-magnitude check (Gladman et al. 1996; Q = 100, k2 = 0.3, initial 12 h spin): spin-down in about 2,000 years, far shorter than the system's 7.6 Gyr age. Caveat: Vinson et al. 2019 show that mutual tugs in the resonant chain can push d, e and f into effectively non-synchronous spin states (the point under the star librates or even drifts around the planet), so this planet may not keep exactly one face toward the star."
     },
     "ephemerisPeriodDays": {
      "value": 4.0494997,
@@ -873,7 +873,7 @@
      "provenance": "inferred",
      "source": "Tidal spin-down timescale compared with the system's age",
      "citation": "turbet2018",
-     "note": "Not observed. Turbet et al. 2018 find from N-body and tidal modelling that each TRAPPIST-1 planet is likely in synchronous rotation (one face always toward the star). Order-of-magnitude check (Gladman et al. 1996; Q = 100, k2 = 0.3, initial 12 h spin): spin-down in about 10,000 years, far shorter than the system's 7.6 Gyr age."
+     "note": "Not observed. Turbet et al. 2018 find from N-body and tidal modelling that each TRAPPIST-1 planet is likely in synchronous rotation (one face always toward the star). Order-of-magnitude check (Gladman et al. 1996; Q = 100, k2 = 0.3, initial 12 h spin): spin-down in about 10,000 years, far shorter than the system's 7.6 Gyr age. Caveat: Vinson et al. 2019 show that mutual tugs in the resonant chain can push d, e and f into effectively non-synchronous spin states (the point under the star librates or even drifts around the planet), so this planet may not keep exactly one face toward the star."
     },
     "ephemerisPeriodDays": {
      "value": 6.0995506,
@@ -923,7 +923,7 @@
     ],
     "iceCoverage": 0.36,
     "nightSideGlow": 0.0,
-    "rationale": "Insolation 0.646 x Earth's; the equilibrium temperature at albedo 0.3 is 228 K, below freezing, so any water would be ice. Ice cover 36% (rule: 0% at 273 K rising linearly to 100% at 150 K). How much water the planet has is not known. Bond albedo 0.24 (rock 0.12, ice 0.45, weighted by ice cover).",
+    "rationale": "Insolation 0.646 x Earth's; the equilibrium temperature at albedo 0.3 is 228 K, below freezing, so any water would be ice. Ice cover 36% (rule: 0% at 273 K rising linearly to 100% at 150 K). How much water the planet has is not known. Bond albedo 0.24 (rock 0.12, ice 0.45, weighted by ice cover). Previews draw the ice away from the point under the star, assuming one face always points at it (likely but not certain; see the tidal-locking note).",
     "provenance": "generated",
     "source": "Known Sky rule-based surface generator v1 (inputs: inferred insolation and equilibrium temperature, published JWST constraints)",
     "citation": "known-sky-exo-rules"
@@ -1064,7 +1064,7 @@
      "provenance": "inferred",
      "source": "Tidal spin-down timescale compared with the system's age",
      "citation": "turbet2018",
-     "note": "Not observed. Turbet et al. 2018 find from N-body and tidal modelling that each TRAPPIST-1 planet is likely in synchronous rotation (one face always toward the star). Order-of-magnitude check (Gladman et al. 1996; Q = 100, k2 = 0.3, initial 12 h spin): spin-down in about 70,000 years, far shorter than the system's 7.6 Gyr age."
+     "note": "Not observed. Turbet et al. 2018 find from N-body and tidal modelling that each TRAPPIST-1 planet is likely in synchronous rotation (one face always toward the star). Order-of-magnitude check (Gladman et al. 1996; Q = 100, k2 = 0.3, initial 12 h spin): spin-down in about 70,000 years, far shorter than the system's 7.6 Gyr age. Caveat: Vinson et al. 2019 show that mutual tugs in the resonant chain can push d, e and f into effectively non-synchronous spin states (the point under the star librates or even drifts around the planet), so this planet may not keep exactly one face toward the star."
     },
     "ephemerisPeriodDays": {
      "value": 9.2068544,
@@ -1114,7 +1114,7 @@
     ],
     "iceCoverage": 0.6,
     "nightSideGlow": 0.0,
-    "rationale": "Insolation 0.373 x Earth's; the equilibrium temperature at albedo 0.3 is 199 K, below freezing, so any water would be ice. Ice cover 60% (rule: 0% at 273 K rising linearly to 100% at 150 K). How much water the planet has is not known. Bond albedo 0.32 (rock 0.12, ice 0.45, weighted by ice cover).",
+    "rationale": "Insolation 0.373 x Earth's; the equilibrium temperature at albedo 0.3 is 199 K, below freezing, so any water would be ice. Ice cover 60% (rule: 0% at 273 K rising linearly to 100% at 150 K). How much water the planet has is not known. Bond albedo 0.32 (rock 0.12, ice 0.45, weighted by ice cover). Previews draw the ice away from the point under the star, assuming one face always points at it (likely but not certain; see the tidal-locking note).",
     "provenance": "generated",
     "source": "Known Sky rule-based surface generator v1 (inputs: inferred insolation and equilibrium temperature, published JWST constraints)",
     "citation": "known-sky-exo-rules"
@@ -1255,7 +1255,7 @@
      "provenance": "inferred",
      "source": "Tidal spin-down timescale compared with the system's age",
      "citation": "turbet2018",
-     "note": "Not observed. Turbet et al. 2018 find from N-body and tidal modelling that each TRAPPIST-1 planet is likely in synchronous rotation (one face always toward the star). Order-of-magnitude check (Gladman et al. 1996; Q = 100, k2 = 0.3, initial 12 h spin): spin-down in about 200,000 years, far shorter than the system's 7.6 Gyr age."
+     "note": "Not observed. Turbet et al. 2018 find from N-body and tidal modelling that each TRAPPIST-1 planet is likely in synchronous rotation (one face always toward the star). Order-of-magnitude check (Gladman et al. 1996; Q = 100, k2 = 0.3, initial 12 h spin): spin-down in about 200,000 years, far shorter than the system's 7.6 Gyr age. Caveat: Vinson et al. 2019 show that mutual tugs in the resonant chain can push d, e and f into effectively non-synchronous spin states (the point under the star librates or even drifts around the planet); they did not model this planet."
     },
     "ephemerisPeriodDays": {
      "value": 12.3534222,
@@ -1305,7 +1305,7 @@
     ],
     "iceCoverage": 0.75,
     "nightSideGlow": 0.0,
-    "rationale": "Insolation 0.252 x Earth's; the equilibrium temperature at albedo 0.3 is 181 K, below freezing, so any water would be ice. Ice cover 75% (rule: 0% at 273 K rising linearly to 100% at 150 K). How much water the planet has is not known. Bond albedo 0.37 (rock 0.12, ice 0.45, weighted by ice cover). Turbet et al. 2018 suggest photochemical hazes could settle as reddish tholins on the coldest TRAPPIST-1 surfaces, so the bare ground is tinted reddish-brown.",
+    "rationale": "Insolation 0.252 x Earth's; the equilibrium temperature at albedo 0.3 is 181 K, below freezing, so any water would be ice. Ice cover 75% (rule: 0% at 273 K rising linearly to 100% at 150 K). How much water the planet has is not known. Bond albedo 0.37 (rock 0.12, ice 0.45, weighted by ice cover). Turbet et al. 2018 suggest photochemical hazes could settle on TRAPPIST-1 planets and build up a surface layer of tholins. As a design choice we tint the bare ground reddish-brown on the coldest icy planets only (insolation below 0.3 x Earth's). Previews draw the ice away from the point under the star, assuming one face always points at it (likely but not certain; see the tidal-locking note).",
     "provenance": "generated",
     "source": "Known Sky rule-based surface generator v1 (inputs: inferred insolation and equilibrium temperature, published JWST constraints)",
     "citation": "known-sky-exo-rules"
@@ -1443,7 +1443,7 @@
      "provenance": "inferred",
      "source": "Tidal spin-down timescale compared with the system's age",
      "citation": "turbet2018",
-     "note": "Not observed. Turbet et al. 2018 find from N-body and tidal modelling that each TRAPPIST-1 planet is likely in synchronous rotation (one face always toward the star). Order-of-magnitude check (Gladman et al. 1996; Q = 100, k2 = 0.3, initial 12 h spin): spin-down in about 1,000,000 years, far shorter than the system's 7.6 Gyr age."
+     "note": "Not observed. Turbet et al. 2018 find from N-body and tidal modelling that each TRAPPIST-1 planet is likely in synchronous rotation (one face always toward the star). Order-of-magnitude check (Gladman et al. 1996; Q = 100, k2 = 0.3, initial 12 h spin): spin-down in about 1,000,000 years, far shorter than the system's 7.6 Gyr age. Caveat: Vinson et al. 2019 show that mutual tugs in the resonant chain can push d, e and f into effectively non-synchronous spin states (the point under the star librates or even drifts around the planet); they did not model this planet."
     },
     "ephemerisPeriodDays": {
      "value": 18.766947,
@@ -1493,7 +1493,7 @@
     ],
     "iceCoverage": 0.94,
     "nightSideGlow": 0.0,
-    "rationale": "Insolation 0.144 x Earth's; the equilibrium temperature at albedo 0.3 is 157 K, below freezing, so any water would be ice. Ice cover 94% (rule: 0% at 273 K rising linearly to 100% at 150 K). How much water the planet has is not known. Bond albedo 0.43 (rock 0.12, ice 0.45, weighted by ice cover). Turbet et al. 2018 suggest photochemical hazes could settle as reddish tholins on the coldest TRAPPIST-1 surfaces, so the bare ground is tinted reddish-brown.",
+    "rationale": "Insolation 0.144 x Earth's; the equilibrium temperature at albedo 0.3 is 157 K, below freezing, so any water would be ice. Ice cover 94% (rule: 0% at 273 K rising linearly to 100% at 150 K). How much water the planet has is not known. Bond albedo 0.43 (rock 0.12, ice 0.45, weighted by ice cover). Turbet et al. 2018 suggest photochemical hazes could settle on TRAPPIST-1 planets and build up a surface layer of tholins. As a design choice we tint the bare ground reddish-brown on the coldest icy planets only (insolation below 0.3 x Earth's). Previews draw the ice away from the point under the star, assuming one face always points at it (likely but not certain; see the tidal-locking note).",
     "provenance": "generated",
     "source": "Known Sky rule-based surface generator v1 (inputs: inferred insolation and equilibrium temperature, published JWST constraints)",
     "citation": "known-sky-exo-rules"
@@ -1550,7 +1550,7 @@
    "url": "https://arxiv.org/abs/2412.11627"
   },
   "espinoza2025": {
-   "authors": "Espinoza, N., Glidden, A., Gressier, A. et al.",
+   "authors": "Espinoza, N., Allen, N. H., Glidden, A. et al.",
    "year": 2025,
    "title": "JWST-TST DREAMS: NIRSpec/PRISM Transmission Spectroscopy of the Habitable Zone Planet TRAPPIST-1 e",
    "venue": "The Astrophysical Journal Letters 990, L52",
@@ -1597,7 +1597,7 @@
    "doi": "10.1006/icar.1996.0117"
   },
   "glidden2025": {
-   "authors": "Glidden, A., Espinoza, N., Gressier, A. et al.",
+   "authors": "Glidden, A., Ranjan, S., Seager, S. et al.",
    "year": 2025,
    "title": "JWST-TST DREAMS: Secondary Atmosphere Constraints for the Habitable Zone Planet TRAPPIST-1 e",
    "venue": "The Astrophysical Journal Letters 990, L53",
@@ -1658,6 +1658,14 @@
    "venue": "Astronomy & Astrophysics 612, A86",
    "doi": "10.1051/0004-6361/201731620",
    "url": "https://arxiv.org/abs/1707.06927"
+  },
+  "vinson2019": {
+   "authors": "Vinson, A. M., Tamayo, D. & Hansen, B. M. S.",
+   "year": 2019,
+   "title": "The chaotic nature of TRAPPIST-1 planetary spin states",
+   "venue": "Monthly Notices of the Royal Astronomical Society 488, 5739-5747",
+   "doi": "10.1093/mnras/stz2113",
+   "url": "https://arxiv.org/abs/1905.11419"
   },
   "zieba2023": {
    "authors": "Zieba, S., Kreidberg, L., Ducrot, E. et al.",
