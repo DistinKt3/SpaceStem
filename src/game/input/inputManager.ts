@@ -582,7 +582,8 @@ export class InputManager {
 
   private readonly onKeyDown = (ev: Event): void => {
     const e = ev as KeyboardEvent;
-    if (!this._enabled || e.isComposing || !e.code) return;
+    // During a rebind capture the key belongs to the capture, whatever order listeners run in.
+    if (!this._enabled || this.capture || e.isComposing || !e.code) return;
     if (isEditable(e.target) || isEditable(this.doc.activeElement)) return;
     if ((e.ctrlKey || e.metaKey) && !MODIFIER_CODES.has(e.code)) return;
     if (this.kbmCodes.has(e.code)) e.preventDefault();
@@ -609,7 +610,7 @@ export class InputManager {
 
   private readonly onMouseDown = (ev: Event): void => {
     const e = ev as MouseEvent;
-    if (!this._enabled) return;
+    if (!this._enabled || this.capture) return;
     this.activeDevice = 'kbm';
     this.dragButtons.add(e.button);
     if (!this.mouseButtons.has(e.button)) bump(this.presses, mouseInput(e.button));
@@ -636,7 +637,7 @@ export class InputManager {
 
   private readonly onWheel = (ev: Event): void => {
     const e = ev as WheelEvent;
-    if (!this._enabled || e.ctrlKey) return; // Ctrl+wheel is browser zoom.
+    if (!this._enabled || this.capture || e.ctrlKey) return; // Ctrl+wheel is browser zoom.
     e.preventDefault();
     this.activeDevice = 'kbm';
     const px = e.deltaMode === 1 ? e.deltaY * (WHEEL_NOTCH_PX / 3) : e.deltaMode === 2 ? e.deltaY * WHEEL_NOTCH_PX : e.deltaY;
@@ -693,7 +694,7 @@ export class InputManager {
     const e = ev as MouseEvent;
     const cap = this.capture;
     if (!cap) return;
-    const within = !cap.opts.mouseTarget || (e.target instanceof Node && cap.opts.mouseTarget.contains(e.target));
+    const within = isWithin(cap.opts.mouseTarget, e.target);
     if (!within) {
       this.endCapture(null); // Clicking elsewhere cancels; the click itself proceeds normally.
       return;
@@ -708,7 +709,7 @@ export class InputManager {
     const e = ev as WheelEvent;
     const cap = this.capture;
     if (!cap || cap.context === 'pad' || cap.step !== 'any' || e.deltaY === 0) return;
-    const within = !cap.opts.mouseTarget || (e.target instanceof Node && cap.opts.mouseTarget.contains(e.target));
+    const within = isWithin(cap.opts.mouseTarget, e.target);
     if (!within) return;
     swallow(e);
     this.endCapture({ type: 'wheel', dir: e.deltaY < 0 ? -1 : 1 });
@@ -788,6 +789,12 @@ export class InputManager {
     }
     const timer = setTimeout(done, 1500);
   }
+}
+
+/** True when there is no capture area, or the event target lies inside it. */
+function isWithin(area: Element | null | undefined, target: EventTarget | null): boolean {
+  if (!area) return true;
+  return typeof Node !== 'undefined' && target instanceof Node && area.contains(target);
 }
 
 function swallow(e: Event): void {
