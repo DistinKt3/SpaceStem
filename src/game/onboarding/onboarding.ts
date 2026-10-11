@@ -10,22 +10,29 @@ import './onboarding.css';
 import { isActionId, type ActionId } from '../input/actions';
 import { hasKey, t } from '../i18n';
 import { factParams } from './facts';
+import type { AxisHalf } from './snapshot';
 import type { Nudge } from './steps';
 import { TourMachine, type StepPhase, type TourTiming } from './tour';
 import type { OnboardingSnapshot, OnboardingStorage } from './types';
 
 export type { OnboardingSnapshot, OnboardingStorage, OnboardingMode, OnboardingHyperPhase } from './types';
-export { LookTracker, isAligned, angleBetween, actionLabel, ALIGN_TOLERANCE_RAD } from './snapshot';
+export { LookTracker, isAligned, angleBetween, actionLabel, ALIGN_TOLERANCE_RAD, type AxisHalf } from './snapshot';
 export { STEP_IDS, STEPS, MOON_ID, APPROACH_DISTANCE_M, type StepId } from './steps';
 export { ONBOARDING_STORAGE_KEY, DEFAULT_TIMING, type TourTiming } from './tour';
+
+/** A template placeholder: an action id, optionally with one direction of an axis ({thrust+}). */
+const PLACEHOLDER = /\{(\w+)([+-]?)\}/;
 
 export interface OnboardingOptions {
   /** Element the card is added to (document.body in the game). */
   parent: HTMLElement;
   /** Progress storage; defaults to localStorage when reachable, null keeps progress in memory. */
   storage?: OnboardingStorage | null;
-  /** Display label of an action's current binding (see actionLabel in snapshot.ts). */
-  labelFor: (action: ActionId) => string;
+  /**
+   * Display label of an action's current binding (see actionLabel in snapshot.ts); with `half`, only that direction
+   * of an axis action ("W" for thrust '+').
+   */
+  labelFor: (action: ActionId, half?: AxisHalf) => string;
   /**
    * The input device in use (input.activeDevice). With 'pad', hints use their gamepad wording where one exists
    * (key '<hint>.pad'): no "move the mouse", no keyboard-only actions.
@@ -67,11 +74,13 @@ function svg(viewBox: string, inner: string, cls: string): SVGSVGElement {
   return s;
 }
 
+const halfOf = (sign: string | undefined): AxisHalf | undefined => (sign === '+' || sign === '-' ? sign : undefined);
+
 let instances = 0;
 
 export class Onboarding {
   private readonly tour: TourMachine;
-  private readonly labelFor: (action: ActionId) => string;
+  private readonly labelFor: (action: ActionId, half?: AxisHalf) => string;
   private readonly device: (() => 'kbm' | 'pad') | undefined;
   /** Device the hint text was written for. */
   private hintDevice: 'kbm' | 'pad' = 'kbm';
@@ -121,7 +130,9 @@ export class Onboarding {
     });
 
     // A full-viewport, click-through layer: the size container the card's layout queries (see onboarding.css).
+    // Screenshot mode (src/game/share) leaves out elements marked like this.
     this.layer = el('div', 'ks-onb-layer');
+    this.layer.setAttribute('data-ks-hide-in-screenshot', '');
     const root = el('section', 'ks-onb', this.layer);
     root.id = this.uid;
     root.setAttribute('aria-label', t('onboarding.region'));
@@ -175,6 +186,10 @@ export class Onboarding {
     this.science = el('p', 'ks-onb-science', this.body);
     const tag = el('span', 'ks-onb-science-tag', this.science);
     tag.textContent = t('onboarding.scienceTag');
+    // The gap after the tag is only visual (a margin): screen readers get a separator, so the tag and the sentence
+    // are not read as one word.
+    const sep = el('span', 'ks-onb-sr', this.science);
+    sep.textContent = t('onboarding.scienceTag.separator');
     this.scienceText = el('span', 'ks-onb-science-text', this.science);
 
     // Footer: skip controls and where to restart.
@@ -202,6 +217,22 @@ export class Onboarding {
     this.live.setAttribute('aria-atomic', 'true');
 
     opts.parent.append(this.layer, this.live);
+
+    // In short windows the card stops above the HUD's left panel and scrolls (onboarding.css): a fade at the bottom
+    // shows there is more. Size changes and scrolling update it; nothing is measured per frame.
+    root.addEventListener('scroll', () => this.updateMore(), { passive: true });
+    if (typeof ResizeObserver !== 'undefined') {
+      this.resize = new ResizeObserver(() => this.updateMore());
+      for (const e of [root, head, this.body, this.foot]) this.resize.observe(e);
+    }
+  }
+
+  private resize: ResizeObserver | null = null;
+
+  private updateMore(): void {
+    const r = this.root;
+    const more = !r.hidden && r.scrollHeight - r.scrollTop - r.clientHeight > 2;
+    if ((r.dataset['more'] === 'true') !== more) r.dataset['more'] = String(more);
   }
 
   /** True while the tour shows a step or its closing card. */
@@ -211,6 +242,11 @@ export class Onboarding {
 
   get stepId(): string | null {
     return this.tour.stepId;
+  }
+
+  /** True when start() would show the tour: it is new or in progress (not skipped or finished). */
+  get willShow(): boolean {
+    return this.tour.active || this.tour.status === 'new' || this.tour.status === 'active';
   }
 
   /** The card element (for layout checks and tests). */
@@ -268,6 +304,12 @@ export class Onboarding {
     this.sync();
   }
 
+  /** Replays the tour from the first step (Settings > Restart guided tour): reset() then start(). */
+  restart(): void {
+    this.reset();
+    this.start();
+  }
+
   /** Hides or shows the card without touching the tour (HUD hidden, screenshot mode). */
   setVisible(v: boolean): void {
     this.userVisible = v;
@@ -276,6 +318,7 @@ export class Onboarding {
 
   dispose(): void {
     this.disposed = true;
+    this.resize?.disconnect();
     this.clearFarewell();
     this.layer.remove();
     this.live.remove();
@@ -392,26 +435,31 @@ export class Onboarding {
    * sentence keeps its own word order; nothing is concatenated.
    */
   private renderTemplate(target: HTMLElement, key: string, params: Readonly<Record<string, string>>): void {
-    const parts = t(key, params).split(/\{(\w+)\}/);
+    // split() with two capture groups yields [text, name, half, text, name, half, ..., text].
+    const parts = t(key, params).split(new RegExp(PLACEHOLDER.source, 'g'));
     const nodes: Node[] = [];
-    parts.forEach((part, i) => {
-      if (i % 2 === 0) {
-        if (part) nodes.push(document.createTextNode(part));
-      } else if (isActionId(part)) {
+    for (let i = 0; i < parts.length; i += 3) {
+      const text = parts[i]!;
+      if (text) nodes.push(document.createTextNode(text));
+      const name = parts[i + 1];
+      if (name === undefined) break;
+      const half = halfOf(parts[i + 2]);
+      if (isActionId(name)) {
         const k = document.createElement('kbd');
         k.className = 'ks-onb-key';
-        k.dataset['action'] = part;
-        this.setKeyLabel(k, part);
+        k.dataset['action'] = name;
+        if (half) k.dataset['half'] = half;
+        this.setKeyLabel(k, name, half);
         nodes.push(k);
       } else {
-        nodes.push(document.createTextNode(`{${part}}`));
+        nodes.push(document.createTextNode(`{${name}${half ?? ''}}`));
       }
-    });
+    }
     target.replaceChildren(...nodes);
   }
 
-  private setKeyLabel(k: HTMLElement, action: ActionId): void {
-    const label = this.labelFor(action);
+  private setKeyLabel(k: HTMLElement, action: ActionId, half: AxisHalf | undefined): void {
+    const label = half ? this.labelFor(action, half) : this.labelFor(action);
     if (k.textContent !== label) k.textContent = label;
     k.classList.toggle('is-unbound', label === t('input.unbound'));
   }
@@ -426,7 +474,7 @@ export class Onboarding {
     }
     for (const k of this.root.querySelectorAll<HTMLElement>('kbd.ks-onb-key')) {
       const a = k.dataset['action'];
-      if (a && isActionId(a)) this.setKeyLabel(k, a);
+      if (a && isActionId(a)) this.setKeyLabel(k, a, halfOf(k.dataset['half']));
     }
   }
 
@@ -445,7 +493,11 @@ export class Onboarding {
 
   /** Plain-text version of a template, with key labels in place of the placeholders (for announcements). */
   private plain(key: string, params: Readonly<Record<string, string>>): string {
-    return t(key, params).replace(/\{(\w+)\}/g, (m, name: string) => (isActionId(name) ? this.labelFor(name) : m));
+    return t(key, params).replace(new RegExp(PLACEHOLDER.source, 'g'), (m, name: string, sign: string) => {
+      if (!isActionId(name)) return m;
+      const half = halfOf(sign);
+      return half ? this.labelFor(name, half) : this.labelFor(name);
+    });
   }
 
   private updateNudge(s: OnboardingSnapshot): void {

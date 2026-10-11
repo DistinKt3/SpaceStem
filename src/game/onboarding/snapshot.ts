@@ -1,10 +1,11 @@
 /**
  * Helpers the game uses to build an OnboardingSnapshot each frame (plain math, no engine types): accumulated view
- * rotation, nose-on-target alignment, and the label of an action's current binding.
+ * rotation, nose-on-target alignment, bodies in the way of a target, the opening placement, and the label of an
+ * action's current binding (or of one direction of an axis).
  */
 import type { ActionId } from '../input/actions';
-import type { BindingSlots, InputContext } from '../input/bindings';
-import { bindingLabel } from '../input/labels';
+import type { Binding, BindingSlots, InputContext } from '../input/bindings';
+import { bindingLabel, inputLabel } from '../input/labels';
 
 export interface Vec3Like {
   readonly x: number;
@@ -79,11 +80,131 @@ export interface BindingSource {
   readonly padBindings: Readonly<Record<string, BindingSlots>>;
 }
 
+/** One direction of an axis action: '+' gives +1 (thrust forward, strafe up...), '-' gives -1. */
+export type AxisHalf = '+' | '-';
+
+/**
+ * Label of one direction of a binding: the positive or negative key of a key pair, trigger of a trigger pair, or
+ * direction of a stick (following its invert flag). Bindings without directions keep their whole label.
+ */
+export function bindingHalfLabel(b: Binding | null, half: AxisHalf): string {
+  if (!b) return bindingLabel(null);
+  const pos = half === '+';
+  switch (b.type) {
+    case 'keyAxis':
+      return inputLabel(`key:${pos ? b.pos : b.neg}`);
+    case 'padButtonAxis':
+      return inputLabel(`pad:b${pos ? b.pos : b.neg}`);
+    case 'padAxis':
+      // The action reads stick * (invert ? -1 : 1): its positive half is the stick's negative side when inverted.
+      return inputLabel(`pad:a${b.axis}${pos !== b.invert ? '+' : '-'}`);
+    default:
+      return bindingLabel(b);
+  }
+}
+
 /**
  * Label of the first bound slot of an action for the device in use (e.g. "Tab", "Mouse R", "Y"), or the "Not bound"
- * text when neither slot is bound. Pass settings.data and input.activeDevice.
+ * text when neither slot is bound. With `half`, only that direction of an axis ("W" for thrust '+', "S" for '-').
+ * Pass settings.data and input.activeDevice.
  */
-export function actionLabel(source: BindingSource, device: InputContext, id: ActionId): string {
+export function actionLabel(source: BindingSource, device: InputContext, id: ActionId, half?: AxisHalf): string {
   const slots = (device === 'pad' ? source.padBindings : source.bindings)[id];
-  return bindingLabel(slots?.[0] ?? slots?.[1] ?? null);
+  const b = slots?.[0] ?? slots?.[1] ?? null;
+  return half ? bindingHalfLabel(b, half) : bindingLabel(b);
+}
+
+/** A body that can stand in the way of a target (positions relative to the ship, m). */
+export interface ObstacleLike {
+  readonly key: string;
+  readonly id: string;
+  readonly rel: Vec3Like;
+  readonly radiusM: number;
+}
+
+/**
+ * Drop-out clearance around a body (m): the impulse and cruise drives fall back to thrusters below
+ * max(20 km, 1% of the radius) while closing on a surface (ship.ts updateDrive, FLIGHT.dropOutAltitudeFraction).
+ */
+export function dropOutClearanceM(radiusM: number): number {
+  return radiusM + Math.max(20_000, radiusM * 0.01);
+}
+
+/**
+ * The body whose drop-out sphere the straight path from the ship (the origin) to `targetRel` passes through while
+ * closing on it, or null when the way is clear. Bodies behind the ship (the path moves away from them) and the target
+ * itself never block.
+ */
+export function pathBlocker(
+  targetRel: Vec3Like,
+  targetId: string,
+  bodies: Iterable<ObstacleLike>,
+  clearance: (radiusM: number) => number = dropOutClearanceM,
+): ObstacleLike | null {
+  const dd = targetRel.x * targetRel.x + targetRel.y * targetRel.y + targetRel.z * targetRel.z;
+  if (!(dd > 0)) return null;
+  let best: ObstacleLike | null = null;
+  let bestT = Infinity;
+  for (const b of bodies) {
+    if (b.id === targetId) continue;
+    const c = b.rel;
+    const along = c.x * targetRel.x + c.y * targetRel.y + c.z * targetRel.z;
+    if (along <= 0) continue; // behind: the path leaves it
+    const t = Math.min(1, along / dd);
+    const dx = c.x - targetRel.x * t;
+    const dy = c.y - targetRel.y * t;
+    const dz = c.z - targetRel.z * t;
+    const r = clearance(b.radiusM);
+    if (dx * dx + dy * dy + dz * dz < r * r && t < bestT) {
+      best = b;
+      bestT = t;
+    }
+  }
+  return best;
+}
+
+const unit = (v: Vec3Like): [number, number, number] => {
+  const l = Math.hypot(v.x, v.y, v.z) || 1;
+  return [v.x / l, v.y / l, v.z / l];
+};
+
+/**
+ * Where the opening starts: the local vertical ("up", a unit vector in the same frame as the inputs) above which the
+ * ship is placed so the Moon stands at least `minMoonElevRad` above the horizontal, with the Sun as high as that
+ * allows (ideally `sunAngleRad` from the zenith, the lighting of App.view('leo')). Inputs are directions from the
+ * body's centre to the Sun and to the Moon. The result lies on the great circle from the Sun's direction toward the
+ * Moon's; when the two are (anti)parallel, `fallback` picks the plane.
+ */
+export function openingUp(
+  sun: Vec3Like,
+  moon: Vec3Like,
+  fallback: Vec3Like,
+  sunAngleRad = (55 * Math.PI) / 180,
+  minMoonElevRad = (12 * Math.PI) / 180,
+): Vec3Like {
+  const s = unit(sun);
+  const m = unit(moon);
+  const phi = Math.acos(Math.min(1, Math.max(-1, s[0] * m[0] + s[1] * m[1] + s[2] * m[2])));
+  // A unit vector perpendicular to the Sun's direction, toward the Moon (or toward the fallback when degenerate).
+  let p: [number, number, number] = [m[0] - s[0] * Math.cos(phi), m[1] - s[1] * Math.cos(phi), m[2] - s[2] * Math.cos(phi)];
+  if (Math.hypot(...p) < 1e-6) {
+    const f = unit(fallback);
+    const k = f[0] * s[0] + f[1] * s[1] + f[2] * s[2];
+    p = [f[0] - s[0] * k, f[1] - s[1] * k, f[2] - s[2] * k];
+    if (Math.hypot(...p) < 1e-6) p = Math.abs(s[2]) < 0.9 ? [-s[1], s[0], 0] : [0, -s[2], s[1]];
+  }
+  const pl = Math.hypot(...p);
+  p = [p[0] / pl, p[1] / pl, p[2] / pl];
+  // Moon elevation = 90 deg - angle(up, moon) = 90 deg - |phi - a|: keep it >= minMoonElev.
+  const a = Math.max(sunAngleRad, phi - (Math.PI / 2 - minMoonElevRad));
+  return {
+    x: s[0] * Math.cos(a) + p[0] * Math.sin(a),
+    y: s[1] * Math.cos(a) + p[1] * Math.sin(a),
+    z: s[2] * Math.cos(a) + p[2] * Math.sin(a),
+  };
+}
+
+/** Elevation of a direction above the horizontal plane of `up` (rad). */
+export function elevation(up: Vec3Like, dir: Vec3Like): number {
+  return Math.PI / 2 - angleBetween(up, dir);
 }

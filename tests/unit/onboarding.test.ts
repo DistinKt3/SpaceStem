@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { ACTION_IDS, defaultBindings, isActionId } from '../../src/game/input/actions';
+import { ACTIONS, ACTION_IDS, defaultBindings, isActionId } from '../../src/game/input/actions';
+import type { BindingSlots } from '../../src/game/input/bindings';
 import { t } from '../../src/game/i18n';
 import { FACTS, circularSpeed, factParams, orbitPeriod } from '../../src/game/onboarding/facts';
 import {
@@ -8,9 +9,26 @@ import {
   LookTracker,
   actionLabel,
   angleBetween,
+  bindingHalfLabel,
+  dropOutClearanceM,
+  elevation,
   isAligned,
+  openingUp,
+  pathBlocker,
 } from '../../src/game/onboarding/snapshot';
-import { APPROACH_DISTANCE_M, MOON_ID, STEPS, STEP_IDS, type StepId } from '../../src/game/onboarding/steps';
+import {
+  APPROACH_DISTANCE_M,
+  HYPER_MIN_STAR_DISTANCE_M,
+  MOON_ID,
+  STEPS,
+  STEP_IDS,
+  hyperspeedFloorM,
+  type StepId,
+} from '../../src/game/onboarding/steps';
+import { Vec3d } from '../../src/core/vec3d';
+import { Hyperspeed } from '../../src/game/ship/hyperspeed';
+import type { Ship } from '../../src/game/ship/ship';
+import type { SolarSystem } from '../../src/world/solarSystem';
 import {
   DEFAULT_TIMING,
   ONBOARDING_STORAGE_KEY,
@@ -52,17 +70,28 @@ const BASE: OnboardingSnapshot = {
   throttle: 0,
   speed: 0,
   nearKey: 'earth',
+  nearName: 'Earth',
+  nearKind: 'planet',
+  nearRadiusM: 6.371e6,
   altitudeM: 420e3,
+  aglM: 420e3,
   landed: false,
+  autoAlign: false,
   targetId: MOON_ID,
+  targetName: 'Moon',
   targetKind: 'moon',
   targetDistanceM: 3.76e8,
   alignedToTarget: false,
+  targetOffNoseRad: 1,
+  targetBlockedBy: null,
   mapOpen: false,
+  mapMode: null,
   codexOpen: false,
   hyperPhase: 'idle',
   anchor: '399',
+  beyondSol: false,
   lookedAroundRad: 0,
+  thrustersTopSpeedMS: 3000,
 };
 
 const snap = (patch: Partial<OnboardingSnapshot> = {}): OnboardingSnapshot => ({ ...BASE, ...patch });
@@ -393,7 +422,7 @@ describe('onboarding tour: steps and nudges', () => {
     expect(step('approach').done(snap({ targetDistanceM: APPROACH_DISTANCE_M + 1 }))).toBe(false);
     expect(step('approach').done(snap({ targetDistanceM: APPROACH_DISTANCE_M }))).toBe(true);
     expect(step('approach').done(snap({ targetId: '499', nearKey: 'moon', altitudeM: 1e6 }))).toBe(true);
-    expect(step('hyperspeed').done(snap({ anchor: '*42' }))).toBe(true);
+    expect(step('hyperspeed').done(snap({ anchor: '*42', beyondSol: true }))).toBe(true);
     expect(step('done').done(snap())).toBe(false);
   });
 
@@ -404,17 +433,120 @@ describe('onboarding tour: steps and nudges', () => {
     expect(approach(snap({ mode: 'cruise' }))?.key).toBe('onboarding.nudge.realign');
     expect(approach(snap({ mode: 'cruise', alignedToTarget: true }))?.key).toBe('onboarding.nudge.throttle');
     expect(approach(snap({ mode: 'cruise', alignedToTarget: true, throttle: 0.5 }))).toBeNull();
+  });
 
+  it('states the thrusters trip time as a property of the game drive, computed from its top speed (review)', () => {
+    const n = step('approach').nudge!(snap())!;
+    expect(n.key).toBe('onboarding.nudge.useCruise');
+    // (376,000 km - 20,000 km) at 3 km/s is about 33 hours.
+    expect(n.params).toEqual({ speed: '3', hours: '33' });
+    const text = t(n.key, { ...n.params, modeNext: 'Space' });
+    expect(text).toBe("At the thrusters' top speed (3 km/s) the Moon is about 33 hours away: switch to cruise with Space.");
+    expect(text).not.toMatch(/more than a day/);
+    // It follows the tunable, not a fixed claim.
+    expect(step('approach').nudge!(snap({ thrustersTopSpeedMS: 9000 }))!.params).toEqual({ speed: '9', hours: '11' });
+  });
+
+  it('warns when Earth stands between the ship and the Moon, ahead of advice that would fly into it (review)', () => {
+    const blocked = { targetBlockedBy: 'Earth' };
+    for (const id of ['align', 'approach'] as const) {
+      const n = step(id).nudge!(snap(blocked));
+      expect(n?.key, id).toBe('onboarding.nudge.blocked');
+      expect(n?.params?.['body']).toBe('Earth');
+    }
+    // Ahead of "use cruise", "realign" and "throttle".
+    expect(step('approach').nudge!(snap({ ...blocked, mode: 'cruise', alignedToTarget: true }))?.key).toBe(
+      'onboarding.nudge.blocked',
+    );
+    // With auto-align holding the nose on the Moon, the pilot must switch it off first.
+    expect(step('approach').nudge!(snap({ ...blocked, autoAlign: true }))?.key).toBe('onboarding.nudge.blockedAutoAlign');
+    expect(t('onboarding.nudge.blocked', { body: 'Earth' })).toContain('Earth is between you and the Moon');
+  });
+
+  it('teaches the landing the flight model allows from the tour’s attitude (review)', () => {
+    const land = step('land').nudge!;
+    const low = { nearKey: 'moon', nearName: 'Moon', nearKind: 'moon', nearRadiusM: 1.7374e6, mode: 'thrusters' as const };
+    // Still in the drive on the way in: keep the throttle up and the nose on the Moon.
+    expect(land(snap({ ...low, mode: 'cruise', altitudeM: 1e7, aglM: 1e7, alignedToTarget: true }))?.key).toBe(
+      'onboarding.nudge.throttle',
+    );
+    expect(land(snap({ ...low, mode: 'cruise', altitudeM: 1e7, throttle: 1, alignedToTarget: true }))).toBeNull();
+    // Dropped out 20 km up, nose off to the side: point it straight down (the Moon's disc alone is not enough).
+    const above = { ...low, altitudeM: 2e4, aglM: 2e4, alignedToTarget: true };
+    expect(land(snap({ ...above, targetOffNoseRad: 0.6 }))?.key).toBe('onboarding.nudge.noseDown');
+    // Nose down, throttle cut: descend with forward thrust.
+    expect(land(snap({ ...above, targetOffNoseRad: 0.01 }))?.key).toBe('onboarding.nudge.descend');
+    expect(land(snap({ ...above, targetOffNoseRad: 0.01, throttle: 0.3 }))).toBeNull();
+    // On the ground with the throttle up: cut it to touch down.
+    const ground = { ...above, altitudeM: 2.5, aglM: 2.5, targetOffNoseRad: 0.01 };
+    expect(land(snap({ ...ground, throttle: 0.3 }))?.key).toBe('onboarding.nudge.settle');
+    expect(land(snap({ ...ground, landed: true }))).toBeNull();
+    // The hint names forward thrust and the throttle cut, not the strafe that only slides along the surface.
+    const en = JSON.parse(readFileSync('src/game/locales/en.onboarding.json', 'utf8')) as Record<string, string>;
+    expect(en['onboarding.step.land.hint']).toContain('{thrust+}');
+    expect(en['onboarding.step.land.hint']).toContain('{throttleZero}');
+    expect(en['onboarding.step.land.hint']).not.toContain('{strafeY}');
+    expect(en['onboarding.step.land.hint.pad']).toContain('{thrust-}');
+  });
+
+  it('knows every refusal hyperspeed makes (review)', () => {
     const hyper = step('hyperspeed').nudge!;
-    expect(hyper(snap({ landed: true }))?.key).toBe('onboarding.nudge.liftOff');
+    const star = { targetKind: 'star', targetId: '*1', targetName: 'Proxima Centauri', targetDistanceM: 4e16 };
+    expect(hyper(snap({ landed: true, ...star }))?.key).toBe('onboarding.nudge.liftOff');
     expect(hyper(snap())?.key).toBe('onboarding.nudge.pickStar');
-    expect(hyper(snap({ mapOpen: true }))?.key).toBe('onboarding.nudge.pickStarOnMap');
-    expect(hyper(snap({ targetKind: 'star', targetId: '*1', mapOpen: true }))?.key).toBe('onboarding.nudge.closeMap');
-    const well = hyper(snap({ targetKind: 'star', targetId: '*1', nearKey: 'moon', altitudeM: 5e6 }));
+    // On the map: the system map points to its star-map button; the star map to its list.
+    expect(hyper(snap({ mapOpen: true, mapMode: 'system' }))?.key).toBe('onboarding.nudge.pickStarOnMap');
+    expect(hyper(snap({ mapOpen: true, mapMode: 'stars' }))?.key).toBe('onboarding.nudge.pickStarInList');
+    expect(hyper(snap({ ...star, mapOpen: true, mapMode: 'stars' }))?.key).toBe('onboarding.nudge.closeMap');
+    // The Sun is listed as a star but is far too close inside the Solar System.
+    const sun = { targetKind: 'star', targetId: '10', targetName: 'Sun', targetDistanceM: 1.49e11 };
+    for (const s of [snap(sun), snap({ ...sun, mapOpen: true, mapMode: 'stars' })]) {
+      const n = hyper(s);
+      expect(n?.key).toBe('onboarding.nudge.starTooClose');
+      expect(n?.params?.['name']).toBe('Sun');
+    }
+    // Earth's floor is two radii (12,742 km), above the 10,000 km minimum: no silent gap between the two.
+    const well = hyper(snap({ ...star, altitudeM: 1.1e7 }));
     expect(well?.key).toBe('onboarding.nudge.gravityWell');
-    expect(well?.params?.['body']).toBe('Moon');
-    expect(hyper(snap({ targetKind: 'star', targetId: '*1', nearKey: 'moon', altitudeM: 2e7 }))).toBeNull();
-    expect(hyper(snap({ targetKind: 'star', targetId: '*1', nearKey: 'star-7', altitudeM: 1e6 }))).toBeNull();
+    expect(well?.params?.['alt']).toBe('13,000 km');
+    expect(hyper(snap({ ...star, altitudeM: 1.28e7 }))).toBeNull();
+    // The Moon is small: the 10,000 km floor applies.
+    const moon = { nearKey: 'moon', nearName: 'Moon', nearKind: 'moon', nearRadiusM: 1.7374e6 };
+    expect(hyper(snap({ ...star, ...moon, altitudeM: 5e6 }))?.params?.['alt']).toBe('10,000 km');
+    expect(hyper(snap({ ...star, ...moon, altitudeM: 1.01e7 }))).toBeNull();
+    // Near a star (a visited catalogue star or an exoplanet host) there is no floor.
+    const host = { nearKey: 'trappist-1', nearName: 'TRAPPIST-1', nearKind: 'star', nearRadiusM: 8.4e7 };
+    expect(hyper(snap({ ...star, ...host, altitudeM: 1e6 }))).toBeNull();
+  });
+
+  it('counts arriving at an exoplanet system as reaching the stars', () => {
+    expect(step('hyperspeed').done(snap({ anchor: 'trappist-1', beyondSol: true }))).toBe(true);
+    expect(step('hyperspeed').done(snap({ anchor: '399' }))).toBe(false);
+  });
+
+  it('applies the same gravity-well and distance rules as Hyperspeed.engage', () => {
+    const fakeSys = (kind: string, radiusM: number, alt: number) =>
+      ({
+        nearest: () => [{ def: { kind, radiusM } }, alt],
+        toSsb: (_p: unknown, _t: number, out: Vec3d) => out.set(0, 0, 0),
+      }) as unknown as SolarSystem;
+    const ship = { landed: false, pos: { anchor: '399', offset: new Vec3d() } } as unknown as Ship;
+    for (const [kind, radiusM] of [
+      ['planet', 6.371e6],
+      ['moon', 1.7374e6],
+      ['planet', 6.9911e7],
+      ['star', 6.957e8],
+    ] as const) {
+      const floor = hyperspeedFloorM(kind, radiusM);
+      for (const alt of [floor * 0.99, floor * 1.01 + 1, 5e6, 2e7, 2e8]) {
+        const err = new Hyperspeed().engage(fakeSys(kind, radiusM, alt), ship, 0, '*1', 'x', new Vec3d(4e16, 0, 0), 1e11);
+        expect(err === 'hyper.error.gravityWell', `${kind} ${radiusM} at ${alt}`).toBe(alt < floor);
+      }
+    }
+    const sys = fakeSys('star', 6.957e8, 1e12);
+    const near = HYPER_MIN_STAR_DISTANCE_M * 0.99;
+    expect(new Hyperspeed().engage(sys, ship, 0, '10', 'Sun', new Vec3d(near, 0, 0), 1)).toBe('hyper.error.tooClose');
+    expect(new Hyperspeed().engage(sys, ship, 0, '*1', 'x', new Vec3d(near / 0.98, 0, 0), 1)).toBeNull();
   });
 });
 
@@ -428,12 +560,47 @@ describe('onboarding tour: text', () => {
     'cruise',
     'button',
     'body',
+    'name',
+    'speed',
+    'hours',
+    'alt',
     'n',
     'total',
     'goal',
     'hint',
   ]);
-  const placeholders = (msg: string): string[] => [...msg.matchAll(/\{(\w+)\}/g)].map((m) => m[1]!);
+  /** Placeholder names, including one-direction action placeholders such as {thrust+}. */
+  const placeholders = (msg: string): string[] => [...msg.matchAll(/\{(\w+)[+-]?\}/g)].map((m) => m[1]!);
+  const directional = (msg: string): string[] => [...msg.matchAll(/\{(\w+)[+-]\}/g)].map((m) => m[1]!);
+
+  it('uses one-direction placeholders only for axis actions, where "hold" or "rise" names one key (review)', () => {
+    for (const [key, msg] of Object.entries(en)) {
+      for (const a of directional(msg)) {
+        expect(isActionId(a), `${key}: {${a}±}`).toBe(true);
+        expect(ACTIONS.find((x) => x.id === a)?.kind, `${key}: {${a}±} is not an axis`).toBe('axis');
+      }
+    }
+    // "Hold X" / "rise with X" / "ease down with X" never names a whole axis pair (one half of it does the opposite).
+    const axes = ACTIONS.filter((a) => a.kind === 'axis').map((a) => a.id);
+    for (const [key, msg] of Object.entries(en)) {
+      for (const m of msg.matchAll(/\b(?:hold|rise with|ease down with|raise the throttle with)\s+\{(\w+)\}/gi))
+        expect(axes.includes(m[1] as (typeof axes)[number]), `${key}: "${m[0]}"`).toBe(false);
+    }
+    expect(en['onboarding.nudge.liftOff']).toContain('{strafeY+}');
+    expect(en['onboarding.step.throttle.hint']).toContain('hold {thrust+}');
+  });
+
+  it('separates the science tag from the sentence for screen readers (review)', () => {
+    expect(en['onboarding.scienceTag.separator']).toMatch(/^\S*\s$/);
+  });
+
+  it('does not overclaim: the closing line says what is inferred or generated (review)', () => {
+    const done = en['onboarding.step.done.science']!;
+    expect(done).not.toMatch(/Only the drive is fiction/);
+    expect(done).toMatch(/fiction/);
+    expect(done).toMatch(/inferred/);
+    expect(done).toMatch(/generated/);
+  });
 
   it('owns only onboarding.* keys', () => {
     for (const key of Object.keys(en)) expect(key.startsWith('onboarding.'), key).toBe(true);
@@ -493,7 +660,8 @@ describe('onboarding tour: text', () => {
     expect(t('onboarding.step.look.science', facts)).toBe(
       'You are 420 km above Earth, near the height of the International Space Station. An orbit here takes about 93 minutes at 7.7 km/s.',
     );
-    expect(t('onboarding.step.target.science', facts)).toContain('about 1.3 seconds ago');
+    // True wherever the pilot is (the Moon may be behind Earth from the ship): a fact about Earth and the Moon.
+    expect(t('onboarding.step.target.science', facts)).toBe('Light from the Moon takes about 1.3 seconds to reach Earth.');
     expect(t('onboarding.step.align.science', facts)).toContain('3,475 km across');
     expect(t('onboarding.step.cruise.science', facts)).toContain('about 3 days');
     expect(t('onboarding.step.approach.science', facts)).toContain('384,400 km from Earth on average, about 30 Earths');
@@ -549,5 +717,68 @@ describe('onboarding tour: snapshot helpers', () => {
     expect(actionLabel({ bindings: second, padBindings }, 'kbm', 'yaw')).toBe('← / →');
     expect(actionLabel({ bindings, padBindings }, 'pad', 'autoAlign')).toBe(t('input.unbound'));
     expect(ACTION_IDS.length).toBeGreaterThan(0);
+  });
+
+  it('labels one direction of an axis: the key, trigger or stick direction that does it (review)', () => {
+    const src = { bindings: defaultBindings('kbm'), padBindings: defaultBindings('pad') };
+    expect(actionLabel(src, 'kbm', 'thrust', '+')).toBe('W');
+    expect(actionLabel(src, 'kbm', 'thrust', '-')).toBe('S');
+    expect(actionLabel(src, 'kbm', 'strafeY', '+')).toBe('R');
+    expect(actionLabel(src, 'kbm', 'strafeY', '-')).toBe('F');
+    // Pad: the triggers (LT lowers, RT raises the throttle) and the left stick, inverted so up is +1.
+    expect(actionLabel(src, 'pad', 'thrust', '+')).toBe(t('input.pad.xbox.b7'));
+    expect(actionLabel(src, 'pad', 'thrust', '-')).toBe(t('input.pad.xbox.b6'));
+    const up = t('input.pad.stick', { stick: t('input.pad.stick.left'), dir: '↑' });
+    const down = t('input.pad.stick', { stick: t('input.pad.stick.left'), dir: '↓' });
+    expect(actionLabel(src, 'pad', 'strafeY', '+')).toBe(up);
+    expect(actionLabel(src, 'pad', 'strafeY', '-')).toBe(down);
+    expect(bindingHalfLabel({ type: 'padAxis', axis: 1, invert: false }, '+')).toBe(down);
+    // Buttons have no direction; unbound stays unbound.
+    expect(actionLabel(src, 'kbm', 'targetNext', '+')).toBe('Tab');
+    expect(bindingHalfLabel(null, '+')).toBe(t('input.unbound'));
+    // A rebind is followed.
+    const thrust: BindingSlots = [{ type: 'keyAxis', neg: 'KeyK', pos: 'KeyI' }, null];
+    expect(actionLabel({ ...src, bindings: { ...src.bindings, thrust } }, 'kbm', 'thrust', '+')).toBe('I');
+  });
+
+  it('finds a body in the way of the target (Earth hiding the Moon from low orbit) (review)', () => {
+    const R = 6.371e6;
+    // Ship 420 km above Earth's surface: Earth's centre is straight "down" (-y).
+    const earth = { key: 'earth', id: '399', rel: { x: 0, y: -(R + 4.2e5), z: 0 }, radiusM: R };
+    const moon = (elevDeg: number) => {
+      const a = (elevDeg * Math.PI) / 180;
+      return { x: Math.cos(a) * 3.844e8, y: Math.sin(a) * 3.844e8, z: 0 };
+    };
+    expect(pathBlocker(moon(-60), '301', [earth])?.key).toBe('earth');
+    expect(pathBlocker(moon(-30), '301', [earth])?.key).toBe('earth');
+    // Above the horizon, or just below it where the path still clears the drop-out height: clear.
+    expect(pathBlocker(moon(10), '301', [earth])).toBeNull();
+    expect(pathBlocker(moon(-10), '301', [earth])).toBeNull();
+    expect(pathBlocker(moon(90), '301', [earth])).toBeNull();
+    // The target itself never blocks; nor does a body behind the ship.
+    expect(pathBlocker(earth.rel, '399', [earth])).toBeNull();
+    expect(pathBlocker({ x: 0, y: 1e9, z: 0 }, '301', [earth])).toBeNull();
+    // The drop-out clearance is max(20 km, 1 % of the radius), as in ship.ts.
+    expect(dropOutClearanceM(R)).toBeCloseTo(R * 1.01, 3);
+    expect(dropOutClearanceM(1.7374e6)).toBe(1.7374e6 + 20_000);
+  });
+
+  it('opens where the Moon is above the horizon on every day of a lunar month (review)', () => {
+    const fallback = { x: 0, y: 0, z: 1 };
+    const sun = { x: 1, y: 0, z: 0 };
+    for (let deg = 0; deg <= 180; deg += 5) {
+      const a = (deg * Math.PI) / 180;
+      const moon = { x: Math.cos(a), y: Math.sin(a) * 0.9, z: Math.sin(a) * Math.sqrt(1 - 0.81) };
+      const up = openingUp(sun, moon, fallback);
+      expect(Math.hypot(up.x, up.y, up.z)).toBeCloseTo(1, 9);
+      // The Moon at least 12 degrees up (parallax from 420 km is under 1 degree).
+      expect((elevation(up, moon) * 180) / Math.PI, `elongation ${deg}`).toBeGreaterThan(11.99);
+      // The Sun 35 degrees up (as in the 'leo' view) whenever the Moon allows it, and never lower than needed.
+      const sunUp = (elevation(up, sun) * 180) / Math.PI;
+      expect(sunUp, `elongation ${deg}`).toBeCloseTo(Math.min(35, 90 - (deg - 78)), 6);
+    }
+    // At full Moon both sit low: the Sun just below the horizon of the point below (still above the visible limb).
+    const full = openingUp(sun, { x: -1, y: 0, z: 0 }, fallback);
+    expect((elevation(full, sun) * 180) / Math.PI).toBeCloseTo(-12, 6);
   });
 });

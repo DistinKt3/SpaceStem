@@ -100,6 +100,10 @@ test.describe('guided opening', () => {
     expect(await sim(page, (s) => s.looked)).toBeGreaterThan(1);
     await expect(goal(page)).toHaveText('Throttle up', { timeout: 10_000 });
 
+    // "Hold" names only the key that raises the throttle (W), not the whole S / W pair (review).
+    await expect(goal(page)).toHaveText('Throttle up');
+    await expect(page.locator('.ks-onb-hint kbd[data-action="thrust"][data-half="+"]')).toHaveText('W');
+    await expect(page.locator('.ks-onb-hint')).toContainText('or hold W.');
     // Throttle up with the throttle key (= by default).
     for (let i = 0; i < 5; i++) await page.keyboard.press('Equal');
     await expect(goal(page)).toHaveText('Target the Moon', { timeout: 10_000 });
@@ -124,10 +128,29 @@ test.describe('guided opening', () => {
     await expect(goal(page)).toHaveText('Land on the Moon', { timeout: 90_000 });
     await expect(page.locator('.ks-onb-optional')).toHaveText('Optional');
     await expect(page.getByRole('button', { name: 'Skip this step' })).toBeVisible();
+    // The hint follows the flight model from the tour's attitude: thrust along the nose, then cut the throttle (review).
+    await expect(page.locator('.ks-onb-hint')).toHaveText(
+      'Nose on the Moon: near the surface the drive drops to thrusters. Ease down with W, then cut the throttle with Bksp on the ground.',
+    );
     await expect.poll(() => sim(page, (s) => s.mode), { timeout: 60_000 }).toBe('thrusters');
+    await expect(page.locator('.ks-onb-nudge')).toHaveText('Ease down toward the surface with W.');
+    // Strafing "down" with the nose on the Moon slides along the surface: no closer.
+    const before = await sim(page, (s) => s.moonDist);
     await page.keyboard.down('KeyF');
-    await expect.poll(() => sim(page, (s) => s.landed), { timeout: 60_000 }).toBe(true);
+    await page.waitForTimeout(800);
     await page.keyboard.up('KeyF');
+    expect(await sim(page, (s) => s.moonDist)).toBeGreaterThanOrEqual(before);
+    // A little forward thrust brings the ship down; on the ground the card asks for the throttle cut.
+    await page.keyboard.down('KeyW');
+    await page.waitForTimeout(1500);
+    await page.keyboard.up('KeyW');
+    await expect(page.locator('.ks-onb-nudge')).toHaveText('You are on the ground: cut the throttle with Bksp to touch down.', {
+      timeout: 60_000,
+    });
+    expect(await sim(page, (s) => s.landed)).toBe(false);
+    await page.screenshot({ path: `${SHOTS}/02b-land-settle.png` });
+    await page.keyboard.press('Backspace');
+    await expect.poll(() => sim(page, (s) => s.landed), { timeout: 10_000 }).toBe(true);
     await expect(goal(page)).toHaveText('Open the map', { timeout: 10_000 });
 
     // The map: the card moves to the free bottom-left corner.
@@ -139,15 +162,22 @@ test.describe('guided opening', () => {
       expect(intersects(onMap, await rect(page.locator(sel))), sel).toBe(false);
     await expect(page.locator('.ks-onb-nudge')).toContainText('“Show star map” lists the named stars nearby');
     await page.screenshot({ path: `${SHOTS}/03-map.png` });
+    // On the star map the button reads "Show system map": the nudge points to the list instead (review).
     await page.getByRole('button', { name: 'Show star map' }).click();
+    await expect(page.locator('.ks-onb-nudge')).toHaveText('Choose one of the named stars in the list.');
+    // The Sun is listed, but hyperspeed refuses it inside the Solar System (review).
+    await page.getByRole('button', { name: 'Sun' }).click();
+    await expect(page.locator('.ks-onb-nudge')).toHaveText('Too close for a jump: Sun. Choose a more distant star.');
     await page.getByRole('button', { name: 'Proxima Centauri' }).click();
     await expect(page.locator('.ks-onb-nudge')).toContainText('Close the map with M, then press J.');
     await page.keyboard.press('KeyM');
 
-    // Landed and deep in the Moon's gravity well: the card says what to do first.
-    await expect(page.locator('.ks-onb-nudge')).toContainText('Lift off first: rise with F / R.');
+    // Landed and deep in the Moon's gravity well: the card says what to do first, naming only the key that lifts off.
+    await expect(page.locator('.ks-onb-nudge')).toHaveText('Lift off first: rise with R.');
     await page.keyboard.down('KeyR');
-    await expect(page.locator('.ks-onb-nudge')).toContainText('Hyperspeed will not engage this close to Moon');
+    await expect(page.locator('.ks-onb-nudge')).toHaveText(
+      'Too deep in a gravity well for hyperspeed: climb to an altitude of 10,000 km first.',
+    );
     await page.keyboard.up('KeyR');
     await nextMode(page, 2);
     for (let i = 0; i < 20; i++) await page.keyboard.press('Equal');
@@ -267,11 +297,10 @@ test.describe('guided opening', () => {
     await expect(page.locator('.ks-onb-hint')).toContainText('Hold');
     await expect(page.locator('.ks-onb-hint')).toContainText('to raise the throttle');
     await expect(page.locator('.ks-onb-hint kbd.is-unbound')).toHaveCount(0);
-    const thrust = await page.evaluate(() => {
-      const ks = (window as unknown as KsWindow).__ks;
-      return ks.t('input.binding.pair', { neg: ks.t('input.pad.xbox.b6'), pos: ks.t('input.pad.xbox.b7') });
-    });
-    await expect(key(page, 'thrust')).toHaveText(thrust);
+    // "Hold RT", not "Hold LT / RT": LT lowers the throttle (review).
+    const rt = await page.evaluate(() => (window as unknown as KsWindow).__ks.t('input.pad.xbox.b7'));
+    await expect(key(page, 'thrust')).toHaveText(rt);
+    await expect(key(page, 'thrust')).toHaveAttribute('data-half', '+');
     await expect(key(page, 'throttleUp')).toHaveCount(0);
     // Back on the keyboard, the keyboard wording returns.
     await page.keyboard.press('KeyK');
@@ -322,6 +351,11 @@ test.describe('guided opening', () => {
     await expect(live).toHaveText(
       'Guided tour, step 1 of 9: Look around. Hold Mouse R and move the mouse to turn your head, or steer the ship with ↓ / ↑ and A / D.',
     );
+    // The science tag and sentence are separate words for screen readers, not "Real scienceYou are..." (review).
+    await expect(page.locator('.ks-onb-science')).toHaveText(/^Real science: You are 420 km above Earth/);
+    const aria = await card(page).ariaSnapshot();
+    expect(aria).not.toContain('Real scienceYou');
+    expect(aria).toContain('paragraph: "Real science : You are 420 km above Earth');
     const bar = page.getByRole('progressbar', { name: 'Guided tour' });
     await expect(bar).toHaveAttribute('aria-valuetext', 'Step 1 of 9');
     await expect(bar).toHaveAttribute('aria-valuenow', '0');
@@ -351,6 +385,54 @@ test.describe('guided opening', () => {
     await page.screenshot({ path: `${SHOTS}/08-layout-done.png` });
   });
 
+  // Shorter windows (review): 1280x600 is what a 1280x720 screen leaves after browser chrome. The card stops above
+  // the HUD's left panel and scrolls; the goal and the key hint stay in view where there is room for them.
+  for (const [w, h, hintInView] of [
+    [1280, 600, true],
+    [1024, 576, true],
+    [1366, 650, true],
+    [800, 450, false],
+  ] as const) {
+    test(`stays clear of the HUD panels at ${w}×${h}, with the hint in view`, async ({ page }) => {
+      await page.setViewportSize({ width: w, height: h });
+      for (const s of ['look', 'throttle', 'target', 'align', 'cruise', 'approach', 'land', 'map', 'hyperspeed', 'done']) {
+        await open(page, `step=${s}&lab=0`);
+        await page.waitForTimeout(300);
+        const c = await rect(card(page));
+        expect(c.top).toBeGreaterThanOrEqual(0);
+        for (const sel of ['.ks-hud-top', '.ks-hud-left', '.ks-hud-right', '.ks-reticle', '.ks-hud-footer']) {
+          expect(intersects(c, await rect(page.locator(sel))), `${s}: ${sel}`).toBe(false);
+        }
+        // The goal is always in view; the hint too where the window leaves room for it.
+        expect((await rect(goal(page))).bottom, `${s}: goal`).toBeLessThanOrEqual(c.bottom);
+        if (hintInView) expect((await rect(page.locator('.ks-onb-hint'))).bottom, `${s}: hint`).toBeLessThanOrEqual(c.bottom);
+        // Anything below the visible part is announced by the fade.
+        const overflow = await card(page).evaluate((e) => e.scrollHeight - e.clientHeight > 2);
+        if (!overflow) {
+          expect(await card(page).getAttribute('data-more')).not.toBe('true');
+          continue;
+        }
+        await expect(card(page)).toHaveAttribute('data-more', 'true');
+        // ...and the rest is reachable by scrolling the card.
+        await card(page).evaluate((e) => (e.scrollTop = e.scrollHeight));
+        await expect(page.getByRole('button', { name: s === 'done' ? 'Close' : 'Skip tour' })).toBeInViewport();
+        await expect(card(page)).toHaveAttribute('data-more', 'false');
+      }
+      await page.screenshot({ path: `${SHOTS}/08-layout-${w}x${h}.png` });
+    });
+  }
+
+  test('warns when Earth hides the Moon, before the pilot flies into it', async ({ page }) => {
+    await open(page, 'step=align');
+    await fake(page, 'blocked');
+    await expect(page.locator('.ks-onb-nudge')).toHaveText(
+      'Earth is between you and the Moon. Steer away from Earth and climb clear of it, then turn back to the bracket.',
+    );
+    await page.keyboard.press('KeyN'); // auto-align on: it would hold the nose on the hidden Moon
+    await expect(page.locator('.ks-onb-nudge')).toContainText('Turn auto-align off with N');
+    await page.screenshot({ path: `${SHOTS}/12-blocked.png` });
+  });
+
   test('honours reduced motion', async ({ page }) => {
     await open(page);
     await expect(card(page)).toHaveClass(/is-entering/);
@@ -375,7 +457,8 @@ test.describe('guided opening at text scale 200%', () => {
     // No text runs out sideways, and (where it fits) nothing is cut off at the bottom.
     const wide = await card(page).evaluate((root): string[] =>
       [root, ...root.querySelectorAll('*')]
-        .filter((e) => e.clientWidth > 0 && e.scrollWidth > e.clientWidth + 1)
+        // Screen-reader-only text is clipped to 1 px on purpose.
+        .filter((e) => !e.classList.contains('ks-onb-sr') && e.clientWidth > 0 && e.scrollWidth > e.clientWidth + 1)
         .map((e) => e.getAttribute('class') ?? e.tagName),
     );
     expect(wide).toEqual([]);
@@ -398,6 +481,8 @@ test.describe('guided opening at text scale 200%', () => {
     ]) {
       await open(page, `step=${s}&textScale=2&lab=0`);
       expect(await page.evaluate(() => getComputedStyle(document.documentElement).fontSize)).toBe('32px');
+      // The landing happens where the drive drops out above the Moon (from Earth orbit the card would add a nudge).
+      if (s === 'land') await page.evaluate(() => document.querySelector<HTMLElement>('button[data-fake="lowMoon"]')!.click());
       await page.waitForTimeout(300);
       await checkNoOverflow(page, 1280, 720, false);
       if (s === 'approach') await page.screenshot({ path: `${SHOTS}/09-text200-1280.png` });

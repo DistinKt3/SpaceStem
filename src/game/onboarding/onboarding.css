@@ -18,14 +18,16 @@
 }
 
 .ks-onb {
+  /* Below the cockpit-mode HUD footer line (top left); see the rule without the cockpit further down. */
+  --ks-onb-top: 2.2rem;
   position: absolute;
   left: 1.2rem;
-  top: 2.2rem;
+  top: var(--ks-onb-top);
   box-sizing: border-box;
   /* Clear of the HUD's top panel (about 9 rem either side of the centre) and, always, of the reticle. */
   width: clamp(14rem, calc(50cqw - 10.4rem), 28rem);
   max-width: calc(50cqw - 2.9rem);
-  max-height: calc(100cqh - 3.4rem);
+  max-height: calc(100cqh - var(--ks-onb-top) - 1.2rem);
   overflow: hidden auto;
   overscroll-behavior: contain;
   scrollbar-width: thin;
@@ -74,13 +76,48 @@
 
 /* Without the cockpit the HUD footer sits at the bottom, so the card can use the corner. */
 body:not(.ks-cockpit-on) .ks-onb {
-  top: 1.2rem;
+  --ks-onb-top: 1.2rem;
 }
 
-/* The map keeps its title at the top left and its list on the right: the card moves to the free bottom-left corner. */
+/*
+ * The HUD's left panel is centred vertically at the left edge: in thrusters mode (its tallest, three rows) it is
+ * 8.24 rem tall plus its border, so its top edge sits 4.12 rem above the middle. The card ends half a rem above that,
+ * and scrolls when its content is taller (goal and hint come first; a fade at the bottom says there is more).
+ * Only where at least 27 rem of height exist: at larger text in short windows the HUD panels already collide with
+ * each other, and the card stays fully readable instead (it can be minimised).
+ */
+@container ks-onb (min-height: 27rem) {
+  .ks-onb {
+    max-height: calc(50cqh - 4.7rem - var(--ks-onb-top));
+  }
+}
+
+/*
+ * The map keeps its title at the top left and its list on the right, and hides the HUD: the card moves to the free
+ * bottom-left corner.
+ */
 body.ks-map-open .ks-onb {
   top: auto;
   bottom: 1.2rem;
+  max-height: calc(100cqh - 9rem);
+}
+
+/* More content below the visible part of the card: a soft fade at the bottom edge. */
+.ks-onb::after {
+  content: '';
+  position: sticky;
+  bottom: 0;
+  display: block;
+  height: 1.8rem;
+  margin-top: -1.8rem;
+  background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--ks-bg, #02040a) 92%, transparent));
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+
+.ks-onb[data-more='true']::after {
+  opacity: 1;
 }
 
 .ks-onb-sr {
@@ -536,13 +573,61 @@ body.ks-map-open .ks-onb {
 }
 
 @container ks-onb (max-height: 36rem) {
-  body:not(.ks-cockpit-on) .ks-onb {
-    top: 0.8rem;
+  .ks-onb {
+    --ks-onb-top: 2rem;
   }
 
-  .ks-onb {
-    top: 2rem;
+  body:not(.ks-cockpit-on) .ks-onb {
+    --ks-onb-top: 0.8rem;
   }
+}
+
+/*
+ * Very short windows (800x450 at 100 % text): every line counts, so the header leaves the flow. The step count and
+ * the minimise button sit at the end of the goal row, the eyebrow goes, and the progress strip stays for screen
+ * readers only (the live region announces each step too).
+ */
+@container ks-onb (min-height: 27rem) and (max-height: 32rem) {
+  .ks-onb[data-collapsed='false']:not([data-state='farewell']) .ks-onb-head {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.6rem;
+    min-height: 0;
+  }
+
+  .ks-onb[data-collapsed='false'] .ks-onb-eyebrow {
+    display: none;
+  }
+
+  .ks-onb[data-collapsed='false'] .ks-onb-bar {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    min-width: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .ks-onb[data-collapsed='false']:not([data-state='farewell']) .ks-onb-body {
+    margin-top: 0;
+  }
+
+  .ks-onb[data-collapsed='false'] .ks-onb-goal {
+    padding-right: 4.6rem;
+  }
+
+  .ks-onb-hint {
+    line-height: 1.5;
+  }
+}
+
+/* --- Settings > Accessibility > Guided tour (settingsPanel.ts) ----------------------------------------------------- */
+
+.ks-tour-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.6rem;
 }
 
 /* --- High contrast: opaque surfaces, white rules ------------------------------------------------------------------ */

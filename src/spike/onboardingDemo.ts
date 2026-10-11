@@ -8,7 +8,9 @@
  * screenshot from docs/media behind the card, to check it clears the cockpit displays).
  *
  * The simulation is deliberately crude (distances shrink at the drive's governed speed); it only has to produce the
- * snapshot fields the tour reads. It is not the flight model (src/game/ship/ship.ts).
+ * snapshot fields the tour reads. It is not the flight model (src/game/ship/ship.ts), but it follows its rules where
+ * the tour gives advice: in thrusters mode the ship moves along the nose (with the nose on the Moon, forward thrust
+ * descends and strafing does not), the speed scales down near the ground, and touchdown needs the throttle cut.
  */
 import '../game/styles.css';
 import '../game/ui/ui.css';
@@ -96,10 +98,18 @@ const TARGETS = [
   { id: '399', key: 'earth', kind: 'planet', name: () => t('body.earth') },
 ] as const;
 const STARS = [
+  // The real star map lists the Sun too; hyperspeed refuses it inside the Solar System.
+  { id: '10', name: () => t('body.sun'), ly: AU_M / 9.4607e15 },
   { id: '*1', name: () => t('onboarding.demo.star.proxima'), ly: 4.24 },
   { id: '*2', name: () => t('onboarding.demo.star.sirius'), ly: 8.6 },
   { id: '*3', name: () => t('onboarding.demo.star.vega'), ly: 25 },
 ] as const;
+const RADIUS_M: Readonly<Record<string, number>> = { earth: 6.371e6, moon: MOON_RADIUS_M };
+const KIND: Readonly<Record<string, string>> = { earth: 'planet', moon: 'moon' };
+/** ship.ts: the thrusters' top speed (m/s), the height over which they slow near the ground (m), touchdown throttle. */
+const THRUSTERS_MAX = 3000;
+const GROUND_SLOW_M = 3000;
+const LANDING_THROTTLE = 0.05;
 
 interface SimTarget {
   id: string;
@@ -121,10 +131,13 @@ class Sim {
   autoAlign = false;
   private alignTimer = 0;
   mapOpen = false;
+  mapMode: 'system' | 'stars' = 'system';
   hyperPhase: OnboardingSnapshot['hyperPhase'] = 'idle';
   private hyperTimer = 0;
   anchor = '399';
   looked = 0;
+  /** Lab switch: pretend Earth stands between the ship and the Moon. */
+  blocked = false;
 
   get nearKey(): string {
     if (this.anchor.startsWith('*')) return `star-${this.anchor.slice(1)}`;
@@ -147,23 +160,36 @@ class Sim {
   }
 
   snapshot(): OnboardingSnapshot {
+    const near = this.nearKey;
+    const atStar = near.startsWith('star-');
     return {
       t: this.time,
       mode: this.mode,
       throttle: this.throttle,
       speed: this.speed,
-      nearKey: this.nearKey,
+      nearKey: near,
+      nearName: atStar ? (STARS.find((s) => s.id === this.anchor)?.name() ?? '') : t(`body.${near}`),
+      nearKind: atStar ? 'star' : (KIND[near] ?? 'planet'),
+      nearRadiusM: atStar ? 1e8 : (RADIUS_M[near] ?? 1e6),
       altitudeM: this.altitude,
+      aglM: this.altitude,
       landed: this.landed,
+      autoAlign: this.autoAlign,
       targetId: this.target?.id ?? null,
+      targetName: this.target?.name ?? null,
       targetKind: this.target?.kind ?? null,
       targetDistanceM: this.targetDistance(),
       alignedToTarget: this.aligned,
+      targetOffNoseRad: this.target ? (this.aligned ? 0 : 0.5) : null,
+      targetBlockedBy: this.blocked && this.target?.id === '301' && near === 'earth' ? t('body.earth') : null,
       mapOpen: this.mapOpen,
+      mapMode: this.mapOpen ? this.mapMode : null,
       codexOpen: false,
       hyperPhase: this.hyperPhase,
       anchor: this.anchor,
+      beyondSol: this.anchor.startsWith('*'),
       lookedAroundRad: this.looked,
+      thrustersTopSpeedMS: THRUSTERS_MAX,
     };
   }
 
@@ -202,13 +228,15 @@ class Sim {
     if (!this.target) return 'hyper.error.noTarget';
     if (this.target.kind !== 'star') return 'hyper.error.notStar';
     if (this.landed) return 'hyper.error.landed';
-    if (this.altitude < 1e7 && !this.anchor.startsWith('*')) return 'hyper.error.gravityWell';
+    const r = RADIUS_M[this.nearKey] ?? 0;
+    if (this.altitude < Math.max(1e7, 2 * r) && !this.anchor.startsWith('*')) return 'hyper.error.gravityWell';
+    if ((this.targetDistance() ?? 0) < 0.01 * 9.4607e15) return 'hyper.error.tooClose';
     this.hyperPhase = 'spool';
     this.hyperTimer = 0;
     return null;
   }
 
-  update(dt: number, ctl: { strafeY: number }): void {
+  update(dt: number, ctl: { strafeY: number; throttleRate: number }): void {
     this.time += dt;
     if (this.autoAlign && !this.aligned && this.target) {
       this.alignTimer += dt;
@@ -235,17 +263,23 @@ class Sim {
     }
     if (this.landed) {
       this.speed = 0;
-      if (ctl.strafeY > 0.2 || this.throttle > 0.2) {
+      // ship.ts updateLanded: lift off with upward strafe or forward thrust.
+      if (ctl.strafeY > 0.2 || ctl.throttleRate > 0.2) {
         this.landed = false;
-        this.moonDist = 3;
+        this.moonDist = 3.5;
       }
       return;
     }
-    // Speed along the nose: thrusters up to 3 km/s, the drives governed by distance to the nearest surface.
+    // Speed along the nose: thrusters up to 3 km/s (slower near the ground), the drives governed by distance to the
+    // nearest surface.
     const k = this.mode === 'impulse' ? 0.6 : 0.9;
-    this.speed = this.mode === 'thrusters' ? this.throttle * 3000 : this.throttle * Math.max(2000, k * this.altitude);
-    // Nose on the Moon: close in. Otherwise: climb away from whichever body is nearest.
-    const towardMoon = this.aligned && this.target?.id === '301' && !this.anchor.startsWith('*');
+    const ground = Math.min(1, Math.max(0.02, this.altitude / GROUND_SLOW_M));
+    this.speed =
+      this.mode === 'thrusters'
+        ? Math.abs(this.throttle) * THRUSTERS_MAX * ground
+        : this.throttle * Math.max(2000, k * this.altitude);
+    // Nose on the Moon: forward thrust closes in (straight down near the surface). Otherwise: climb away.
+    const towardMoon = this.aligned && this.target?.id === '301' && !this.anchor.startsWith('*') && this.throttle > 0;
     if (towardMoon) {
       const step = Math.min(this.speed * dt, this.moonDist - 2.5);
       this.moonDist -= step;
@@ -259,9 +293,13 @@ class Sim {
       this.mode = 'thrusters';
       this.throttle = 0;
     }
-    if (this.mode === 'thrusters' && this.nearKey === 'moon' && ctl.strafeY < -0.2) {
-      this.moonDist = Math.max(2.5, this.moonDist - Math.max(4, this.moonDist * 0.6) * dt);
-      if (this.moonDist <= 3) this.landed = true;
+    // Strafing moves the ship along the nose's sideways axes: with the nose on the Moon it never descends.
+    // Touchdown: on the ground (2.5 m clearance) with the throttle at or below 5 %.
+    if (this.mode === 'thrusters' && this.nearKey === 'moon' && this.moonDist <= 2.5 + 1e-6) {
+      if (this.throttle <= LANDING_THROTTLE) {
+        this.landed = true;
+        this.throttle = 0;
+      }
     }
   }
 }
@@ -273,7 +311,7 @@ const sim = new Sim();
 const FAST: Partial<TourTiming> = { minDwell: 0.3, hold: 0.05, grace: 0.35, doneLinger: 4 };
 const onboarding = new Onboarding({
   parent: document.body,
-  labelFor: (a) => actionLabel(settings.data, input.activeDevice, a),
+  labelFor: (a, half) => actionLabel(settings.data, input.activeDevice, a, half),
   device: () => input.activeDevice,
   reducedMotion: () => settings.data.reducedMotion,
   onStepChange: (id) => {
@@ -410,21 +448,21 @@ const mapTitle = el('div', 'ks-map-title');
 const mapList = el('div', 'ks-map-list');
 map.append(mapTitle, mapList);
 document.body.append(map);
-let mapMode: 'system' | 'stars' = 'system';
 
 function renderMap(): void {
+  const mode = sim.mapMode;
   mapTitle.replaceChildren(
-    el('strong', '', t(mapMode === 'system' ? 'map.systemTitle' : 'map.starsTitle')),
+    el('strong', '', t(mode === 'system' ? 'map.systemTitle' : 'map.starsTitle')),
     el('span', '', t('onboarding.demo.mapNote')),
   );
-  const modeBtn = el('button', 'ks-map-mode', t(mapMode === 'system' ? 'map.showStars' : 'map.showSystem'));
+  const modeBtn = el('button', 'ks-map-mode', t(mode === 'system' ? 'map.showStars' : 'map.showSystem'));
   modeBtn.type = 'button';
   modeBtn.addEventListener('click', () => {
-    mapMode = mapMode === 'system' ? 'stars' : 'system';
+    sim.mapMode = mode === 'system' ? 'stars' : 'system';
     renderMap();
   });
   const entries: SimTarget[] =
-    mapMode === 'system'
+    mode === 'system'
       ? TARGETS.map((x) => ({ id: x.id, kind: x.kind, name: x.name() }))
       : STARS.map((s) => ({ id: s.id, kind: 'star', name: s.name() }));
   const buttons = entries.map((e) => {
@@ -477,10 +515,21 @@ const fake: Record<string, () => void> = {
     sim.throttle = 0;
     sim.landed = true;
   },
+  lowMoon: () => {
+    // Where the cruise drive drops out: 20 km up, thrusters, throttle cut, nose on the Moon.
+    sim.landed = false;
+    sim.moonDist = 2e4;
+    sim.earthAlt = MOON_START_M - 2e4;
+    sim.mode = 'thrusters';
+    sim.throttle = 0;
+    sim.setTarget({ id: '301', kind: 'moon', name: t('body.moon') });
+    sim.aligned = true;
+  },
   leaveMoon: () => {
     sim.landed = false;
     sim.moonDist = 4e7;
   },
+  blocked: () => (sim.blocked = !sim.blocked),
   map: () => setMap(!sim.mapOpen),
   targetStar: () => sim.setTarget({ id: '*1', kind: 'star', name: t('onboarding.demo.star.proxima') }),
   hyper: () => {
@@ -588,6 +637,7 @@ function hudState(): HudState {
     utc: `${new Date().toISOString().replace('T', ' ').slice(0, 19)} UTC`,
     sunDistance: AU_M,
     sunName: t('body.sun'),
+    howWeKnowKey: '',
     warnings: message && performance.now() < message.until ? [t(message.key)] : [],
     footer: '',
   };
@@ -639,7 +689,10 @@ function frame(now: number): void {
     }
   }
   if (!panel.isOpen) {
-    sim.update(dt, { strafeY: playing ? input.axis('strafeY') : 0 });
+    sim.update(dt, {
+      strafeY: playing ? input.axis('strafeY') : 0,
+      throttleRate: playing ? input.axis('thrust') : 0,
+    });
     onboarding.update(dt, sim.snapshot());
   }
   camera.fov = settings.data.fovDeg;
