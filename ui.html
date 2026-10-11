@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Known Sky: input and accessibility lab</title>
+    <style>
+      html, body { overflow: hidden; }
+      #sky { position: fixed; inset: 0; width: 100vw; height: 100vh; cursor: crosshair; touch-action: none; }
+      .lab-panel {
+        position: fixed; box-sizing: border-box; padding: 0.9rem 1rem; color: var(--ks-fg);
+        background: var(--ks-panel); border: var(--ks-border-w, 1px) solid var(--ks-border); border-radius: 0.8rem;
+        backdrop-filter: blur(8px); box-shadow: 0 0.8rem 2.4rem rgba(0, 0, 0, 0.35);
+      }
+      .lab-intro { left: 1.2rem; top: 1.2rem; width: min(26rem, calc(100vw - 2.4rem)); }
+      .lab-intro h1 { margin: 0; font-size: 1.15rem; font-weight: 300; letter-spacing: 0.14em; text-transform: uppercase; }
+      .lab-intro p { margin: 0.45rem 0 0.8rem; color: var(--ks-dim); font-size: 0.86rem; line-height: 1.45; }
+      .lab-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+      .lab-monitor { left: 1.2rem; bottom: 1.2rem; width: min(20rem, calc(100vw - 2.4rem)); font: 0.78rem/1.4 var(--ks-mono); }
+      .lab-legend { right: 1.2rem; bottom: 1.2rem; width: 15rem; }
+      .lab-fps { right: 1.2rem; top: 1.2rem; padding: 0.35rem 0.6rem; font: 600 0.8rem/1 var(--ks-mono); }
+      .lab-h { margin: 0 0 0.45rem; font: 600 0.66rem/1 var(--ks-mono); letter-spacing: 0.2em; text-transform: uppercase; color: var(--ks-accent); }
+      .lab-axis { display: grid; grid-template-columns: 7.6rem 1fr 3rem; align-items: center; gap: 0.5rem; margin: 0.2rem 0; color: var(--ks-dim); }
+      .lab-bar { position: relative; height: 0.4rem; border-radius: 1rem; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
+      .lab-bar::before { content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: rgba(255, 255, 255, 0.35); }
+      .lab-fill { position: absolute; top: 0; bottom: 0; background: var(--ks-accent); box-shadow: 0 0 0.5rem var(--ks-accent); }
+      .lab-val { text-align: right; color: var(--ks-fg); font-variant-numeric: tabular-nums; }
+      .lab-log { list-style: none; margin: 0.3rem 0 0; padding: 0; min-height: 4.2rem; color: var(--ks-fg); }
+      .lab-log li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .lab-log li.old { color: var(--ks-dim); }
+      .lab-device { margin: 0.6rem 0 0; color: var(--ks-dim); }
+      .lab-legend .ks-prov { margin: 0.2rem 0.3rem 0.2rem 0; }
+      .lab-status { display: flex; gap: 0.8rem; margin-top: 0.6rem; font-size: 0.8rem; }
+      .lab-status span { display: inline-flex; align-items: center; gap: 0.35rem; }
+      .lab-status i { width: 0.65rem; height: 0.65rem; border-radius: 50%; display: inline-block; }
+      @media (max-width: 700px), (max-height: 520px) { .lab-legend { display: none; } }
+      @media (max-height: 520px) { .lab-monitor { display: none; } }
+    </style>
+  </head>
+  <body>
+    <canvas id="sky" aria-hidden="true"></canvas>
+    <main id="lab"></main>
+    <script type="module" src="/src/spike/uiDemo.ts"></script>
+  </body>
+</html>
