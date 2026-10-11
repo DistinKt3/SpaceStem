@@ -26,8 +26,11 @@ export interface CodexPanelOptions {
   /** Enables the "How do we know this?" button in entries. */
   howWeKnow?: HowWeKnowPanel;
   parent?: HTMLElement;
-  /** KeyboardEvent.code values that also close the Codex (e.g. the key that opens it); ignored while typing. */
-  closeKeys?: readonly string[];
+  /**
+   * KeyboardEvent.code values that also close the Codex (e.g. the key that opens it); ignored while typing. A function
+   * is read on each key press, so it can follow rebinding.
+   */
+  closeKeys?: readonly string[] | (() => readonly string[]);
   /** Clock for relative times (ms). */
   now?: () => number;
 }
@@ -58,6 +61,9 @@ export class CodexPanel implements CodexNavTarget {
   private readonly id = `ks-cx-${++uid}`;
   private readonly now: () => number;
   private readonly closeCbs = new Set<() => void>();
+  private readonly openCbs = new Set<() => void>();
+  /** Watches the category strip while open, to fit the categories to its width (fitTabs). */
+  private readonly tabsObserver: ResizeObserver | null;
 
   private tab: CodexTab = 'body';
   private items: Item[] = [];
@@ -109,6 +115,8 @@ export class CodexPanel implements CodexNavTarget {
       this.tablist.append(b);
     }
     this.tablist.addEventListener('keydown', (e) => this.onTabKey(e));
+    this.tablist.addEventListener('scroll', () => this.updateTabOverflow(), { passive: true });
+    this.tabsObserver = typeof ResizeObserver === 'function' ? new ResizeObserver(() => this.fitTabs()) : null;
     this.progressText = h('span', { class: 'ks-cx-progress-text' });
     this.progressFill = h('span', { class: 'ks-cx-progress-fill' });
     const progress = h(
@@ -177,15 +185,17 @@ export class CodexPanel implements CodexNavTarget {
       { class: 'ks-cx', 'aria-labelledby': id('title'), 'data-input': 'keyboard', 'data-view': 'list' },
       this.frame,
     );
+    // Key presses typed in the Codex belong to it, not to the game behind it (see onKey). Releases do reach the game,
+    // so a key held when the Codex opened is not left "held" after it closes.
     this.element.addEventListener('keydown', (e) => this.onKey(e));
-    this.element.addEventListener('keyup', (e) => e.stopPropagation());
     this.element.addEventListener('cancel', (e) => {
       // Esc is handled on keydown; this covers other close requests (and ignores the one Esc may also raise).
       e.preventDefault();
       if (performance.now() - this.escAt > 100) this.back();
     });
     this.element.addEventListener('close', () => {
-      if (!this.openState) return;
+      // The event is queued: by the time it fires, close() may have run and the Codex been opened again.
+      if (!this.openState || this.element.open) return;
       this.openState = false;
       this.finishClose();
     });
@@ -226,6 +236,10 @@ export class CodexPanel implements CodexNavTarget {
       showDialog(this.element);
       pushNavTarget(this);
       this.timer = window.setInterval(() => this.refresh(), 30_000);
+      this.tabsObserver?.observe(this.tablist);
+      // The data failed to load earlier: opening the Codex tries again (the error card updates when it lands).
+      if (this.store.error) void this.store.load();
+      for (const cb of [...this.openCbs]) cb();
     }
     if (entryId && this.store.entry(entryId)) {
       this.showEntry(entryId);
@@ -267,9 +281,16 @@ export class CodexPanel implements CodexNavTarget {
     return () => this.closeCbs.delete(cb);
   }
 
+  /** Called when the Codex opens (not when an open Codex moves to another entry). */
+  onOpen(cb: () => void): () => void {
+    this.openCbs.add(cb);
+    return () => this.openCbs.delete(cb);
+  }
+
   dispose(): void {
     this.close();
     this.unsubscribe();
+    this.tabsObserver?.disconnect();
     this.element.remove();
   }
 
@@ -293,6 +314,8 @@ export class CodexPanel implements CodexNavTarget {
     this.tab = tab;
     this.activeId = null;
     this.refresh();
+    // A category strip that scrolls (narrow layout, large text) keeps the selected category in view.
+    this.tabs.get(tab)?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     if (opts.focus === 'tab') this.tabs.get(tab)?.focus();
     else if (opts.focus === 'list') this.focusList();
   }
@@ -363,13 +386,22 @@ export class CodexPanel implements CodexNavTarget {
 
   // --- Internals ------------------------------------------------------------------------------------------------------
 
+  private closeKeyCodes(): readonly string[] {
+    const k = this.opts.closeKeys;
+    return typeof k === 'function' ? k() : (k ?? []);
+  }
+
   private finishClose(): void {
     removeNavTarget(this);
     window.clearInterval(this.timer);
+    this.tabsObserver?.disconnect();
     this.closedAt = this.now();
     const rf = this.returnFocus;
     this.returnFocus = null;
     if (rf?.isConnected) rf.focus({ preventScroll: true });
+    // Focus must not stay in the closed panel: its key handler would keep swallowing game keys.
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && this.element.contains(active)) active.blur();
     for (const cb of [...this.closeCbs]) cb();
   }
 
@@ -458,6 +490,13 @@ export class CodexPanel implements CodexNavTarget {
 
   private select(id: string): void {
     this.selectedId = id;
+    // An entry picked from search results belongs to its own category: clearing the search returns to that category
+    // with the entry still selected (as goTo() does).
+    const kind = this.store.entry(id)?.kind;
+    if (kind && this.query.trim() && this.tab !== kind) {
+      this.tab = kind;
+      this.renderTabs();
+    }
     for (const it of this.items) it.el.setAttribute('aria-selected', String(it.id === id));
     this.renderEntry();
     // Opening an entry clears its "new" marker (this triggers a refresh of the list).
@@ -475,7 +514,8 @@ export class CodexPanel implements CodexNavTarget {
 
   private setQuery(q: string): void {
     this.query = q;
-    this.activeId = null;
+    // The selected entry stays the active one when it is in the new list (results, or its category once cleared).
+    this.activeId = this.selectedId;
     this.refresh();
     const n = this.items.length;
     this.status.textContent = q.trim()
@@ -511,7 +551,7 @@ export class CodexPanel implements CodexNavTarget {
       e.preventDefault();
       this.search.focus();
       this.search.select();
-    } else if (this.opts.closeKeys?.includes(e.code)) {
+    } else if (this.closeKeyCodes().includes(e.code)) {
       e.preventDefault();
       this.close();
     }
@@ -589,7 +629,12 @@ export class CodexPanel implements CodexNavTarget {
   private refresh(): void {
     this.renderTabs();
     const p = this.store.progress();
-    this.progressText.textContent = t('codex.progress', { n: String(p.discovered), total: String(p.total) });
+    const counts = { n: String(p.discovered), total: String(p.total) };
+    // The short form ("4/8") replaces the sentence in very narrow headers (codex.css); readers get the sentence.
+    this.progressText.replaceChildren(
+      h('span', { class: 'ks-cx-progress-full' }, t('codex.progress', counts)),
+      h('span', { class: 'ks-cx-progress-short', 'aria-hidden': 'true' }, t('codex.progressShort', counts)),
+    );
     this.progressFill.style.width = `${p.total > 0 ? (100 * p.discovered) / p.total : 0}%`;
     this.renderList();
     const key = this.entryKey();
@@ -600,9 +645,15 @@ export class CodexPanel implements CodexNavTarget {
   private renderTabs(): void {
     const searching = this.query.trim() !== '';
     this.tablist.classList.toggle('is-searching', searching);
+    // While searching, the list shows results from every category: no category is selected, and the panel is
+    // labelled as the search results. The current category keeps the roving tab stop, and returns when cleared.
+    if (searching) {
+      this.panel.removeAttribute('aria-labelledby');
+      this.panel.setAttribute('aria-label', t('codex.search.listLabel', { q: this.query.trim() }));
+    } else this.panel.removeAttribute('aria-label');
     for (const [tab, b] of this.tabs) {
       const on = tab === this.tab;
-      b.setAttribute('aria-selected', String(on));
+      b.setAttribute('aria-selected', String(on && !searching));
       b.tabIndex = on ? 0 : -1;
       b.classList.toggle('is-active', on);
       // The visible parts are decoration for a single translated accessible name.
@@ -622,10 +673,38 @@ export class CodexPanel implements CodexNavTarget {
       }
       if (hasNew) children.push(h('span', { class: 'ks-cx-dot' }));
       b.setAttribute('aria-label', name);
-      if (on) this.panel.setAttribute('aria-labelledby', b.id);
+      if (on && !searching) this.panel.setAttribute('aria-labelledby', b.id);
       b.title = label;
       b.replaceChildren(...children);
     }
+    this.fitTabs();
+  }
+
+  /**
+   * Fits the category strip to its width in steps (codex.css): tighter spacing, then icons and counts for the
+   * categories not selected, then icons alone. Only if even that does not fit does the strip scroll, with an edge
+   * fade. The full names stay in each tab's accessible name and tooltip.
+   */
+  private fitTabs(): void {
+    const el = this.tablist;
+    if (!this.openState) return;
+    delete el.dataset['fit'];
+    for (const level of ['tight', 'compact', 'icons'] as const) {
+      if (el.scrollWidth - el.clientWidth <= 1) break;
+      el.dataset['fit'] = level;
+    }
+    this.updateTabOverflow();
+  }
+
+  /** Marks which ends of a scrolling category strip hide more tabs (shown as an edge fade in codex.css). */
+  private updateTabOverflow(): void {
+    const el = this.tablist;
+    const max = el.scrollWidth - el.clientWidth;
+    const start = max > 1 && el.scrollLeft > 1;
+    const end = max > 1 && el.scrollLeft < max - 1;
+    const more = start && end ? 'both' : start ? 'start' : end ? 'end' : null;
+    if (more) el.dataset['more'] = more;
+    else delete el.dataset['more'];
   }
 
   private listEntries(): { entry: CodexEntry; at: number | null }[] {
@@ -731,7 +810,8 @@ export class CodexPanel implements CodexNavTarget {
 
   private entryKey(): string {
     const id = this.selectedId;
-    return id ? `${id}|${this.store.discovered(id)}|${this.store.loaded}` : `none|${this.store.loaded}`;
+    const state = `${this.store.loaded}|${this.store.error ?? ''}`;
+    return id ? `${id}|${this.store.discovered(id)}|${state}` : `none|${state}`;
   }
 
   private updateTimes(): void {
@@ -751,6 +831,20 @@ export class CodexPanel implements CodexNavTarget {
     this.article.classList.remove('is-locked');
     if (!e) {
       if (this.store.error && this.store.entries().length === 0) {
+        const retry = h('button', { type: 'button', class: 'ks-cx-btn ks-cx-retry' }, t('codex.retry'));
+        retry.addEventListener('click', () => {
+          if (retry.getAttribute('aria-busy') === 'true') return;
+          // Not disabled while busy: a disabled button would drop keyboard focus.
+          retry.setAttribute('aria-busy', 'true');
+          retry.textContent = t('codex.retrying');
+          // The store's change event re-renders the panel; when nothing changed, this card (and focus) stays.
+          void this.store.load().then(() => {
+            if (retry.isConnected) {
+              retry.removeAttribute('aria-busy');
+              retry.textContent = t('codex.retry');
+            } else if (this.openState && !this.element.contains(document.activeElement)) this.focusList();
+          });
+        });
         this.article.classList.add('is-locked');
         this.article.replaceChildren(
           h(
@@ -759,6 +853,7 @@ export class CodexPanel implements CodexNavTarget {
             h('span', { class: 'ks-cx-lockcard-icon' }, icon('warn')),
             h('h2', { class: 'ks-cx-entry-title', id: titleId, tabindex: -1 }, t('codex.errorTitle')),
             h('p', { class: 'ks-cx-lockcard-note' }, t('codex.error')),
+            h('p', { class: 'ks-cx-lockcard-action' }, retry),
           ),
         );
       } else
@@ -830,7 +925,8 @@ export class CodexPanel implements CodexNavTarget {
         icon('question'),
         t('codex.entry.howWeKnow'),
       );
-      b.addEventListener('click', () => hwk.show(e, b));
+      // Opened from the entry itself, so the dialog does not offer "Read Codex entry".
+      b.addEventListener('click', () => hwk.show(e, b, { inCodex: true }));
       actions.append(b);
     }
 

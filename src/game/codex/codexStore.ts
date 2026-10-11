@@ -8,7 +8,7 @@
  */
 import { fetchJson } from '../../data/assets';
 import { t } from '../i18n';
-import { normalizeSearch } from './format';
+import { entrySystem, normalizeSearch } from './format';
 import { parseCitations, parseCodex, type CodexCitation, type CodexEntry, type CodexKind } from './types';
 
 export type { CodexCitation, CodexEntry, CodexFact, CodexClaim, CodexKind, CodexUnlock } from './types';
@@ -36,10 +36,11 @@ export interface CodexSource {
 
 /** The shipped data under public/data. */
 export function publicDataSource(locale = 'en'): CodexSource {
-  // A dev server answers a missing file with its HTML page, which fails to parse: report that as "missing".
+  // A dev server answers a missing file with its HTML page, which fails to parse: report that as "missing". Other
+  // errors ("fetch codex/en.json: 404", network failures) already say what failed and pass through unchanged.
   const get = (path: string): Promise<unknown> =>
     fetchJson<unknown>(path).catch((err: unknown) => {
-      throw new Error(err instanceof SyntaxError ? `${path} is missing or not JSON` : String(err));
+      throw err instanceof SyntaxError ? new Error(`${path} is missing or not JSON`) : err;
     });
   return { codex: () => get(`codex/${locale}.json`), citations: () => get('citations.json') };
 }
@@ -74,6 +75,8 @@ interface Persisted {
 
 export const CODEX_STORAGE_KEY = 'knownsky.codex.v1';
 
+const errorText = (reason: unknown): string => (reason instanceof Error ? reason.message : String(reason));
+
 function defaultStorage(): StorageLike | null {
   try {
     return typeof localStorage !== 'undefined' ? localStorage : null;
@@ -86,15 +89,22 @@ export class CodexStore {
   private list: CodexEntry[] = [];
   private readonly ids = new Map<string, CodexEntry>();
   private readonly bodies = new Map<string, CodexEntry>();
+  /** Star entries by normalised star name and title. */
+  private readonly stars = new Map<string, CodexEntry>();
   private cites = new Map<string, CodexCitation>();
   private records: DiscoveryRecord[] = [];
   private readonly recordIds = new Map<string, number>();
   private readonly seenIds = new Set<string>();
   private readonly discoverCbs = new Set<DiscoverListener>();
   private readonly changeCbs = new Set<() => void>();
-  /** Discoveries made before the content loaded; announced once it has. */
-  private early: DiscoveryRecord[] = [];
+  /**
+   * Discoveries asked for before the content loaded (id -> time). They are recorded, persisted and announced only once
+   * the content shows that they name real, non-start entries.
+   */
+  private early = new Map<string, number>();
   private loading: Promise<void> | null = null;
+  /** The last content that loaded, kept when a retry fails for one of the files. */
+  private raw: { codex?: unknown; citations?: unknown } = {};
   private readonly source: CodexSource;
   private readonly storage: StorageLike | null;
   private readonly key: string;
@@ -115,33 +125,54 @@ export class CodexStore {
     this.restore();
   }
 
-  /** Loads content once; later calls return the same promise. Never rejects. */
+  /**
+   * Loads the content. Never rejects. While a load is running, or once one has succeeded, later calls return the same
+   * promise; after a failed load (`error` is set) a later call tries again, keeping whatever did load before.
+   */
   load(): Promise<void> {
     this.loading ??= (async () => {
       const [codex, citations] = await Promise.allSettled([this.source.codex(), this.source.citations()]);
       const errors: string[] = [];
-      if (codex.status === 'rejected') errors.push(`codex: ${String(codex.reason)}`);
-      if (citations.status === 'rejected') errors.push(`citations: ${String(citations.reason)}`);
-      this.setData(
-        codex.status === 'fulfilled' ? codex.value : { version: 1, entries: [] },
-        citations.status === 'fulfilled' ? citations.value : {},
-      );
-      this.error = errors.length > 0 ? errors.join('; ') : null;
-      if (this.error) console.warn(`Codex: ${this.error}`);
+      if (codex.status === 'fulfilled') this.raw.codex = codex.value;
+      else errors.push(`codex: ${errorText(codex.reason)}`);
+      if (citations.status === 'fulfilled') this.raw.citations = citations.value;
+      else errors.push(`citations: ${errorText(citations.reason)}`);
+      const error = errors.length > 0 ? errors.join('; ') : null;
+      // The error is part of what change listeners see, so it is set together with the content.
+      this.apply(this.raw.codex ?? { version: 1, entries: [] }, this.raw.citations ?? {}, error);
+      if (error) {
+        console.warn(`Codex data failed to load (${error})`);
+        this.loading = null; // The next load() tries again.
+      }
     })();
     return this.loading;
   }
 
-  /** Replaces the content synchronously (also used by load()). */
+  /** Replaces the content synchronously (tests, demos) and clears any load error. */
   setData(codexRaw: unknown, citationsRaw: unknown): void {
+    this.raw = { codex: codexRaw, citations: citationsRaw };
+    this.apply(codexRaw, citationsRaw, null);
+  }
+
+  private apply(codexRaw: unknown, citationsRaw: unknown, error: string | null): void {
     const codex = parseCodex(codexRaw);
     const cites = parseCitations(citationsRaw);
     this.list = codex.value;
     this.ids.clear();
     this.bodies.clear();
+    this.stars.clear();
     for (const e of this.list) {
       this.ids.set(e.id, e);
       if (e.bodyId !== undefined && !this.bodies.has(e.bodyId)) this.bodies.set(e.bodyId, e);
+    }
+    // Star names before titles, so that a title never shadows another star's catalogue name.
+    const starEntries = this.list.filter((e) => e.kind === 'star');
+    for (const [name, e] of [
+      ...starEntries.map((x) => [x.starName, x] as const),
+      ...starEntries.map((x) => [x.title, x] as const),
+    ]) {
+      const key = name ? normalizeSearch(name) : '';
+      if (key && !this.stars.has(key)) this.stars.set(key, e);
     }
     this.cites = cites.value;
     const problems = [...codex.problems, ...cites.problems];
@@ -152,14 +183,20 @@ export class CodexStore {
     }
     this.problems = [...new Set(problems)];
     this.loaded = true;
-    this.error = null;
-    // Announce discoveries made while loading.
+    this.error = error;
+    // Discoveries asked for while loading: record and announce the ones that name real, non-start entries.
     const early = this.early;
-    this.early = [];
-    for (const r of early) {
-      const e = this.ids.get(r.id);
-      if (e && e.unlock !== 'start') this.emitDiscover(e, r.at);
+    this.early = new Map();
+    const fresh: [CodexEntry, number][] = [];
+    for (const [id, at] of early) {
+      const e = this.ids.get(id);
+      if (!e || e.unlock === 'start' || this.recordIds.has(id)) continue;
+      this.recordIds.set(id, this.records.length);
+      this.records.push({ id, at });
+      fresh.push([e, at]);
     }
+    if (fresh.length > 0) this.persist();
+    for (const [e, at] of fresh) this.emitDiscover(e, at);
     this.emitChange();
   }
 
@@ -176,6 +213,21 @@ export class CodexStore {
     return this.bodies.get(bodyId);
   }
 
+  /**
+   * The star entry for a star's name, matched against the star entries' star names and titles with case and accents
+   * ignored ("Proxima Centauri", "TRAPPIST-1"): for hyperspeed arrivals at catalogue stars.
+   */
+  byStarName(name: string): CodexEntry | undefined {
+    const key = normalizeSearch(name);
+    return key ? this.stars.get(key) : undefined;
+  }
+
+  /** Every entry in a star system ("sol", "trappist-1"), its star first. Solar System bodies count as "sol". */
+  bySystem(systemId: string): CodexEntry[] {
+    const inSystem = this.list.filter((e) => entrySystem(e) === systemId);
+    return [...inSystem.filter((e) => e.kind === 'star'), ...inSystem.filter((e) => e.kind !== 'star')];
+  }
+
   byKind(kind: CodexKind): CodexEntry[] {
     return this.list.filter((e) => e.kind === kind);
   }
@@ -184,10 +236,13 @@ export class CodexStore {
     return this.cites.get(key);
   }
 
-  /** Entries with unlock "start" are always known; others once discover() has recorded them. */
+  /**
+   * Entries with unlock "start" are always known; others once discover() has recorded them. Before the content has
+   * loaded, ids passed to discover() count as discovered (provisionally, as discover() explains).
+   */
   discovered(id: string): boolean {
     const e = this.ids.get(id);
-    return e?.unlock === 'start' || this.recordIds.has(id);
+    return e?.unlock === 'start' || this.recordIds.has(id) || (!this.loaded && this.early.has(id));
   }
 
   /** When the entry was discovered (ms), or null for start entries and undiscovered ones. */
@@ -198,23 +253,27 @@ export class CodexStore {
 
   /**
    * Records a discovery. Returns true when the entry is newly discovered (listeners are then called with it), false
-   * when it was already known or does not exist. Calls made before load() finishes are recorded and announced once
-   * the content is available.
+   * when it was already known or does not exist.
+   *
+   * Before the content has loaded the answer is provisional: the id is queued, and true is returned unless it was
+   * already recorded or queued. When the content arrives, queued ids that name real entries (not "start" ones) are
+   * recorded with the time of the call, persisted and announced; any other id is dropped without a trace.
    */
   discover(id: string): boolean {
-    if (this.loaded) {
-      const e = this.ids.get(id);
-      if (!e || e.unlock === 'start') return false;
-    }
     if (this.recordIds.has(id)) return false;
+    if (!this.loaded) {
+      if (this.early.has(id)) return false;
+      this.early.set(id, this.now());
+      return true;
+    }
+    const e = this.ids.get(id);
+    if (!e || e.unlock === 'start') return false;
     const rec: DiscoveryRecord = { id, at: this.now() };
     this.recordIds.set(id, this.records.length);
     this.records.push(rec);
     this.persist();
-    if (this.loaded) {
-      this.emitDiscover(this.ids.get(id)!, rec.at);
-      this.emitChange();
-    } else this.early.push(rec);
+    this.emitDiscover(e, rec.at);
+    this.emitChange();
     return true;
   }
 
@@ -294,7 +353,7 @@ export class CodexStore {
     this.records = [];
     this.recordIds.clear();
     this.seenIds.clear();
-    this.early = [];
+    this.early.clear();
     try {
       this.storage?.removeItem(this.key);
     } catch {
