@@ -114,6 +114,28 @@ test('the catalogue starfield renders (regression: mirrored sprite quads were ba
   expect(errors).toEqual([]);
 });
 
+test('switching from cruise to thrusters drops drive speed to the local frame (review physics-1)', async ({ page }) => {
+  const errors: string[] = [];
+  await boot(page, errors);
+  const speeds = await page.evaluate(() => {
+    const ks = (window as unknown as { __ks: KS & { app: { simTime: number } } }).__ks;
+    const app = ks.app as unknown as { sys: unknown; simTime: number; paused: boolean; controller: { ship: { mode: string; vel: Vec & { set(x: number, y: number, z: number): void }; update(dt: number, c: unknown, sys: unknown, t: number): void } } };
+    app.paused = true;
+    const ship = app.controller.ship;
+    ship.mode = 'cruise';
+    ship.vel.set(3e10, 0, 0); // 100c
+    const before = ship.vel.length();
+    const c = { pitch: 0, yaw: 0, roll: 0, throttleRate: 0, strafeX: 0, strafeY: 0, boost: false, zeroThrottle: false, modeNext: true, modePrev: false, toggleFlightAssist: false };
+    ship.update(1 / 60, c, app.sys, app.simTime);
+    return { before, after: ship.vel.length(), mode: ship.mode };
+  });
+  expect(speeds.mode).toBe('thrusters');
+  expect(speeds.before).toBeGreaterThan(1e10);
+  // At rest in Earth's co-rotating frame at 420 km: about 0.5 km/s inertial, nowhere near the cruise speed.
+  expect(speeds.after).toBeLessThan(2_000);
+  expect(errors).toEqual([]);
+});
+
 test('map lists destinations and sets the target', async ({ page }) => {
   const errors: string[] = [];
   await boot(page, errors);

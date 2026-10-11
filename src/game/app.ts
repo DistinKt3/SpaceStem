@@ -45,6 +45,8 @@ export interface Controller {
   updateHud?(app: App): void;
   /** Called when the App teleports the camera (named views, share links). */
   onPlace?(app: App): void;
+  /** Called instead of update while the simulation is paused (settings, map): keep audio and HUD calm. */
+  idle?(dt: number, app: App): void;
 }
 
 /** Fixed seed for the generative score, so every player hears the same piece (see docs/DECISIONS.md D-033). */
@@ -111,6 +113,12 @@ export class App {
       if (!this.map?.isOpen && !this.panel.isOpen && this.params.get('lock') !== '0') this.input.requestPointerLock();
     });
     this.settings.onChange((_, changed) => this.applySettings(changed));
+  }
+
+  /** True when the action has a binding on the active device (hints for unbound actions are hidden). */
+  isBound(action: ActionId): boolean {
+    const ctx = this.input.activeDevice === 'pad' ? 'pad' : 'kbm';
+    return this.input.binding(action, 0, ctx) !== null || this.input.binding(action, 1, ctx) !== null;
   }
 
   /** Label of the input currently bound to an action (for hints; follows rebinding and the active device). */
@@ -279,7 +287,10 @@ export class App {
       if (!this.map.isOpen) this.input.releasePointerLock();
       this.map.toggle();
     }
-    const paused = this.paused || this.panel.isOpen;
+    // The map is a planning view: the simulation pauses with it (otherwise sim time would advance while the ship's
+    // offset stays frozen relative to a rotating body).
+    const paused = this.paused || this.panel.isOpen || (this.map?.isOpen ?? false);
+    if (paused) this.controller?.idle?.(dt, this);
     if (!paused) this.simTime = this.sys.ephemeris.clampTime(this.simTime + dt * this.timeScale);
     if (this.map?.isOpen) {
       this.map.render();

@@ -148,7 +148,10 @@ export class Ship {
     if (c.modeNext || c.modePrev) {
       const i = Math.max(0, MODES.indexOf(this.mode));
       const n = (i + (c.modeNext ? 1 : MODES.length - 1)) % MODES.length;
+      const was = this.mode;
       this.setMode(MODES[n]!);
+      // Leaving a drive for thrusters must not keep drive velocity (up to 3,000c): match the local frame.
+      if (this.mode === 'thrusters' && was !== 'thrusters') this.matchLocalFrame(sys, t);
     }
     if (c.zeroThrottle) this.throttle = 0;
     this.throttle = Math.min(1, Math.max(this.mode === 'thrusters' ? -0.5 : 0, this.throttle + c.throttleRate * dt * 0.6));
@@ -188,6 +191,20 @@ export class Ship {
     if (m === this.mode) return;
     this.mode = m;
     if (m !== 'thrusters' && this.throttle < 0) this.throttle = 0;
+  }
+
+  /**
+   * Come to rest in the local frame: co-rotating with the nearest body's surface when within 10 radii of it
+   * (re-anchored to it), otherwise at rest relative to the current anchor.
+   */
+  matchLocalFrame(sys: SolarSystem, t: number): void {
+    const [near, alt] = sys.nearest(this.pos, t);
+    if (near.def.kind !== 'star' && alt < 10 * near.def.radiusM) {
+      if (this.pos.anchor !== near.def.id) this.reanchor(sys, near.def.id, t);
+      this.vel.copy(this.surfaceVelocity(near, t, this.pos.offset));
+    } else {
+      this.vel.set(0, 0, 0);
+    }
   }
 
   private surfaceVelocity(view: BodyView | undefined, t: number, rel: Vec3d): Vec3d {
@@ -253,8 +270,9 @@ export class Ship {
     if (alt < dropAlt && this.vel.dot(sys.bodyRelative(near.def.id, this.pos, t, new Vec3d())) > 0) {
       this.mode = 'thrusters';
       this.throttle = 0;
-      // Match the surface frame so the transition is calm.
-      this.vel.copy(this.surfaceVelocity(sys.byId.get(this.pos.anchor), t, this.pos.offset));
+      // Match the surface frame of the body we dropped out at (not the anchor's, e.g. Mars at Deimos).
+      if (this.pos.anchor !== near.def.id) this.reanchor(sys, near.def.id, t);
+      this.vel.copy(this.surfaceVelocity(near, t, this.pos.offset));
       tel.droppedOut = true;
     }
   }

@@ -73,6 +73,11 @@ export class Hyperspeed {
     return null;
   }
 
+  /** Unit travel direction of the current jump (ICRF); meaningful while active. */
+  get direction(): Readonly<Vec3d> {
+    return this.dir;
+  }
+
   /** 0..1 while spooling, 1 during the jump, 0 when idle (audio and cockpit). */
   get spoolProgress(): number {
     return this.phase === 'spool' ? Math.min(1, this.elapsed / this.spoolTime) : this.phase === 'jump' ? 1 : 0;
