@@ -9,7 +9,7 @@ import { Hud, type HudLabel, type HudState } from '../hud/hud';
 import { bodyLabel, hasKey, t } from '../i18n';
 import { tdbSecondsSinceJ2000ToUnixMs } from '../../core/time';
 import { FLIGHT, Ship, type ShipControls } from './ship';
-import { SPEED_OF_LIGHT_M_PER_S } from '../../core/constants';
+import { LIGHT_YEAR_M, SPEED_OF_LIGHT_M_PER_S } from '../../core/constants';
 import type { AudioState } from '../audio/audioEngine';
 import type { CockpitState } from '../../render/cockpit/cockpit';
 import { POINT_COLORS } from '../../world/solarSystem';
@@ -18,6 +18,9 @@ import { AU_M, PARSEC_M, SUN_RADIUS_M } from '../../core/constants';
 import type { Provenance } from '../../core/provenance';
 import { inferStar } from '../../world/starCatalog';
 import { MapView } from '../map/mapView';
+
+/** Beyond this distance from every planet and moon (0.01 ly, about 630 au) the HUD names the nearest star. */
+const INTERSTELLAR_M = 0.01 * LIGHT_YEAR_M;
 
 /** Head look: radians per CSS pixel, and limits (the eye sits close to the headrest beyond ~140 degrees). */
 const HEAD_LOOK_RAD_PER_PX = 0.003;
@@ -373,6 +376,10 @@ export class ShipController implements Controller {
     // In transit the ship model is not stepped, so read the nearest body directly.
     const inJump = this.hyper.phase === 'jump';
     const [jumpNear, jumpAlt] = inJump ? sys.nearest(ship.pos, app.simTime) : [null, 0];
+    // Between the stars the nearest planet or moon means nothing (it read "Charon, 2.34 ly" mid-jump): name the nearest
+    // star instead once every body is farther than 0.01 ly.
+    const [anyNear, anyAlt] = inJump ? [jumpNear!, jumpAlt] : sys.nearest(ship.pos, app.simTime);
+    const deepStar = anyAlt > INTERSTELLAR_M && anyNear.def.kind !== 'star' ? sys.primaryStar(ship.pos, app.simTime) : null;
     const state: HudState = {
       mode: ship.mode,
       throttle: ship.throttle,
@@ -380,9 +387,9 @@ export class ShipController implements Controller {
       speedLabel: ship.mode === 'thrusters' ? 'surface' : 'drive',
       etaOverride: this.hyper.active ? this.hyper.etaSeconds : null,
       governorSpeed: tel.governorSpeed,
-      altitude: jumpNear ? jumpAlt : tel.agl,
+      altitude: deepStar ? Math.max(0, deepStar.rel.length() - deepStar.def.radiusM) : jumpNear ? jumpAlt : tel.agl,
       verticalSpeed: tel.verticalSpeed,
-      nearName: jumpNear ? bodyLabel(jumpNear.def) : this.bodyName(tel.near),
+      nearName: deepStar ? this.bodyName(deepStar.def.key) : jumpNear ? bodyLabel(jumpNear.def) : this.bodyName(tel.near),
       flightAssist: ship.flightAssist,
       landed: ship.landed,
       velocityDir: velDir,
