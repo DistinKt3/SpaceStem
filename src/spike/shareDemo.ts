@@ -14,6 +14,7 @@
 import '../game/styles.css';
 import '../game/ui/ui.css';
 import '../game/hud/hud.css';
+import { tdbSecondsSinceJ2000ToUnixMs } from '../core/time';
 import { t } from '../game/i18n';
 import { InputManager } from '../game/input/inputManager';
 import { bindingLabel } from '../game/input/labels';
@@ -590,10 +591,21 @@ async function bootGame(): Promise<void> {
   };
   input.justPressed = (id: ActionId): boolean => (id === 'pause' && pauseConsumed ? false : justPressed(id));
   const outcome = await share.applyFragment(location.hash);
+  // The view right after applying the link, before the first frame moves the ship.
+  const ship = app.controller instanceof ShipController ? app.controller : null;
+  const placed = {
+    anchor: app.cam.pos.anchor,
+    offset: [app.cam.pos.offset.x, app.cam.pos.offset.y, app.cam.pos.offset.z],
+    quat: [app.cam.quat.x, app.cam.quat.y, app.cam.quat.z, app.cam.quat.w],
+    timeMs: tdbSecondsSinceJ2000ToUnixMs(app.simTime),
+    target: ship?.targetId ?? null,
+    mode: ship?.ship.mode ?? null,
+  };
   (window as unknown as { __ks: unknown }).__ks = {
     app,
     share,
     outcome,
+    placed,
     pending: () => app.pool.pending,
     capture: () => {
       app.tick();

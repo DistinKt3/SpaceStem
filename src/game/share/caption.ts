@@ -83,8 +83,6 @@ export interface CaptionLayout {
   /** Accent bar width and the indent of the title after it. */
   barW: number;
   indent: number;
-  /** True when the image is too narrow for the right-hand wordmark block; it then leads the credits line. */
-  narrow: boolean;
 }
 
 /** Sizes for an image of w × h pixels. Fonts keep a legible minimum on small images. */
@@ -105,7 +103,6 @@ export function captionLayout(w: number, h: number): CaptionLayout {
     gap: Math.max(8, 20 * s),
     barW: Math.max(2, 3 * s),
     indent: Math.max(8, 20 * s),
-    narrow: w < 900 * s * (w > h ? 1 : 1.15),
   };
 }
 
@@ -137,9 +134,13 @@ export function captionStyleFromDocument(brand: string, tagline: string): Captio
 }
 
 type Ctx = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
+/** Anything that measures text like a 2D context (tests pass a fixed-width stand-in). */
+export interface TextMeasurer {
+  measureText(text: string): { readonly width: number };
+}
 
 /** Longest prefix of `text` that fits `maxW` with an ellipsis (the whole text when it fits). */
-export function fitText(ctx: Pick<Ctx, 'measureText'>, text: string, maxW: number): string {
+export function fitText(ctx: TextMeasurer, text: string, maxW: number): string {
   if (maxW <= 0) return '';
   if (ctx.measureText(text).width <= maxW) return text;
   const chars = Array.from(text);
@@ -153,8 +154,11 @@ export function fitText(ctx: Pick<Ctx, 'measureText'>, text: string, maxW: numbe
   return lo === 0 ? '' : `${chars.slice(0, lo).join('').trimEnd()}…`;
 }
 
-/** Wraps a " · "-separated credits line onto at most `maxLines` lines, keeping segments whole where possible. */
-export function wrapSegments(ctx: Pick<Ctx, 'measureText'>, text: string, maxW: number, maxLines: number, sep = ' · '): string[] {
+/**
+ * Wraps a " · "-separated credits line onto at most `maxLines` lines, keeping segments whole where possible. When it
+ * does not fit, the last segment (the provenance note) keeps its own line and the text before it is shortened.
+ */
+export function wrapSegments(ctx: TextMeasurer, text: string, maxW: number, maxLines: number, sep = ' · ', keepLast = true): string[] {
   const parts = text.split(sep);
   const lines: string[] = [];
   let cur = '';
@@ -168,6 +172,10 @@ export function wrapSegments(ctx: Pick<Ctx, 'measureText'>, text: string, maxW: 
   }
   if (cur) lines.push(cur);
   if (lines.length > maxLines) {
+    if (keepLast && parts.length > 1 && maxLines > 1) {
+      const head = wrapSegments(ctx, parts.slice(0, -1).join(sep), maxW, maxLines - 1, sep, false);
+      return [...head, fitText(ctx, parts[parts.length - 1]!, maxW)];
+    }
     const kept = lines.slice(0, maxLines);
     kept[maxLines - 1] = `${kept[maxLines - 1]!}${sep}${lines.slice(maxLines).join(sep)}`;
     return kept.map((l) => fitText(ctx, l, maxW));
@@ -177,22 +185,40 @@ export function wrapSegments(ctx: Pick<Ctx, 'measureText'>, text: string, maxW: 
 
 /**
  * Paints the caption over the bottom of a w × h image: a soft scrim, the place and time on the left, the wordmark
- * and tagline on the right, and the credits across the bottom. Returns the top of the scrim (px).
+ * and tagline on the right, and the credits across the bottom. When the place would not fit beside the wordmark
+ * (narrow or portrait images), the wordmark and tagline lead the credits instead. Returns the top of the scrim (px).
  */
 export function drawCaption(ctx: Ctx, w: number, h: number, text: CaptionText, style: CaptionStyle): number {
   const L = captionLayout(w, h);
   const font = (weight: number, px: number, family = style.font): string => `${weight} ${px.toFixed(2)}px ${family}`;
+  const brand = style.brand.toUpperCase();
   ctx.save();
   ctx.textBaseline = 'alphabetic';
   ctx.letterSpacing = '0px';
 
-  // Measure the credits first: they set the height of the band.
+  // Wordmark block size (orbit mark + spaced wordmark, tagline below).
+  const brandFont = font(300, L.brandPx);
+  const brandW = measureSpaced(ctx, brand, brandFont, '0.38em');
+  ctx.font = font(400, L.taglinePx);
+  const tagW = ctx.measureText(style.tagline).width;
+  const markR = L.brandPx * 0.36;
+  const trail = L.brandPx * 0.38;
+  const blockW = Math.max(brandW - trail + markR * 3.1 + L.brandPx * 0.5, tagW);
+  // Place and time widths decide the layout.
+  const textX = L.padX + L.barW + L.indent;
+  ctx.font = font(600, L.titlePx);
+  const titleW = ctx.measureText(text.title).width;
+  ctx.font = font(500, L.subtitlePx, style.mono);
+  const subW = ctx.measureText(text.subtitle).width;
+  const narrow = textX + Math.max(titleW, subW) + 40 * L.s + blockW > w - L.padX;
+
+  // Credits set the height of the band; in the narrow layout they carry the wordmark and tagline.
   const creditsW = w - 2 * L.padX;
+  const lead = narrow ? `${brand}  ` : '';
+  const leadW = lead ? measureSpaced(ctx, lead, font(600, L.creditsPx), '0.18em') : 0;
   ctx.font = font(400, L.creditsPx);
-  const brandLead = L.narrow ? `${style.brand.toUpperCase()}  ` : '';
-  const leadW = brandLead ? measureSpaced(ctx, brandLead, font(600, L.creditsPx), '0.18em') : 0;
-  ctx.font = font(400, L.creditsPx);
-  const credits = text.credits ? wrapSegments(ctx, text.credits, creditsW - leadW, 2) : [];
+  const creditsText = narrow ? [style.tagline, text.credits].filter(Boolean).join(' · ') : text.credits;
+  const credits = creditsText ? wrapSegments(ctx, creditsText, creditsW - leadW, narrow ? 5 : 3) : [];
   const creditsH = credits.length * L.creditsLineH;
   const mainH = L.titlePx * 1.15 + L.subtitlePx * 1.5;
   const bottom = h - L.padBottom;
@@ -204,46 +230,36 @@ export function drawCaption(ctx: Ctx, w: number, h: number, text: CaptionText, s
   // Scrim: transparent at the top, deep blue-black at the bottom edge (keeps the image, frames the text).
   const g = ctx.createLinearGradient(0, scrimTop, 0, h);
   g.addColorStop(0, 'rgba(2, 5, 12, 0)');
-  g.addColorStop(0.45, 'rgba(2, 5, 12, 0.5)');
-  g.addColorStop(1, 'rgba(2, 5, 12, 0.86)');
+  g.addColorStop(0.45, 'rgba(2, 5, 12, 0.52)');
+  g.addColorStop(1, 'rgba(2, 5, 12, 0.88)');
   ctx.fillStyle = g;
   ctx.fillRect(0, scrimTop, w, h - scrimTop);
 
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.55)';
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
   ctx.shadowBlur = 6 * L.s;
-
-  // Right block: orbit mark, wordmark, tagline.
-  let brandBlockW = 0;
   const titleBase = mainTop + L.titlePx * 0.95;
   const subBase = mainTop + L.titlePx * 1.15 + L.subtitlePx * 1.1;
-  if (!L.narrow) {
-    const brandFont = font(300, L.brandPx);
-    const brandW = measureSpaced(ctx, style.brand.toUpperCase(), brandFont, '0.38em');
-    ctx.font = font(400, L.taglinePx);
-    const tagW = ctx.measureText(style.tagline).width;
-    const markR = L.brandPx * 0.36;
+
+  // Right block: orbit mark, wordmark, tagline.
+  if (!narrow) {
     const right = w - L.padX;
-    // Letter spacing adds trailing space after the last glyph; shift so the wordmark ends flush with the tagline.
-    const trail = L.brandPx * 0.38;
-    const brandLeft = right + trail - brandW;
-    const markX = brandLeft - markR * 1.55 - L.brandPx * 0.5;
-    brandBlockW = Math.max(right - (markX - markR * 1.55), tagW);
     const brandBase = titleBase - (L.titlePx - L.brandPx) * 0.35;
+    const brandLeft = right + trail - brandW;
     ctx.fillStyle = style.fg;
     ctx.font = brandFont;
     ctx.letterSpacing = '0.38em';
     ctx.textAlign = 'right';
-    ctx.fillText(style.brand.toUpperCase(), right + trail, brandBase);
+    // Letter spacing adds space after the last glyph; shift so the wordmark ends flush with the tagline.
+    ctx.fillText(brand, right + trail, brandBase);
     ctx.letterSpacing = '0px';
-    drawOrbitMark(ctx, markX, brandBase - L.brandPx * 0.36, markR, style, L.s);
+    drawOrbitMark(ctx, brandLeft - markR * 1.55 - L.brandPx * 0.5, brandBase - L.brandPx * 0.36, markR, style, L.s);
     ctx.font = font(400, L.taglinePx);
     ctx.fillStyle = style.dim;
     ctx.fillText(style.tagline, right, subBase);
   }
 
   // Left block: accent bar, title, subtitle.
-  const textX = L.padX + L.barW + L.indent;
-  const maxTitleW = w - L.padX - textX - (brandBlockW ? brandBlockW + 40 * L.s : 0);
+  const maxTitleW = w - L.padX - textX - (narrow ? 0 : blockW + 40 * L.s);
   ctx.textAlign = 'left';
   ctx.shadowBlur = 0;
   ctx.fillStyle = style.accent;
@@ -256,7 +272,7 @@ export function drawCaption(ctx: Ctx, w: number, h: number, text: CaptionText, s
   ctx.font = font(500, L.subtitlePx, style.mono);
   ctx.fillText(fitText(ctx, text.subtitle, maxTitleW), textX, subBase);
 
-  // Credits: a hairline, then up to two lines.
+  // Credits: a hairline, then the lines.
   if (credits.length) {
     ctx.shadowBlur = 0;
     ctx.fillStyle = 'rgba(216, 230, 255, 0.14)';
@@ -265,11 +281,11 @@ export function drawCaption(ctx: Ctx, w: number, h: number, text: CaptionText, s
     credits.forEach((line, i) => {
       const y = creditsTop + L.creditsLineH * (i + 0.78);
       let x = L.padX;
-      if (i === 0 && brandLead) {
+      if (i === 0 && lead) {
         ctx.font = font(600, L.creditsPx);
         ctx.letterSpacing = '0.18em';
         ctx.fillStyle = style.fg;
-        ctx.fillText(brandLead, x, y);
+        ctx.fillText(lead, x, y);
         ctx.letterSpacing = '0px';
         x += leadW;
       }

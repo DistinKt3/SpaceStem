@@ -1,4 +1,9 @@
+import { deflateSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
+import { captionFor, captionLayout, fitText, formatUtc, wrapSegments } from '../../src/game/share/caption';
+import { addPngText, findShareInPng, isPng, readPngText } from '../../src/game/share/pngText';
+import { screenshotFilename } from '../../src/game/share/screenshot';
+import { toastDuration } from '../../src/game/share/toast';
 import {
   SHARE_LIMITS,
   base64urlDecode,
@@ -327,5 +332,129 @@ describe('share link: helpers', () => {
     const a = new TextEncoder().encode('1234');
     const b = new TextEncoder().encode('56789');
     expect(crc32(b, crc32(a))).toBe(0xcbf43926);
+  });
+});
+
+describe('caption text and layout', () => {
+  const mono = { measureText: (s: string) => ({ width: Array.from(s).length * 10 }) };
+
+  it('describes the place with real, computed quantities', () => {
+    const utcMs = Date.UTC(2026, 9, 11, 14, 3, 12);
+    const body = captionFor({ nearName: 'Moon', nearIsStar: false, altitudeM: 60, starName: 'Sun', starDistanceM: 1.496e11, utcMs });
+    expect(body.title).toBe('Moon · 60 m above the surface');
+    expect(body.subtitle).toBe('2026-10-11 14:03:12 UTC · Sun 1 au · light time 8 min 19 s');
+    expect(body.credits).toContain('Some surface detail is Generated');
+    expect(captionFor({ nearName: 'Moon', nearIsStar: false, altitudeM: 0.4, starName: 'Sun', starDistanceM: 1.496e11, utcMs }).title).toBe('Moon · on the surface');
+    expect(captionFor({ nearName: 'Mars', nearIsStar: false, altitudeM: 5e6, landed: true, starName: 'Sun', starDistanceM: 2.3e11, utcMs }).title).toBe('Mars · on the surface');
+    const star = captionFor({ nearName: 'Proxima Centauri', nearIsStar: true, altitudeM: 1.8e11, starName: 'Proxima Centauri', starDistanceM: 1.8e11, utcMs });
+    expect(star.title).toBe('Proxima Centauri · 1.203 au from the surface');
+    expect(star.subtitle).toBe('2026-10-11 14:03:12 UTC · light time 10 min 0 s');
+    const deep = captionFor({ nearName: 'Sun', nearIsStar: true, altitudeM: 1.3e16, starName: 'Sun', starDistanceM: 1.3e16, utcMs });
+    expect(deep.title).toBe('Interstellar space · Sun 1.374 ly away');
+    expect(deep.subtitle).toBe('2026-10-11 14:03:12 UTC');
+    expect(formatUtc(NaN)).toBe('—');
+  });
+
+  it('scales with the image and keeps text legible on small images', () => {
+    const hd = captionLayout(1920, 1080);
+    const uhd = captionLayout(3840, 2160);
+    expect(uhd.titlePx / hd.titlePx).toBeCloseTo(2, 5);
+    const tiny = captionLayout(320, 180);
+    expect(tiny.titlePx).toBeGreaterThanOrEqual(13);
+    expect(tiny.creditsPx).toBeGreaterThanOrEqual(9);
+    // The text block (title, subtitle, two credit lines, gaps) stays under a fifth of a 16:9 frame.
+    const band = hd.padBottom + 2 * hd.creditsLineH + hd.gap + hd.titlePx * 1.15 + hd.subtitlePx * 1.5;
+    expect(band / 1080).toBeLessThan(0.2);
+  });
+
+  it('fits and wraps text, keeping the provenance note whole', () => {
+    expect(fitText(mono, 'abcdef', 60)).toBe('abcdef');
+    expect(fitText(mono, 'abcdefgh', 60)).toBe('abcde…');
+    expect(fitText(mono, 'abc', 0)).toBe('');
+    const credits = 'Positions: A · Stars: BBBB · Sky: CCCCCC · Some surface detail is Generated';
+    expect(wrapSegments(mono, credits, 1000, 2)).toEqual([credits]);
+    const two = wrapSegments(mono, credits, 330, 2);
+    expect(two).toHaveLength(2);
+    expect(two[1]).toBe('Some surface detail is Generated');
+    expect(two[0]!.endsWith('…')).toBe(true);
+    const many = wrapSegments(mono, credits, 340, 4);
+    expect(many).toEqual(['Positions: A · Stars: BBBB', 'Sky: CCCCCC', 'Some surface detail is Generated']);
+  });
+
+  it('names screenshot files by local capture time', () => {
+    expect(screenshotFilename(new Date(2026, 9, 11, 4, 3, 2))).toBe('knownsky-20261011-040302.png');
+    expect(screenshotFilename(new Date(2027, 0, 1, 23, 59, 59))).toBe('knownsky-20270101-235959.png');
+  });
+
+  it('gives toasts a reading time between 4 and 12 seconds', () => {
+    expect(toastDuration('Saved')).toBe(4000);
+    expect(toastDuration('x'.repeat(100), 'y'.repeat(30))).toBe(1800 + 55 * 130);
+    expect(toastDuration('x'.repeat(1000))).toBe(12_000);
+  });
+});
+
+describe('PNG text metadata', () => {
+  function chunk(type: string, data: Uint8Array): Buffer {
+    const out = Buffer.alloc(12 + data.length);
+    out.writeUInt32BE(data.length, 0);
+    out.write(type, 4, 'latin1');
+    Buffer.from(data).copy(out, 8);
+    out.writeUInt32BE(crc32(out.subarray(4, 8 + data.length)), 8 + data.length);
+    return out;
+  }
+
+  /** A valid 2x1 RGBA PNG built from scratch (IHDR, IDAT, IEND). */
+  function tinyPng(): Uint8Array {
+    const ihdr = Buffer.alloc(13);
+    ihdr.writeUInt32BE(2, 0);
+    ihdr.writeUInt32BE(1, 4);
+    ihdr.set([8, 6, 0, 0, 0], 8);
+    const raw = Buffer.from([0, 255, 0, 0, 255, 0, 0, 255, 255]);
+    return new Uint8Array(
+      Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', ihdr), chunk('IDAT', deflateSync(raw)), chunk('IEND', new Uint8Array())]),
+    );
+  }
+
+  /** Chunk types in order, checking every CRC on the way. */
+  function chunkTypes(png: Uint8Array): string[] {
+    const b = Buffer.from(png);
+    const types: string[] = [];
+    for (let i = 8; i < b.length; ) {
+      const len = b.readUInt32BE(i);
+      const type = b.toString('latin1', i + 4, i + 8);
+      expect(b.readUInt32BE(i + 8 + len), `${type} CRC`).toBe(crc32(b.subarray(i + 4, i + 8 + len)));
+      types.push(type);
+      i += 12 + len;
+    }
+    return types;
+  }
+
+  it('adds UTF-8 text after IHDR and reads it back, with the share link', () => {
+    const link = `https://example.org/known-sky/#${encodeShare(base)}`;
+    const png = addPngText(tinyPng(), { Software: 'Known Sky', Title: 'Moon · 60 m above the surface', Comment: `Open this link: ${link}`, 'bad\nkey': 'x', '': 'y' });
+    expect(isPng(png)).toBe(true);
+    expect(chunkTypes(png)).toEqual(['IHDR', 'iTXt', 'iTXt', 'iTXt', 'IDAT', 'IEND']);
+    expect(readPngText(png)).toEqual([
+      { keyword: 'Software', text: 'Known Sky' },
+      { keyword: 'Title', text: 'Moon · 60 m above the surface' },
+      { keyword: 'Comment', text: `Open this link: ${link}` },
+    ]);
+    expect(decodeShare(findShareInPng(png)!)).toEqual(decodeShare(encodeShare(base)));
+  });
+
+  it('reads tEXt, ignores files without a link, and never throws on damaged files', () => {
+    expect(findShareInPng(tinyPng())).toBeNull();
+    expect(addPngText(new Uint8Array([1, 2, 3]), { Comment: 'x' })).toEqual(new Uint8Array([1, 2, 3]));
+    const png = tinyPng();
+    // A hand-made tEXt chunk (Latin-1) after IHDR, which ends at byte 33.
+    const text = chunk('tEXt', new Uint8Array(Buffer.from(`Comment\0see #${encodeShare({ ...base, anchor: '*7' })}`, 'latin1')));
+    const withText = new Uint8Array(Buffer.concat([Buffer.from(png.subarray(0, 33)), text, Buffer.from(png.subarray(33))]));
+    expect(chunkTypes(withText)).toEqual(['IHDR', 'tEXt', 'IDAT', 'IEND']);
+    expect(decodeShare(findShareInPng(withText)!)?.anchor).toBe('*7');
+    // Truncations and a chunk claiming 4 GB must not throw.
+    for (let n = 0; n < withText.length; n += 7) expect(() => readPngText(withText.subarray(0, n))).not.toThrow();
+    const huge = new Uint8Array(withText);
+    new DataView(huge.buffer).setUint32(33, 0xffffffff);
+    expect(readPngText(huge)).toEqual([]);
   });
 });
