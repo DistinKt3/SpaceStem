@@ -13,7 +13,7 @@ import { createRenderer, effectiveDepthMode, type BackendRequest, type DepthMode
 import { FrameRenderer } from '../render/frameRenderer';
 import { Cockpit, type CockpitState, type FlightMode } from '../render/cockpit/cockpit';
 import { Rng } from '../core/rng';
-import { t, formatNumber } from '../game/i18n';
+import { t, formatNumber, setLocale } from '../game/i18n';
 
 type N = any;
 
@@ -478,6 +478,11 @@ async function main(): Promise<void> {
     /** Cockpit construction time and the display atlas (debug tooling). */
     timing: { cockpitBuildMs: cockpit.buildMs },
     atlas: () => cockpit.atlasCanvas.toDataURL('image/png'),
+    /** Switch the page locale (messages missing from `messages` fall back to English) and redraw the displays. */
+    relocalize: (code: string, messages: Record<string, string>) => {
+      setLocale(code, messages);
+      cockpit.relocalize();
+    },
     renderOnce: () => render(),
     /** Render and read back in the same task (canvas contents are only valid right after a render). */
     capture: (type = 'image/png', quality = 0.92) => {

@@ -442,13 +442,15 @@ function digitsNode(atlas: THREE.Texture, q: N, box: Box, value: N, u: CockpitUn
   const sGlyph = select(sIsDigit.greaterThan(0.5), digitAt(sj), float(10));
   const sFx = select(sIsDigit.greaterThan(0.5), fract(cf), cf.sub(gap).sub(3));
   const sShow = select(sIsDigit.greaterThan(0.5), step(firstDigit, sj), step(gap.add(3), cf));
-  // Unit before the number: digits in cells [1 + gap, 4 + gap), the unit just before the first shown digit.
+  // Unit before the number: digits in cells [1 + gap, 4 + gap); the unit sits at [firstDigit, firstDigit + 1), just
+  // before the first shown digit (over the cells of the hidden leading digits).
   const pc = cf.sub(gap).sub(1);
   const pj = floor(pc);
-  const pIsDigit = step(0, pc);
-  const pGlyph = select(pIsDigit.greaterThan(0.5), digitAt(pj), float(10));
-  const pFx = select(pIsDigit.greaterThan(0.5), fract(pc), cf.sub(firstDigit));
-  const pShow = select(pIsDigit.greaterThan(0.5), step(firstDigit, pj), step(firstDigit, cf).mul(step(cf, firstDigit.add(0.9999))));
+  const pDigit = step(0, pc).mul(step(firstDigit, pj));
+  const pUnit = step(firstDigit, cf).mul(step(cf, firstDigit.add(0.9999))).mul(float(1).sub(pDigit));
+  const pGlyph = select(pDigit.greaterThan(0.5), digitAt(pj), float(10));
+  const pFx = select(pDigit.greaterThan(0.5), fract(pc), cf.sub(firstDigit));
+  const pShow = max(pDigit, pUnit);
   const before = u.pctBefore.greaterThan(0.5);
   const glyph = select(before, pGlyph, sGlyph);
   const fx = clamp(select(before, pFx, sFx), 0, 1);
@@ -457,7 +459,9 @@ function digitsNode(atlas: THREE.Texture, q: N, box: Box, value: N, u: CockpitUn
   const gy = float(DIGITS.y).add(ly.mul(DIGITS.h)).div(ATLAS_H);
   const cont = vec2(lx.mul(cells).mul(DIGITS.glyphW / ATLAS_W), gy);
   const s = texture(atlas, vec2(gx, gy)).grad(cont.dFdx(), cont.dFdy());
-  return vec2(s.r, s.g).mul(inside).mul(show);
+  // The glow of neighbouring glyphs bleeds into a cell; fade it out toward the cell edges so cells never show as boxes.
+  const win: N = smoothstep(0, 0.14, fx).mul(fall(1, 0.86, fx)).mul(smoothstep(0, 0.12, ly)).mul(fall(1, 0.88, ly));
+  return vec2(col(s.r), col(s.g).mul(win)).mul(inside).mul(show);
 }
 
 /** A row of a label strip (mode names / status words) placed into a box. */
@@ -469,7 +473,8 @@ function stripNode(atlas: THREE.Texture, q: N, box: Box, strip: { x: number; y: 
   const sy = float(strip.y).add(row.add(clamp(ly, 0, 1)).mul(strip.rowH)).div(ATLAS_H);
   const cont = vec2(lx.mul(strip.w).div(ATLAS_W), ly.mul(strip.rowH).div(ATLAS_H));
   const s = texture(atlas, vec2(sx, sy)).grad(cont.dFdx(), cont.dFdy());
-  return vec2(s.r, s.g).mul(inside);
+  const win: N = smoothstep(0, 0.12, ly).mul(fall(1, 0.88, ly)).mul(smoothstep(0, 0.03, lx)).mul(fall(1, 0.97, lx));
+  return vec2(col(s.r), col(s.g).mul(win)).mul(inside);
 }
 
 /**

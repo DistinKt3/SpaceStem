@@ -20,6 +20,7 @@ interface CockpitKs {
   set(patch: Record<string, unknown>): void;
   stats(): Stats;
   capture(type?: string): string;
+  relocalize(code: string, messages: Record<string, string>): void;
 }
 
 interface Region {
@@ -97,6 +98,8 @@ async function measure(page: Page, rect: [number, number, number, number]): Prom
 
 /** The display cluster under the forward view (attitude, mode and status screens). */
 const CLUSTER: [number, number, number, number] = [0.27, 0.82, 0.73, 1.0];
+/** The throttle pane (left holographic pane). */
+const THROTTLE_DIGITS: [number, number, number, number] = [0.21, 0.64, 0.34, 0.8];
 
 for (const backend of ['webgpu', 'webgl2'] as const) {
   test(`cockpit renders within budget and responds to state: ${backend}`, async ({ page }) => {
@@ -156,6 +159,13 @@ for (const backend of ['webgpu', 'webgl2'] as const) {
     await page.evaluate(() => (window as unknown as { __ks: CockpitKs }).__ks.set({ time: 1.45 }));
     const pulse2 = await measure(page, CLUSTER);
     expect(Math.abs(pulse1.part.r - pulse2.part.r)).toBeGreaterThan(2);
+
+    // A locale change redraws the displays: a pattern with the unit before the number moves the percent sign.
+    await page.evaluate(() => (window as unknown as { __ks: CockpitKs }).__ks.set({ alert: 0, time: 2, reducedMotion: true }));
+    const before = await measure(page, THROTTLE_DIGITS);
+    await page.evaluate(() => (window as unknown as { __ks: CockpitKs }).__ks.relocalize('xx', { 'cockpit.percent': '%\u00a0{value}', 'cockpit.throttle': 'Gas' }));
+    const after = await measure(page, THROTTLE_DIGITS);
+    expect(Math.abs(after.part.b - before.part.b) + Math.abs(after.part.g - before.part.g), 'readout changed').toBeGreaterThan(1);
 
     expect(errors).toEqual([]);
   });
