@@ -35,7 +35,31 @@ export interface CaptionInput {
 }
 
 /** Beyond this distance from any star the view is described as interstellar space (matches format.ts switching to ly). */
-const DEEP_SPACE_M = 0.05 * LIGHT_YEAR_M;
+export const DEEP_SPACE_M = 0.05 * LIGHT_YEAR_M;
+/**
+ * Beyond this height above every planet and moon (0.01 ly, about 630 au) the nearest one says nothing about where the
+ * view is, so the star names the place instead (the HUD switches at the same height).
+ */
+export const FAR_FROM_BODIES_M = 0.01 * LIGHT_YEAR_M;
+
+/** What the caption's title is about: interstellar space, the system's star, or the nearest planet or moon. */
+export type CaptionPlace = 'deep' | 'star' | 'body';
+
+/**
+ * The place a view is described by. Decided from the distances, not from which body happens to be nearest: light-years
+ * from the Sun an outer moon is still nearer than the Sun's surface, and must not be named as the place.
+ */
+export function captionPlace(c: Pick<CaptionInput, 'nearIsStar' | 'altitudeM' | 'starDistanceM'>): CaptionPlace {
+  if (c.starDistanceM >= DEEP_SPACE_M) return 'deep';
+  if (c.nearIsStar || c.altitudeM > FAR_FROM_BODIES_M) return 'star';
+  return 'body';
+}
+
+/** Short name of the place (for the arrival message): "Interstellar space", the star's name, or the body's name. */
+export function captionPlaceName(c: CaptionInput): string {
+  const place = captionPlace(c);
+  return place === 'deep' ? t('share.place.deep') : place === 'star' ? c.starName : c.nearName;
+}
 
 /** "2026-10-11 14:03:12" (UTC), the HUD's format. */
 export function formatUtc(ms: number): string {
@@ -49,12 +73,13 @@ export function captionFor(c: CaptionInput): CaptionText {
   const lightTime = formatDuration(c.starDistanceM / SPEED_OF_LIGHT_M_PER_S);
   let title: string;
   let subtitle: string;
-  if (c.nearIsStar && c.starDistanceM >= DEEP_SPACE_M) {
+  const place = captionPlace(c);
+  if (place === 'deep') {
     title = t('share.caption.deepSpace', { name: c.starName, distance: formatDistance(c.starDistanceM) });
     subtitle = t('share.caption.subtitle.deep', { utc });
-  } else if (c.nearIsStar) {
+  } else if (place === 'star') {
     // Distance to the star's centre: a visited star's radius is Inferred (D-027), its position is catalogued.
-    title = t('share.caption.star', { name: c.nearName, distance: formatDistance(c.starDistanceM) });
+    title = t('share.caption.star', { name: c.starName, distance: formatDistance(c.starDistanceM) });
     subtitle = t('share.caption.subtitle.star', { utc, duration: lightTime });
   } else {
     title =
@@ -184,12 +209,20 @@ export function wrapSegments(ctx: TextMeasurer, text: string, maxW: number, maxL
   return lines.map((l) => fitText(ctx, l, maxW));
 }
 
+/** Where drawCaption painted, in image pixels from the top. */
+export interface CaptionBox {
+  /** Top of the scrim (it fades in from transparent here). */
+  scrimTop: number;
+  /** Top of the title line: everything below it is caption text. */
+  textTop: number;
+}
+
 /**
  * Paints the caption over the bottom of a w × h image: a soft scrim, the place and time on the left, the wordmark
  * and tagline on the right, and the credits across the bottom. When the place would not fit beside the wordmark
- * (narrow or portrait images), the wordmark and tagline lead the credits instead. Returns the top of the scrim (px).
+ * (narrow or portrait images), the wordmark and tagline lead the credits instead.
  */
-export function drawCaption(ctx: Ctx, w: number, h: number, text: CaptionText, style: CaptionStyle): number {
+export function drawCaption(ctx: Ctx, w: number, h: number, text: CaptionText, style: CaptionStyle): CaptionBox {
   const L = captionLayout(w, h);
   const font = (weight: number, px: number, family = style.font): string => `${weight} ${px.toFixed(2)}px ${family}`;
   const brand = style.brand.toUpperCase();
@@ -296,7 +329,7 @@ export function drawCaption(ctx: Ctx, w: number, h: number, text: CaptionText, s
     });
   }
   ctx.restore();
-  return scrimTop;
+  return { scrimTop, textTop: mainTop };
 }
 
 function measureSpaced(ctx: Ctx, text: string, font: string, spacing: string): number {

@@ -31,6 +31,7 @@
   "share.caption.landed": "{name} · on the surface",
   "share.caption.star": "{name} · {distance} away",
   "share.caption.deepSpace": "Interstellar space · {name} {distance} away",
+  "share.place.deep": "Interstellar space",
   "share.caption.credits": "Positions: NASA/JPL Horizons · Stars: HYG v4.1 (CC BY-SA 4.0) · Milky Way: ESA/Gaia/DPAC (CC BY-SA 3.0 IGO) · Maps: NASA, USGS, Solar System Scope (CC BY 4.0) · Some surface detail is Generated",
   "share.png.comment": "Open this link to go to the place in this image: {url}",
   "share.caption.subtitle.body": "{utc} UTC · {star} {distance} · light time {duration}",
