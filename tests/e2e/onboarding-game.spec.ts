@@ -99,11 +99,33 @@ test.describe('guided opening in the game', () => {
     expect(start).toMatchObject({ anchor: '399', altKm: 420, target: '301', blocked: null });
     expect(start.moonElevDeg).toBeGreaterThan(11.8);
 
-    // Look around with the player's own keys: steer with D until the step is done.
+    // Look around with the player's own keys: steer with D until the step is done. SwiftShader renders well under
+    // one frame per second, so while the key is held the game's frames run without rendering (the App.tick order:
+    // input, tour, sim time, ship, world) instead of waiting minutes of wall time.
     await page.locator('canvas').click({ position: { x: 900, y: 400 } });
     await page.keyboard.down('KeyD');
-    await expect(goal(page)).toHaveText('Throttle up', { timeout: 180_000 });
+    const looked = await page.evaluate(() => {
+      const app = (window as unknown as { __ks: { app: Record<string, never> } }).__ks.app as unknown as {
+        input: { update(dt: number): void };
+        onboarding: { update(dt: number): void; card: { stepId: string | null } };
+        controller: { update(dt: number, app: unknown): void };
+        sys: { ephemeris: { clampTime(t: number): number }; update(p: unknown, t: number, px: number): void };
+        cam: { pos: unknown };
+        simTime: number;
+        pxPerRadian(): number;
+      };
+      for (let i = 0; i < 400 && app.onboarding.card.stepId === 'look'; i++) {
+        app.input.update(0.1);
+        app.onboarding.update(0.1);
+        app.simTime = app.sys.ephemeris.clampTime(app.simTime + 0.1);
+        app.controller.update(0.1, app);
+        app.sys.update(app.cam.pos, app.simTime, app.pxPerRadian());
+      }
+      return app.onboarding.card.stepId;
+    });
     await page.keyboard.up('KeyD');
+    expect(looked).toBe('throttle');
+    await expect(goal(page)).toHaveText('Throttle up');
     await expect(page.locator('.ks-onb-hint kbd[data-action="thrust"][data-half="+"]')).toHaveText('W');
 
     // The HUD toggle hides the card with the HUD; the Codex hides it while open.
