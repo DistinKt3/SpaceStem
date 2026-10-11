@@ -172,6 +172,11 @@ export class GameShareHost implements ShareHost {
     return (app.map?.isOpen ?? false) || app.panel.isOpen || app.codex.ui.isOpen;
   }
 
+  /**
+   * Screenshot mode hides the cockpit (restored on exit), releases pointer lock and closes the map. While it is on, a
+   * click on the game view does not lock the pointer again: the player aims by dragging (InputManager steers with a
+   * drag on the view) and keeps the cursor for the toolbar; Escape then only leaves the mode.
+   */
   setScreenshotMode(active: boolean): void {
     const app = this.app;
     if (active) {
@@ -179,10 +184,17 @@ export class GameShareHost implements ShareHost {
       app.setCockpitVisible(false);
       app.input.releasePointerLock();
       if (app.map?.isOpen) app.map.close();
+      window.addEventListener('click', this.keepPointer, true);
     } else {
+      window.removeEventListener('click', this.keepPointer, true);
       app.setCockpitVisible(this.cockpitBefore);
     }
   }
+
+  /** Window capture phase: a click on the game view stops before App's pointer-lock request. */
+  private readonly keepPointer = (e: Event): void => {
+    if (e.target === this.app.canvas) e.stopPropagation();
+  };
 }
 
 /** Creates the share/screenshot controller for the running game. */

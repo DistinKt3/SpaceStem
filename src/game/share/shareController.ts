@@ -302,19 +302,29 @@ export class ShareController {
    */
   placeToasts(): void {
     const bar = this.screenshot.active ? this.screenshot.bar : null;
+    const own = this.toast.element;
     let bottom = 0;
-    for (const el of [...this.stackBelow(), bar]) {
+    for (const el of [...this.stackBelow(), bar, own]) {
       if (!el) continue;
       if (this.stackObserver && !this.observed.has(el)) {
         this.observed.add(el);
         this.stackObserver.observe(el);
       }
+      if (el === own) continue;
       // The toolbar's layout box: its idle fade slides it up a little, and the toasts need not follow.
       const r = el === bar ? { top: bar.offsetTop, height: bar.offsetHeight } : el.getBoundingClientRect();
       if (r.height > 0) bottom = Math.max(bottom, r.top + r.height);
     }
-    const gap = 0.6 * (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16);
-    this.toast.element.style.setProperty('--ks-toast-top', bottom > 0 ? `${Math.round(bottom + gap)}px` : '');
+    const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+    let top = bottom > 0 ? bottom + 0.6 * rem : 0;
+    // On a short window the player's own feedback stays on screen: it may then cover another notification, but never
+    // the toolbar.
+    const height = own.getBoundingClientRect().height;
+    if (top > 0 && height > 0 && top + height > innerHeight - rem) {
+      const floor = bar ? bar.offsetTop + bar.offsetHeight + 0.6 * rem : rem;
+      top = Math.max(floor, innerHeight - rem - height);
+    }
+    own.style.setProperty('--ks-toast-top', top > 0 ? `${Math.round(top)}px` : '');
   }
 
   dispose(): void {

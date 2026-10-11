@@ -707,6 +707,14 @@ test.describe('real game (index.html)', () => {
     await expect(sw).toHaveAttribute('aria-checked', 'true');
     expect(await page.evaluate(() => (window as unknown as { __ks: GameKs }).__ks.app.controller.targetId)).toBe(targetBefore);
     await page.screenshot({ path: `${SHOTS}/game-screenshot-mode.png` });
+    // A click on the view does not reach App's pointer-lock request: the cursor stays for the toolbar.
+    const clicks = (): Promise<number> => page.evaluate(() => (window as unknown as { __clicks: number }).__clicks);
+    await page.evaluate(() => {
+      (window as unknown as { __clicks: number }).__clicks = 0;
+      document.getElementById('c')!.addEventListener('click', () => (window as unknown as { __clicks: number }).__clicks++);
+    });
+    await page.mouse.click(400, 300);
+    expect(await clicks()).toBe(0);
 
     // P again captures: a PNG at the canvas's size, captioned, carrying the link.
     const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 120_000 }), page.keyboard.press('KeyP')]);
@@ -722,6 +730,8 @@ test.describe('real game (index.html)', () => {
     await expect(page.locator('body')).not.toHaveClass(/ks-screenshot/);
     await expect(page.locator('.ks-hud')).toBeVisible();
     expect(await page.evaluate(() => (window as unknown as { __ks: GameKs }).__ks.app.frame.cockpitEnabled)).toBe(hasCockpit);
+    await page.mouse.click(400, 300);
+    expect(await clicks()).toBe(1);
     await page.waitForTimeout(1500);
     expect(await page.evaluate(() => (window as unknown as { __ks: GameKs }).__ks.app.panel.isOpen)).toBe(false);
     await page.keyboard.press('Escape');
@@ -808,6 +818,23 @@ test.describe('real game (index.html)', () => {
     writeFileSync(`${SHOTS}/game-capture-trappist-1e.png`, exo.png);
     expect(exo.title).toMatch(/^TRAPPIST-1 e · /);
     expect(decodeShare(`#${exo.token!}`)?.anchor).toBe('trappist-1e');
+
+    // Large text on this short window, a Codex notification up, then K in screenshot mode: the share toast stays on
+    // screen and off the toolbar, and every toolbar button still takes a click.
+    await page.evaluate(() => (window as unknown as { __ks: { app: { settings: { set(p: object): void } } } }).__ks.app.settings.set({ textScale: 2 }));
+    await page.keyboard.press('KeyP');
+    await expect(page.locator('body')).toHaveClass(/ks-screenshot/);
+    await page.evaluate(() => (window as unknown as { __ks: { app: { codex: { ui: { store: { discover(id: string): void } } } } } }).__ks.app.codex.ui.store.discover('concept-radial-velocity'));
+    await expect(page.locator('.ks-cx-toasts .ks-cx-toast')).not.toHaveCount(0);
+    await page.keyboard.press('KeyK');
+    await expect(toast(page).locator('.ks-toast-msg')).toHaveText('Location link copied');
+    await page.mouse.move(400, 300);
+    const bar = (await box(page, '.ks-shot-bar'))!;
+    await expect.poll(async () => (await box(page, '.ks-toasts .ks-toast'))?.bottom ?? 0).toBeLessThanOrEqual(450);
+    expect(intersects(bar, (await box(page, '.ks-toasts .ks-toast'))!)).toBe(false);
+    expect(intersects(bar, (await box(page, '.ks-cx-toasts .ks-cx-toast'))!)).toBe(false);
+    for (const sel of ['.ks-shot-capture', '.ks-shot-switch', '.ks-shot-exit']) expect(await hittable(page, sel), sel).toBe(true);
+    await page.screenshot({ path: `${SHOTS}/game-text2-toasts.png` });
     expect(errors).toEqual([]);
   });
 });
