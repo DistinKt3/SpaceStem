@@ -1,0 +1,805 @@
+/*
+ * Benchmark progress card and results dialog. Glass surfaces on the shared tokens (styles.css, ui.css), with fallbacks
+ * so the panel also renders where ui.css is not loaded. Sizes in rem so the text-size setting (0.8-2x) scales it;
+ * colourblind palettes apply through the tokens; reduced motion removes every transition and animation.
+ */
+
+.ks-bench,
+.ks-bench-progress {
+  --ksb-surface: var(--ks-surface, rgba(7, 15, 30, 0.9));
+  --ksb-hair: var(--ks-hairline, rgba(255, 255, 255, 0.07));
+  --ksb-ok: var(--ks-ok, #6fe3a1);
+  --ksb-warn: var(--ks-warn, #ffb454);
+  --ksb-danger: var(--ks-danger, #ff6b6b);
+  --ksb-focus: var(--ks-focus, var(--ks-accent));
+  --ksb-glow: var(--ks-glow, 35%);
+  --ksb-bw: var(--ks-border-w, 1px);
+  color: var(--ks-fg);
+  font: 400 1rem/1.45 var(--ks-font);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* --- Progress card ---------------------------------------------------------------------------------------------- */
+
+.ks-bench-progress {
+  position: fixed;
+  z-index: 40;
+  top: 1.2rem;
+  right: 1.2rem;
+  box-sizing: border-box;
+  width: min(21rem, calc(100vw - 2.4rem));
+  padding: 0.9rem 1rem 1rem;
+  border: var(--ksb-bw) solid var(--ks-border);
+  border-radius: 0.8rem;
+  background: var(--ksb-surface);
+  backdrop-filter: blur(12px) saturate(1.2);
+  box-shadow:
+    0 0.8rem 2.4rem rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.ks-bench-progress[hidden] {
+  display: none;
+}
+
+.ks-bench-progress p {
+  margin: 0;
+}
+
+.ks-bench-progress-view {
+  margin-top: 0.45rem !important;
+  font-size: 1.05rem;
+  font-weight: 500;
+}
+
+.ks-bench-progress-phase {
+  margin-top: 0.15rem !important;
+  color: var(--ks-dim);
+  font-size: 0.85rem;
+}
+
+.ks-bench-progress-bar {
+  position: relative;
+  height: 0.35rem;
+  margin-top: 0.75rem;
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--ks-accent) 16%, transparent);
+  overflow: hidden;
+}
+
+.ks-bench-progress-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0;
+  border-radius: 1rem;
+  background: var(--ks-accent);
+  box-shadow: 0 0 0.6rem color-mix(in srgb, var(--ks-accent) var(--ksb-glow), transparent);
+  transition: width 0.25s linear;
+}
+
+/* --- Dialog shell ---------------------------------------------------------------------------------------------- */
+
+.ks-bench {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  box-sizing: border-box;
+  width: min(64rem, calc(100vw - 2rem));
+  max-width: none;
+  max-height: calc(100dvh - 2rem);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  overflow: visible;
+}
+
+.ks-bench:not([open]) {
+  display: none;
+}
+
+.ks-bench::backdrop {
+  background:
+    radial-gradient(ellipse 80% 70% at 50% 45%, transparent, rgba(0, 0, 0, 0.35)),
+    var(--ks-scrim, rgba(1, 4, 10, 0.62));
+  backdrop-filter: blur(3px) saturate(0.85);
+}
+
+.ks-bench[open] .ks-bench-frame {
+  animation: ks-bench-in 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes ks-bench-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.6rem) scale(0.985);
+  }
+}
+
+.ks-bench-frame {
+  position: relative;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 2rem);
+  border: var(--ksb-bw) solid var(--ks-border);
+  border-radius: 1rem;
+  /* One scroll container: on short screens the header scrolls away and the actions stay pinned at the bottom. */
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--ks-accent) 40%, transparent) transparent;
+  background:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.012) 0 1px, transparent 1px 3px),
+    radial-gradient(120% 90% at 0% 0%, color-mix(in srgb, var(--ks-accent) 9%, transparent), transparent 55%),
+    var(--ksb-surface);
+  backdrop-filter: blur(16px) saturate(1.2);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.45),
+    0 1.6rem 4rem rgba(0, 0, 0, 0.55),
+    0 0 3rem -0.8rem color-mix(in srgb, var(--ks-accent) var(--ksb-glow), transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+/* Holographic corner brackets, as on the settings dialog (on the dialog box, so they do not scroll). */
+.ks-bench::before,
+.ks-bench::after {
+  content: '';
+  position: absolute;
+  z-index: 2;
+  width: 2.2rem;
+  height: 2.2rem;
+  pointer-events: none;
+  border: 2px solid var(--ks-accent);
+  filter: drop-shadow(0 0 0.4rem color-mix(in srgb, var(--ks-accent) calc(var(--ksb-glow) * 2), transparent));
+}
+
+.ks-bench::before {
+  top: 0;
+  left: 0;
+  border-right: 0;
+  border-bottom: 0;
+  border-top-left-radius: calc(1rem - 1px);
+}
+
+.ks-bench::after {
+  right: 0;
+  bottom: 0;
+  border-left: 0;
+  border-top: 0;
+  border-bottom-right-radius: calc(1rem - 1px);
+}
+
+/* --- Header ---------------------------------------------------------------------------------------------------- */
+
+.ks-bench-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.3rem 1.5rem 1rem;
+  border-bottom: 1px solid var(--ksb-hair);
+}
+
+.ks-bench-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 0.55em;
+  margin: 0;
+  font: 600 0.72rem/1 var(--ks-mono);
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--ks-accent);
+}
+
+.ks-bench-eyebrow::before {
+  content: '';
+  width: 0.5em;
+  height: 0.5em;
+  border-radius: 50%;
+  background: var(--ks-accent);
+  box-shadow: 0 0 0.7em var(--ks-accent);
+  animation: ks-bench-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes ks-bench-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.ks-bench-title {
+  margin: 0.5rem 0 0;
+  font-size: 1.5rem;
+  font-weight: 300;
+  letter-spacing: 0.1em;
+  line-height: 1.15;
+  text-transform: uppercase;
+  outline: none;
+}
+
+.ks-bench-device {
+  margin: 0.45rem 0 0;
+  font: 0.8rem/1.4 var(--ks-mono);
+  color: var(--ks-fg);
+  overflow-wrap: anywhere;
+}
+
+.ks-bench-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 1.2rem;
+  margin: 0.2rem 0 0;
+  font-size: 0.8rem;
+  color: var(--ks-dim);
+}
+
+/* --- Buttons --------------------------------------------------------------------------------------------------- */
+
+.ks-bench-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.4rem;
+  padding: 0.5rem 0.95rem;
+  border: var(--ksb-bw) solid var(--ks-border);
+  border-radius: 0.55rem;
+  background: var(--ks-surface-2, rgba(255, 255, 255, 0.03));
+  color: var(--ks-fg);
+  font: 500 0.88rem/1.15 var(--ks-font);
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    border-color 0.15s,
+    background-color 0.15s,
+    color 0.15s;
+}
+
+.ks-bench-btn:hover {
+  border-color: var(--ks-accent);
+  background: color-mix(in srgb, var(--ks-accent) 12%, transparent);
+}
+
+.ks-bench-primary {
+  border-color: color-mix(in srgb, var(--ks-accent) 60%, transparent);
+  background: color-mix(in srgb, var(--ks-accent) 16%, transparent);
+}
+
+.ks-bench-close {
+  flex: none;
+  justify-content: center;
+  width: 2.4rem;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  color: var(--ks-dim);
+}
+
+.ks-bench-close:hover {
+  color: var(--ks-fg);
+}
+
+.ks-bench :focus-visible {
+  outline: 2px solid var(--ksb-focus);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--ksb-focus) 22%, transparent);
+}
+
+/* The title takes focus programmatically when the dialog opens (screen readers start there); it is not a control. */
+.ks-bench .ks-bench-title:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.ks-bench-btn[hidden] {
+  display: none;
+}
+
+.ks-bench-ico {
+  width: 1.1rem;
+  height: 1.1rem;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* --- Body ------------------------------------------------------------------------------------------------------ */
+
+.ks-bench-body {
+  flex: none;
+  padding: 1.1rem 1.5rem 0.4rem;
+}
+
+.ks-bench-synthetic {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.3rem 0.6rem;
+  margin: 0 0 1rem;
+  padding: 0.6rem 0.8rem;
+  border: var(--ksb-bw) dashed color-mix(in srgb, var(--ks-generated, #c49bff) 70%, transparent);
+  border-radius: 0.55rem;
+  background: color-mix(in srgb, var(--ks-generated, #c49bff) 8%, transparent);
+  font-size: 0.85rem;
+}
+
+.ks-bench-synthetic-tag {
+  font: 600 0.7rem/1 var(--ks-mono);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ks-generated, #c49bff);
+}
+
+.ks-bench-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: stretch;
+  margin-bottom: 1.1rem;
+}
+
+.ks-bench-verdict {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.55rem;
+  padding: 0.9rem 1rem;
+  border: var(--ksb-bw) solid color-mix(in srgb, var(--tone) 45%, transparent);
+  border-left-width: 3px;
+  border-radius: 0.65rem;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--tone) 12%, transparent), color-mix(in srgb, var(--tone) 3%, transparent));
+}
+
+.ks-bench-verdict-desc {
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--ks-fg);
+}
+
+.ks-bench-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin: 0;
+}
+
+.ks-bench-stat {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.4rem;
+  min-width: 0;
+  padding: 0.75rem 0.8rem;
+  border: 1px solid var(--ksb-hair);
+  border-radius: 0.65rem;
+  background: var(--ks-surface-3, rgba(2, 8, 18, 0.55));
+}
+
+.ks-bench-stat dt {
+  font: 600 0.66rem/1.25 var(--ks-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ks-dim);
+}
+
+.ks-bench-stat dd {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 600;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ks-bench-stat.is-accent {
+  border-color: color-mix(in srgb, var(--ks-accent) 45%, transparent);
+  background: color-mix(in srgb, var(--ks-accent) 8%, transparent);
+}
+
+/* --- Verdict badges (icon + word; colour is a third cue, never the only one) ------------------------------------ */
+
+.ks-bench-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  width: fit-content;
+  padding: 0.2rem 0.55rem 0.2rem 0.4rem;
+  border: 1px solid color-mix(in srgb, var(--tone) 55%, transparent);
+  border-radius: 2rem;
+  background: color-mix(in srgb, var(--tone) 12%, transparent);
+  font-size: 0.82rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.ks-bench-badge .ks-bench-ico {
+  color: var(--tone);
+}
+
+.ks-bench-badge-lg {
+  padding: 0.3rem 0.8rem 0.3rem 0.55rem;
+  font-size: 1.05rem;
+  letter-spacing: 0.04em;
+}
+
+.ks-bench-badge-lg .ks-bench-ico {
+  width: 1.35rem;
+  height: 1.35rem;
+}
+
+.ks-bench [data-verdict] {
+  --tone: var(--ksb-ok);
+}
+
+.ks-bench [data-verdict='playable'] {
+  --tone: var(--ksb-warn);
+}
+
+.ks-bench [data-verdict='slow'] {
+  --tone: var(--ksb-danger);
+}
+
+/* --- Table ----------------------------------------------------------------------------------------------------- */
+
+.ks-bench-tablewrap {
+  overflow-x: auto;
+  border: 1px solid var(--ksb-hair);
+  border-radius: 0.65rem;
+  background: var(--ks-surface-3, rgba(2, 8, 18, 0.55));
+  scrollbar-width: thin;
+}
+
+.ks-bench-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.ks-bench-table caption {
+  padding: 0.7rem 0.9rem 0.3rem;
+  text-align: left;
+  font-size: 0.8rem;
+  color: var(--ks-dim);
+}
+
+.ks-bench-table th,
+.ks-bench-table td {
+  padding: 0.55rem 0.55rem;
+  border-top: 1px solid var(--ksb-hair);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.ks-bench-table thead th {
+  border-top: 0;
+  font: 600 0.64rem/1.25 var(--ks-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ks-dim);
+  white-space: nowrap;
+}
+
+.ks-bench-table tbody th {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.ks-bench-table .is-num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.ks-bench-table thead .is-num {
+  text-align: right;
+}
+
+.ks-bench-table th:first-child,
+.ks-bench-table td:first-child {
+  padding-left: 0.9rem;
+}
+
+.ks-bench-table th:last-child,
+.ks-bench-table td:last-child {
+  padding-right: 0.9rem;
+}
+
+.ks-bench-table .is-meter {
+  width: 30%;
+}
+
+/* Over a scene budget: a warning icon and words under the value (the value itself stays in the text colour). */
+.ks-bench-over {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: 0.15rem;
+  font-size: 0.72rem;
+  line-height: 1.2;
+  color: var(--ks-dim);
+  white-space: nowrap;
+}
+
+.ks-bench-over .ks-bench-ico {
+  width: 0.9rem;
+  height: 0.9rem;
+  color: var(--ksb-warn);
+}
+
+/* p95 meter: one magnitude per row on a shared 0-50 ms scale; hairline ticks at the 60 and 30 fps budgets. */
+.ks-bench-meter {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.ks-bench-meter-track {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 5rem;
+  height: 0.5rem;
+  border-radius: 0 0.25rem 0.25rem 0;
+  background: color-mix(in srgb, var(--ks-accent) 10%, transparent);
+}
+
+.ks-bench-meter-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 0 0.25rem 0.25rem 0;
+  background: var(--tone);
+}
+
+.ks-bench-meter-fill.is-clipped {
+  border-radius: 0;
+  background: linear-gradient(90deg, var(--tone) calc(100% - 0.6rem), color-mix(in srgb, var(--tone) 35%, transparent));
+}
+
+.ks-bench-meter-tick {
+  position: absolute;
+  top: -0.2rem;
+  bottom: -0.2rem;
+  width: 1px;
+  background: color-mix(in srgb, var(--ks-fg) 55%, transparent);
+}
+
+.ks-bench-meter-value {
+  min-width: 4.2rem;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.ks-bench-foot {
+  margin: 0.8rem 0 0;
+  font-size: 0.8rem;
+  color: var(--ks-dim);
+}
+
+.ks-bench-raw {
+  margin: 0.8rem 0 1rem;
+  font-size: 0.85rem;
+}
+
+.ks-bench-raw summary {
+  width: fit-content;
+  cursor: pointer;
+  color: var(--ks-dim);
+  border-radius: 0.3rem;
+}
+
+.ks-bench-raw summary:hover {
+  color: var(--ks-fg);
+}
+
+.ks-bench-json {
+  max-height: 16rem;
+  margin: 0.5rem 0 0;
+  padding: 0.7rem 0.8rem;
+  overflow: auto;
+  border: 1px solid var(--ksb-hair);
+  border-radius: 0.55rem;
+  background: var(--ks-surface-3, rgba(2, 8, 18, 0.55));
+  font: 0.75rem/1.45 var(--ks-mono);
+  white-space: pre;
+}
+
+/* --- Footer ---------------------------------------------------------------------------------------------------- */
+
+.ks-bench-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: auto;
+  padding: 0.9rem 1.5rem 1.1rem;
+  border-top: 1px solid var(--ksb-hair);
+  background: var(--ks-surface-solid, #08111f);
+}
+
+.ks-bench-actions .ks-bench-close-text {
+  margin-left: auto;
+}
+
+/* Short dialog (large text, small window): the actions flow after the content instead of covering it. */
+.ks-bench-frame.is-tight .ks-bench-actions {
+  position: static;
+}
+
+.ks-bench-status {
+  flex: 1 1 100%;
+  order: 3;
+  min-height: 1.2em;
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--ks-dim);
+}
+
+.ks-bench-status:empty {
+  display: none;
+}
+
+.ks-bench-offscreen {
+  position: fixed;
+  left: -9999px;
+  top: 0;
+  opacity: 0;
+}
+
+/* --- Narrow screens and large text: stack the summary, turn table rows into cards --------------------------------- */
+
+.ks-bench-body {
+  container: ks-bench-body / inline-size;
+}
+
+@container ks-bench-body (max-width: 50rem) {
+  .ks-bench-tablewrap {
+    overflow: visible;
+  }
+
+  .ks-bench-table,
+  .ks-bench-table tbody {
+    display: block;
+  }
+
+  .ks-bench-table caption {
+    display: block;
+  }
+
+  .ks-bench-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .ks-bench-table tbody tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.45rem 1rem;
+    padding: 0.75rem 0.9rem;
+    border-top: 1px solid var(--ksb-hair);
+  }
+
+  .ks-bench-table tbody th,
+  .ks-bench-table tbody td {
+    display: block;
+    padding: 0 !important;
+    border: 0;
+  }
+
+  .ks-bench-table tbody th.is-view {
+    flex: 1 1 auto;
+    font-size: 0.95rem;
+  }
+
+  .ks-bench-table tbody td.is-result {
+    flex: none;
+  }
+
+  .ks-bench-table tbody td.is-meter {
+    order: 1;
+    flex: 1 1 100%;
+    width: auto;
+  }
+
+  .ks-bench-table tbody td.is-num {
+    order: 2;
+    flex: 1 1 7rem;
+    align-self: flex-start;
+    text-align: left;
+  }
+
+  .ks-bench-table tbody td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 0.1rem;
+    font: 600 0.62rem/1.25 var(--ks-mono);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ks-dim);
+  }
+
+  .ks-bench-over {
+    justify-content: flex-start;
+  }
+}
+
+/* Container queries (not media queries): rem in a media query ignores the text-size setting, a container does not. */
+.ks-bench-frame {
+  container: ks-bench-frame / inline-size;
+}
+
+@container ks-bench-frame (max-width: 54rem) {
+  .ks-bench-summary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@container ks-bench-frame (max-width: 36rem) {
+  .ks-bench-head,
+  .ks-bench-body,
+  .ks-bench-actions {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .ks-bench-stats {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ks-bench-stat {
+    flex-direction: row;
+    align-items: baseline;
+  }
+
+  .ks-bench-stat dd {
+    font-size: 1.1rem;
+  }
+}
+
+/* --- High contrast: solid borders, no glow ---------------------------------------------------------------------- */
+
+:root[data-colorblind='high-contrast'] .ks-bench-frame,
+:root[data-colorblind='high-contrast'] .ks-bench-progress {
+  background: var(--ks-surface-solid, #000);
+}
+
+:root[data-colorblind='high-contrast'] .ks-bench-meter-tick {
+  background: var(--ks-fg);
+}
+
+/* --- Reduced motion -------------------------------------------------------------------------------------------- */
+
+:root[data-reduced-motion='true'] .ks-bench *,
+:root[data-reduced-motion='true'] .ks-bench-progress *,
+:root[data-reduced-motion='true'] .ks-bench::backdrop {
+  animation: none !important;
+  transition: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ks-bench *,
+  .ks-bench-progress *,
+  .ks-bench::backdrop {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .ks-bench-meter-fill {
+    background: CanvasText;
+  }
+
+  .ks-bench-meter-track {
+    border: 1px solid CanvasText;
+  }
+}
