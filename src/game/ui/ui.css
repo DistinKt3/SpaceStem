@@ -246,7 +246,7 @@
   align-items: center;
   gap: 0.55em;
   margin: 0;
-  font: 600 0.68rem/1 var(--ks-mono);
+  font: 600 0.72rem/1 var(--ks-mono);
   letter-spacing: 0.26em;
   text-transform: uppercase;
   color: var(--ks-accent);
@@ -499,7 +499,7 @@
   align-items: center;
   gap: 0.8rem;
   margin: 0 0 0.6rem;
-  font: 600 0.7rem/1 var(--ks-mono);
+  font: 600 0.72rem/1 var(--ks-mono);
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--ks-accent);
@@ -1103,8 +1103,8 @@
   z-index: 1;
   margin: 0 -0.4rem;
   padding: 0.75rem 0.85rem 0.45rem 1.15rem;
-  font: 600 0.64rem/1 var(--ks-mono);
-  letter-spacing: 0.18em;
+  font: 600 0.7rem/1 var(--ks-mono);
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--ks-dim);
   background: linear-gradient(180deg, var(--ks-surface-solid) 78%, color-mix(in srgb, var(--ks-surface-solid) 0%, transparent));
@@ -1116,7 +1116,7 @@
 
 .ks-bind-cat-title {
   margin: 1rem 0 0.4rem;
-  font: 600 0.68rem/1 var(--ks-mono);
+  font: 600 0.72rem/1 var(--ks-mono);
   letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--ks-accent);

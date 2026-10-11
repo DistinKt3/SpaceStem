@@ -49,6 +49,7 @@
   "input.unbound": "Not bound",
   "input.unbound.short": "—",
   "input.binding.pair": "{neg} / {pos}",
+  "input.binding.sep": "/",
 
   "input.key.Space": "Space bar",
   "input.key.Space.short": "Space",
@@ -320,7 +321,7 @@
   "settings.demo.axes": "Axes",
   "settings.demo.actions": "Recent actions",
   "settings.demo.idle": "Press a bound key or button",
-  "settings.demo.device": "Last device",
+  "settings.demo.device": "Last device: {device}",
   "settings.demo.palette": "Provenance colours",
   "settings.demo.fps": "{v} fps",
   "settings.demo.status.ok": "OK",

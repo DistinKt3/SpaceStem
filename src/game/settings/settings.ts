@@ -46,8 +46,8 @@ export interface SettingsData {
   padBindings: Record<string, [Binding | null, Binding | null]>;
 }
 
-/** A patch may set volumes partially. */
-export type SettingsPatch = Partial<Omit<SettingsData, 'volumes' | 'version'>> & { volumes?: Partial<Volumes> };
+/** A patch may set volumes partially. `version` is accepted for convenience and ignored. */
+export type SettingsPatch = Partial<Omit<SettingsData, 'volumes'>> & { volumes?: Partial<Volumes> };
 
 export const SETTINGS_VERSION = 1;
 export const SETTINGS_STORAGE_KEY = 'knownsky.settings';

@@ -196,7 +196,7 @@ function frame(now: number): void {
     recent.length = Math.min(recent.length, 4);
     log.replaceChildren(...recent.map((r, i) => el('li', i === 0 ? '' : 'old', r)));
   }
-  device.textContent = `${t('settings.demo.device')}: ${t(input.activeDevice === 'pad' ? 'settings.controls.device.pad' : 'settings.controls.device.kbm')}`;
+  device.textContent = t('settings.demo.device', { device: t(input.activeDevice === 'pad' ? 'settings.controls.device.pad' : 'settings.controls.device.kbm') });
   fps.hidden = !settings.data.showFps;
   if (settings.data.showFps) fps.textContent = t('settings.demo.fps', { v: Math.round(fpsAvg) });
   requestAnimationFrame(frame);

@@ -8,11 +8,11 @@
  * colour-blind and reduced-motion settings through CSS tokens.
  */
 import './ui.css';
-import { t } from '../i18n';
-import { ACTIONS, ACTION_CATEGORIES, actionDef, findConflicts, isFixedSlot, type ActionId } from '../input/actions';
+import { formatNumber, t } from '../i18n';
+import { ACTIONS, ACTION_CATEGORIES, PAD, actionDef, findConflicts, isFixedSlot, type ActionId } from '../input/actions';
 import { inputsOf, type Binding, type InputContext } from '../input/bindings';
 import type { InputManager, RebindStep } from '../input/inputManager';
-import { bindingLabel, bindingParts, getPadStyle, loadKeyboardLayout } from '../input/labels';
+import { bindingLabel, bindingParts, getPadStyle, inputLabel, loadKeyboardLayout } from '../input/labels';
 import { GamepadMenuNav, pickSpatial, type NavCommand, type NavDirection } from '../input/menuNav';
 import { CAPTION_SIZES, COLORBLIND_MODES, LIMITS, QUALITY_PRESETS, type Settings, type SettingsData, type SettingsKey } from '../settings/settings';
 
@@ -100,6 +100,7 @@ export class SettingsPanel {
   private readonly tabs = new Map<SettingsTab, HTMLButtonElement>();
   private readonly panes = new Map<SettingsTab, HTMLElement>();
   private readonly paneTitle: HTMLElement;
+  private readonly hints: HTMLElement;
   private readonly live: HTMLElement;
   private readonly binds: HTMLElement;
   private readonly conflictBanner: HTMLElement;
@@ -180,7 +181,7 @@ export class SettingsPanel {
       step: 1,
       toUi: (v) => Math.round((Math.log(v / LIMITS.mouseSensitivity.min) / Math.log(LIMITS.mouseSensitivity.max / LIMITS.mouseSensitivity.min)) * 100),
       fromUi: (u) => Number((LIMITS.mouseSensitivity.min * (LIMITS.mouseSensitivity.max / LIMITS.mouseSensitivity.min) ** (u / 100)).toFixed(2)),
-      format: (v) => t('settings.value.multiplier', { v: v.toFixed(2) }),
+      format: (v) => t('settings.value.multiplier', { v: formatNumber(v, 2, 2) }),
       value: settings.data.mouseSensitivity,
       commit: (v) => this.settings.set({ mouseSensitivity: v }),
     });
@@ -308,12 +309,8 @@ export class SettingsPanel {
     );
     const graphics = this.pane('graphics', this.section(t('settings.graphics.section.quality'), this.quality.root), this.section(t('settings.graphics.section.view'), this.fov.root, this.showFps.root));
 
-    const hints = h(
-      'div',
-      { class: 'ks-set-hints', 'aria-hidden': 'true' },
-      h('p', { class: 'ks-hint-kbd' }, this.hint('Tab', t('settings.hint.move')), this.hint('Enter', t('settings.hint.select')), this.hint('Esc', t('settings.hint.resume'))),
-      h('p', { class: 'ks-hint-pad' }, this.hint('A', t('settings.hint.select'), true), this.hint('B', t('settings.hint.resume'), true), this.hint('LB RB', t('settings.hint.tabs'), true)),
-    );
+    this.hints = h('div', { class: 'ks-set-hints', 'aria-hidden': 'true' });
+    this.renderHints();
 
     const frame = h(
       'div',
@@ -322,7 +319,7 @@ export class SettingsPanel {
       h('div', { class: 'ks-set-head' }, this.paneTitle, closeBtn),
       tablist,
       h('div', { class: 'ks-set-body' }, controls, a11y, audio, graphics),
-      hints,
+      this.hints,
       this.live,
     );
     this.element = h('dialog', { class: 'ks-settings', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': id('title'), 'data-input': 'keyboard' }, frame);
@@ -370,6 +367,7 @@ export class SettingsPanel {
     this.element.dataset['input'] = this.input.activeDevice === 'pad' ? 'pad' : 'keyboard';
     this.sync(this.settings.data, new Set(Object.keys(this.settings.data) as SettingsKey[]));
     this.renderControls();
+    this.renderHints();
     void loadKeyboardLayout().then((ok) => {
       if (ok && this.openState) this.renderControls();
     });
@@ -681,7 +679,7 @@ export class SettingsPanel {
       const cls = b.type.startsWith('pad') ? `ks-kbd ks-kbd-pad ks-pad-${getPadStyle()}` : b.type === 'mouseButton' || b.type === 'wheel' ? 'ks-kbd ks-kbd-mouse' : 'ks-kbd';
       const keys = h('span', { class: 'ks-keys', 'aria-hidden': 'true' });
       parts.forEach((p, i) => {
-        if (i > 0) keys.append(h('span', { class: 'ks-keys-sep' }, '/'));
+        if (i > 0) keys.append(h('span', { class: 'ks-keys-sep' }, t('input.binding.sep')));
         keys.append(h('kbd', { class: `${cls}${p.length > 3 ? ' is-wide' : ''}` }, b.type === 'mouseButton' ? icon('mouse', 'ks-ico ks-ico-inline') : null, p));
       });
       btn.append(keys);
@@ -868,9 +866,35 @@ export class SettingsPanel {
     return h('section', { class: 'ks-section', 'aria-labelledby': sid }, h('h3', { class: 'ks-section-title', id: sid }, title), ...children);
   }
 
-  private hint(keys: string, label: string, pad = false): HTMLElement {
-    return h('span', { class: 'ks-hint' }, ...keys.split(' ').map((k) => h('kbd', { class: pad ? 'ks-kbd ks-kbd-pad' : 'ks-kbd' }, k)), h('span', {}, label));
+  /** Key and button hints; rebuilt on open so they name the connected pad family. */
+  private renderHints(): void {
+    this.hints.replaceChildren(
+      h(
+        'p',
+        { class: 'ks-hint-kbd' },
+        this.hint(['key:Tab'], t('settings.hint.move')),
+        this.hint(['key:Enter'], t('settings.hint.select')),
+        this.hint(['key:Escape'], t('settings.hint.resume')),
+      ),
+      h(
+        'p',
+        { class: 'ks-hint-pad' },
+        this.hint([`pad:b${PAD.A}`], t('settings.hint.select')),
+        this.hint([`pad:b${PAD.B}`], t('settings.hint.resume')),
+        this.hint([`pad:b${PAD.LB}`, `pad:b${PAD.RB}`], t('settings.hint.tabs')),
+      ),
+    );
   }
+
+  private hint(inputs: string[], label: string): HTMLElement {
+    return h(
+      'span',
+      { class: 'ks-hint' },
+      ...inputs.map((i) => h('kbd', { class: i.startsWith('pad:') ? 'ks-kbd ks-kbd-pad' : 'ks-kbd' }, inputLabel(i))),
+      h('span', {}, label),
+    );
+  }
+
 
   private slider(o: {
     key: string;
