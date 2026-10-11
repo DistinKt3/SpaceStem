@@ -65,6 +65,14 @@ async function rect(loc: Locator): Promise<Rect> {
 const intersects = (a: Rect, b: Rect): boolean =>
   a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
 
+/** Mode presses one frame apart: like the game, the lab reads "next mode" once per frame. */
+async function nextMode(page: Page, times: number): Promise<void> {
+  for (let i = 0; i < times; i++) {
+    await page.keyboard.press('Space');
+    await page.waitForTimeout(200);
+  }
+}
+
 async function fake(page: Page, what: string): Promise<void> {
   await page.locator(`button[data-fake="${what}"]`).click();
 }
@@ -90,9 +98,6 @@ test.describe('guided opening', () => {
     for (let i = 1; i <= 16; i++) await page.mouse.move(560 + i * 30, 520 - i * 4);
     await page.mouse.up({ button: 'right' });
     expect(await sim(page, (s) => s.looked)).toBeGreaterThan(1);
-    // The goal shows as done (tick) before the next step appears.
-    await expect(card(page)).toHaveAttribute('data-phase', 'complete', { timeout: 10_000 });
-    await expect(page.locator('.ks-onb-mark-done')).toBeVisible();
     await expect(goal(page)).toHaveText('Throttle up', { timeout: 10_000 });
 
     // Throttle up with the throttle key (= by default).
@@ -108,8 +113,7 @@ test.describe('guided opening', () => {
     await expect(goal(page)).toHaveText('Switch to cruise', { timeout: 10_000 });
     await page.keyboard.press('Backspace'); // throttle to zero, so the next step has something to say
     await expect(page.locator('.ks-onb-hint')).toContainText('Thrusters, Impulse, Cruise');
-    await page.keyboard.press('Space');
-    await page.keyboard.press('Space');
+    await nextMode(page, 2);
     await expect(goal(page)).toHaveText('Fly to the Moon', { timeout: 10_000 });
     await expect(page.locator('.ks-onb-nudge')).toContainText('Raise the throttle');
     await page.screenshot({ path: `${SHOTS}/02-approach-nudge.png` });
@@ -145,8 +149,7 @@ test.describe('guided opening', () => {
     await page.keyboard.down('KeyR');
     await expect(page.locator('.ks-onb-nudge')).toContainText('Hyperspeed will not engage this close to Moon');
     await page.keyboard.up('KeyR');
-    await page.keyboard.press('Space');
-    await page.keyboard.press('Space');
+    await nextMode(page, 2);
     for (let i = 0; i < 20; i++) await page.keyboard.press('Equal');
     await expect(page.locator('.ks-onb-nudge')).toBeHidden({ timeout: 60_000 });
     await page.keyboard.press('KeyJ');
@@ -181,6 +184,11 @@ test.describe('guided opening', () => {
     await expect(goal(page)).toHaveText('Look around');
     await page.getByRole('button', { name: 'Skip tour' }).click();
     await expect(goal(page)).toHaveText('Tour skipped');
+    await expect(card(page)).toBeVisible();
+    await page.waitForTimeout(1500);
+    // The note stays readable for a few seconds before it fades.
+    await expect(card(page)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Skip tour' })).toBeHidden();
     await expect(page.locator('.ks-onb-hint')).toHaveText(
       'The sky is yours. Restart the tour any time from Settings (Esc).',
     );
@@ -253,6 +261,24 @@ test.describe('guided opening', () => {
     await expect(key(page, 'targetReticle')).toHaveText(pad.a);
   });
 
+  test('gamepad players get gamepad wording, and it follows a device switch', async ({ page }) => {
+    await open(page, 'step=throttle&pad=1');
+    await expect(goal(page)).toHaveText('Throttle up');
+    await expect(page.locator('.ks-onb-hint')).toContainText('Hold');
+    await expect(page.locator('.ks-onb-hint')).toContainText('to raise the throttle');
+    await expect(page.locator('.ks-onb-hint kbd.is-unbound')).toHaveCount(0);
+    const thrust = await page.evaluate(() => {
+      const ks = (window as unknown as KsWindow).__ks;
+      return ks.t('input.binding.pair', { neg: ks.t('input.pad.xbox.b6'), pos: ks.t('input.pad.xbox.b7') });
+    });
+    await expect(key(page, 'thrust')).toHaveText(thrust);
+    await expect(key(page, 'throttleUp')).toHaveCount(0);
+    // Back on the keyboard, the keyboard wording returns.
+    await page.keyboard.press('KeyK');
+    await expect(key(page, 'throttleUp')).toHaveText('=');
+    await expect(page.locator('.ks-onb-hint')).toContainText('Raise the throttle with');
+  });
+
   test('resumes at the remembered step after a reload, minimised if it was', async ({ page }) => {
     await open(page, 'fast=1');
     await fake(page, 'look');
@@ -301,14 +327,19 @@ test.describe('guided opening', () => {
     await expect(bar).toHaveAttribute('aria-valuenow', '0');
     await expect(page.locator('.ks-onb-goal')).toHaveRole('heading');
     await fake(page, 'look');
-    await expect(live).toHaveText('Done: Look around.', { timeout: 10_000 });
+    // Done: the goal is ticked and announced, and stays for the grace delay before the next step.
+    await expect(card(page)).toHaveAttribute('data-phase', 'complete', { timeout: 10_000 });
+    await expect(page.locator('.ks-onb-mark-done')).toBeVisible();
+    await expect(page.locator('.ks-onb-mark-pending')).toBeHidden();
+    await expect(live).toHaveText('Done: Look around.');
+    await page.screenshot({ path: `${SHOTS}/11-step-done.png` });
     await expect(live).toContainText('Guided tour, step 2 of 9: Throttle up.', { timeout: 10_000 });
     await expect(bar).toHaveAttribute('aria-valuenow', '1');
   });
 
   test('stays clear of the reticle and the HUD panels', async ({ page }) => {
     for (const s of ['look', 'approach', 'hyperspeed', 'done']) {
-      await open(page, `step=${s}`);
+      await open(page, `step=${s}&lab=0`);
       await page.waitForTimeout(400);
       const c = await rect(card(page));
       expect(c.left).toBeGreaterThanOrEqual(0);
@@ -365,7 +396,7 @@ test.describe('guided opening at text scale 200%', () => {
       'hyperspeed',
       'done',
     ]) {
-      await open(page, `step=${s}&textScale=2`);
+      await open(page, `step=${s}&textScale=2&lab=0`);
       expect(await page.evaluate(() => getComputedStyle(document.documentElement).fontSize)).toBe('32px');
       await page.waitForTimeout(300);
       await checkNoOverflow(page, 1280, 720, false);
@@ -376,7 +407,7 @@ test.describe('guided opening at text scale 200%', () => {
   test('800×450: the card stays on screen and scrolls rather than spilling', async ({ page }) => {
     await page.setViewportSize({ width: 800, height: 450 });
     for (const s of ['look', 'approach', 'hyperspeed']) {
-      await open(page, `step=${s}&textScale=2`);
+      await open(page, `step=${s}&textScale=2&lab=0`);
       await page.waitForTimeout(300);
       await checkNoOverflow(page, 800, 450, true);
     }

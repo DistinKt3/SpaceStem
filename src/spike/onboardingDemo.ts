@@ -274,6 +274,7 @@ const FAST: Partial<TourTiming> = { minDwell: 0.3, hold: 0.05, grace: 0.35, done
 const onboarding = new Onboarding({
   parent: document.body,
   labelFor: (a) => actionLabel(settings.data, input.activeDevice, a),
+  device: () => input.activeDevice,
   reducedMotion: () => settings.data.reducedMotion,
   onStepChange: (id) => {
     stepLog.push(id);

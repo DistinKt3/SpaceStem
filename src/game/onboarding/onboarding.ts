@@ -8,7 +8,7 @@
  */
 import './onboarding.css';
 import { isActionId, type ActionId } from '../input/actions';
-import { t } from '../i18n';
+import { hasKey, t } from '../i18n';
 import { factParams } from './facts';
 import type { Nudge } from './steps';
 import { TourMachine, type StepPhase, type TourTiming } from './tour';
@@ -26,6 +26,11 @@ export interface OnboardingOptions {
   storage?: OnboardingStorage | null;
   /** Display label of an action's current binding (see actionLabel in snapshot.ts). */
   labelFor: (action: ActionId) => string;
+  /**
+   * The input device in use (input.activeDevice). With 'pad', hints use their gamepad wording where one exists
+   * (key '<hint>.pad'): no "move the mouse", no keyboard-only actions.
+   */
+  device?: () => 'kbm' | 'pad';
   /** Called with each new step id, and with 'skipped' when the tour is skipped. */
   onStepChange?: (id: string) => void;
   /** Reduced-motion setting; the card also honours html[data-reduced-motion] and prefers-reduced-motion in CSS. */
@@ -67,6 +72,9 @@ let instances = 0;
 export class Onboarding {
   private readonly tour: TourMachine;
   private readonly labelFor: (action: ActionId) => string;
+  private readonly device: (() => 'kbm' | 'pad') | undefined;
+  /** Device the hint text was written for. */
+  private hintDevice: 'kbm' | 'pad' = 'kbm';
   private readonly reducedMotion: (() => boolean) | undefined;
   private readonly facts = factParams();
   private readonly uid = `ks-onb-${++instances}`;
@@ -104,6 +112,7 @@ export class Onboarding {
 
   constructor(opts: OnboardingOptions) {
     this.labelFor = opts.labelFor;
+    this.device = opts.device;
     this.reducedMotion = opts.reducedMotion;
     this.tour = new TourMachine({
       ...(opts.storage !== undefined ? { storage: opts.storage } : {}),
@@ -317,7 +326,8 @@ export class Onboarding {
     this.mini.textContent = this.goalText.textContent;
     this.optionalTag.textContent = step.optional ? t('onboarding.optional') : '';
     this.optionalTag.hidden = !step.optional;
-    this.renderTemplate(this.hint, `onboarding.step.${id}.hint`, this.params());
+    this.hintDevice = this.currentDevice();
+    this.renderTemplate(this.hint, this.variant(`onboarding.step.${id}.hint`), this.params());
     this.scienceText.textContent = t(`onboarding.step.${id}.science`, this.facts);
     this.nudgeSig = '';
     this.nudge.hidden = true;
@@ -330,6 +340,7 @@ export class Onboarding {
   }
 
   private showFarewell(): void {
+    this.clearFarewell();
     this.shown = 'farewell';
     this.root.dataset['state'] = 'farewell';
     this.root.dataset['phase'] = 'complete';
@@ -340,10 +351,11 @@ export class Onboarding {
     this.optionalTag.hidden = true;
     this.renderTemplate(this.hint, 'onboarding.skipped.body', {});
     this.nudge.hidden = true;
+    this.nudgeSig = '';
+    delete this.root.dataset['nudge'];
     this.root.dataset['collapsed'] = 'false';
     this.announce(t('onboarding.announce.skipped'));
     this.applyVisibility();
-    this.clearFarewell();
     this.farewellTimer = setTimeout(() => {
       this.farewellTimer = 0;
       this.root.dataset['leaving'] = 'true';
@@ -405,10 +417,30 @@ export class Onboarding {
   }
 
   private refreshLabels(): void {
+    // A device switch can change the wording, not just the labels.
+    const step = this.tour.step;
+    if (step && this.shown !== 'farewell' && this.currentDevice() !== this.hintDevice) {
+      this.hintDevice = this.currentDevice();
+      this.renderTemplate(this.hint, this.variant(`onboarding.step.${step.id}.hint`), this.params());
+      this.nudgeSig = '';
+    }
     for (const k of this.root.querySelectorAll<HTMLElement>('kbd.ks-onb-key')) {
       const a = k.dataset['action'];
       if (a && isActionId(a)) this.setKeyLabel(k, a);
     }
+  }
+
+  private currentDevice(): 'kbm' | 'pad' {
+    try {
+      return this.device?.() ?? 'kbm';
+    } catch {
+      return 'kbm';
+    }
+  }
+
+  /** The gamepad wording of a message when a pad is in use and the locale has one. */
+  private variant(key: string): string {
+    return this.currentDevice() === 'pad' && hasKey(`${key}.pad`) ? `${key}.pad` : key;
   }
 
   /** Plain-text version of a template, with key labels in place of the placeholders (for announcements). */
@@ -429,7 +461,7 @@ export class Onboarding {
       return;
     }
     const text = el('span', 'ks-onb-nudge-text');
-    this.renderTemplate(text, n.key, { button: t('map.showStars'), ...n.params });
+    this.renderTemplate(text, this.variant(n.key), { button: t('map.showStars'), ...n.params });
     this.nudge.replaceChildren(
       svg('0 0 16 16', '<path d="M8 2.2 14.6 13.6H1.4z"/><path d="M8 6.6v3.2M8 11.7h.01"/>', 'ks-onb-nudge-icon'),
       text,
@@ -466,7 +498,7 @@ export class Onboarding {
     if (!step) return;
     const p = this.tour.progress();
     const goal = t(`onboarding.step.${step.id}.goal`);
-    const hint = this.plain(`onboarding.step.${step.id}.hint`, this.params());
+    const hint = this.plain(this.variant(`onboarding.step.${step.id}.hint`), this.params());
     if (this.tour.finale) this.announce(t('onboarding.announce.done', { goal, hint }));
     else
       this.announce(

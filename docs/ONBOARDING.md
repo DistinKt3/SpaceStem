@@ -10,7 +10,8 @@ The game boots in low Earth orbit, 420 km up, with the Moon targeted (`App.view(
 top left walks the pilot through one goal at a time. Each card has:
 
 - a one-line **goal** with a status mark (a ring while pending, a tick once done),
-- a **key hint** whose keycaps are the player's own bindings (keyboard or gamepad, whichever is in use),
+- a **key hint** whose keycaps are the player's own bindings (keyboard or gamepad, whichever is in use; on a
+  gamepad the wording changes too where the keyboard text would mention the mouse or keyboard-only actions),
 - one line of **real science**, with any game fiction called fiction in the same sentence,
 - a subtle **progress** strip (filled = done, taller = current, hollow dashed = optional) and "n / 9",
 - **Skip tour** and the reminder "Restart it any time from Settings (Esc)", with the pause key from the bindings.
@@ -113,6 +114,7 @@ import { Onboarding, actionLabel, LookTracker, isAligned, type OnboardingSnapsho
 const tour = new Onboarding({
   parent: document.body,
   labelFor: (a) => actionLabel(settings.data, input.activeDevice, a), // current binding label
+  device: () => input.activeDevice, // gamepad wording of hints ('<key>.pad' messages)
   reducedMotion: () => settings.data.reducedMotion,
   onStepChange: (id) => {}, // step ids, plus 'skipped'
   // storage?: Storage | null (default localStorage), timing?: Partial<TourTiming> (tests and the lab)
@@ -223,6 +225,7 @@ private createOnboarding(): Onboarding {
   this.onboarding ??= new Onboarding({
     parent: document.body,
     labelFor: (a) => actionLabel(this.settings.data, this.input.activeDevice, a),
+    device: () => this.input.activeDevice,
     reducedMotion: () => this.reducedMotion,
     onStepChange: (id) => {
       if (id !== 'skipped') this.audio.play('ui-select'); // captioned "[Soft chime]"

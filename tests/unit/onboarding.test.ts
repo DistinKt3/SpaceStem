@@ -456,6 +456,24 @@ describe('onboarding tour: text', () => {
       expect(placeholders(en[`onboarding.step.${id}.hint`]!).some(isActionId), id).toBe(true);
   });
 
+  it('gives gamepad wording only with actions a pad binds by default', () => {
+    const pad = defaultBindings('pad');
+    const variants = Object.keys(en).filter((k) => k.endsWith('.pad') && !k.startsWith('onboarding.demo.'));
+    expect(variants.length).toBeGreaterThan(0);
+    for (const key of variants) {
+      expect(en[key.slice(0, -4)], `${key} has a keyboard original`).toBeTruthy();
+      for (const p of placeholders(en[key]!)) {
+        if (isActionId(p)) expect(pad[p]?.some((b) => b !== null), `${key}: {${p}} is unbound on a pad`).toBe(true);
+      }
+    }
+    // The keyboard texts that mention the mouse or pad-unbound actions all have a pad version.
+    for (const [key, msg] of Object.entries(en)) {
+      if (key.endsWith('.pad') || key.startsWith('onboarding.demo.')) continue;
+      const padless = placeholders(msg).filter((p) => isActionId(p) && !pad[p]?.some((b) => b !== null));
+      if (padless.length > 0 || /mouse/.test(msg)) expect(en[`${key}.pad`], `${key} needs a .pad variant`).toBeTruthy();
+    }
+  });
+
   it('labels the fictional drives as fiction', () => {
     expect(en['onboarding.step.cruise.science']).toMatch(/fiction/);
     expect(en['onboarding.step.hyperspeed.science']).toMatch(/fiction/);
