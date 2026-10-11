@@ -72,7 +72,12 @@ export interface FactValueParts {
 }
 
 /** Units written without a space after the number. */
-const TIGHT_UNITS = new Set(['%', '°', '′', '″', '‰']);
+const TIGHT_UNITS = new Set(['%', '°', '′', '″', '‰', '×']);
+
+/** True for units written straight after the number ("65%", "2.5×"). */
+export function isTightUnit(unit: string): boolean {
+  return TIGHT_UNITS.has(unit);
+}
 
 export function formatFactValue(f: Pick<CodexFact, 'value' | 'unit' | 'uncertainty'>, lang = uiLang()): FactValueParts {
   const value = typeof f.value === 'number' ? formatQuantity(f.value, lang) : f.value;
@@ -144,6 +149,11 @@ export function kindLabel(kind: CodexKind): string {
 }
 
 /** Display name of a system id, e.g. "the Solar System" or "the TRAPPIST-1 system"; null when unknown. */
+/** The entry's system id; a Solar System body (NAIF body id, no system given) belongs to "sol". */
+export function entrySystem(e: Pick<CodexEntry, 'systemId' | 'bodyId'>): string | undefined {
+  return e.systemId ?? (e.bodyId !== undefined ? 'sol' : undefined);
+}
+
 export function systemName(systemId: string | undefined, entries: readonly CodexEntry[]): string | null {
   if (!systemId) return null;
   const key = `codex.system.${systemId}`;
@@ -154,7 +164,9 @@ export function systemName(systemId: string | undefined, entries: readonly Codex
 
 /** A hint for a locked entry that says how to unlock it without giving its contents away. */
 export function lockedHint(e: CodexEntry, entries: readonly CodexEntry[]): string {
-  const sys = systemName(e.systemId, entries);
+  // Ideas are learned along the way, however they unlock; objects say where to go.
+  if (e.kind === 'concept') return t('codex.locked.hint.concept');
+  const sys = systemName(entrySystem(e), entries);
   if (e.unlock === 'scan') return sys ? t('codex.locked.hint.scanIn', { system: sys }) : t('codex.locked.hint.scan');
   switch (e.kind) {
     case 'body':
@@ -163,7 +175,5 @@ export function lockedHint(e: CodexEntry, entries: readonly CodexEntry[]): strin
       return e.starName ? t('codex.locked.hint.star', { star: e.starName }) : t('codex.locked.hint.starAnon');
     case 'exoplanet':
       return sys ? t('codex.locked.hint.exoplanetIn', { system: sys }) : t('codex.locked.hint.exoplanet');
-    case 'concept':
-      return t('codex.locked.hint.concept');
   }
 }

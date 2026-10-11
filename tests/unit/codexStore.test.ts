@@ -389,6 +389,8 @@ describe('codex value formatting', () => {
     expect(formatFactValue({ value: 3.828e26, unit: 'W' }).text).toBe('3.828 × 10²⁶ W');
     expect(formatFactValue({ value: 'Ruled out' }).text).toBe('Ruled out');
     expect(formatFactValue({ value: 65, unit: '%' }).text).toBe('65%');
+    expect(formatFactValue({ value: 2.5, unit: '×' }).text).toBe('2.5×');
+    expect(formatFactValue({ value: 2, uncertainty: '0.014 (2-sigma)' }).uncertainty).toBe('± 0.014 (2-sigma)');
     const asym = formatFactValue({ value: 0.92, uncertainty: '+0.013/-0.012', unit: 'R⊕' });
     expect(asym.text).toBe('0.92 +0.013/−0.012 R⊕');
     expect(asym.asym).toEqual({ plus: '+0.013', minus: '−0.012' });
@@ -415,10 +417,15 @@ describe('codex value formatting', () => {
     const entries = parseCodex(codexFixture).value;
     const get = (id: string): CodexEntry => entries.find((e) => e.id === id)!;
     expect(lockedHint(get('moon'), entries)).toBe('Visit this world in the Solar System to unlock it.');
+    const { systemId: _drop, ...noSystem } = get('moon');
+    expect(lockedHint(noSystem, entries)).toBe('Visit this world in the Solar System to unlock it.'); // NAIF body id implies Sol
     expect(lockedHint(get('trappist-1e'), entries)).toBe('Travel to the TRAPPIST-1 system to unlock it.');
     expect(lockedHint(get('proxima-centauri'), entries)).toBe('Jump to Proxima Centauri to unlock it.');
     expect(lockedHint({ ...get('moon'), unlock: 'scan', systemId: 'nowhere' }, entries)).toBe(
       'Scan this object up close to unlock it.',
+    );
+    expect(lockedHint({ ...get('parallax'), unlock: 'scan' }, entries)).toBe(
+      'Keep exploring: this entry unlocks along the way.',
     );
     expect(lockedHint({ ...get('parallax'), unlock: 'visit' }, entries)).toBe(
       'Keep exploring: this entry unlocks along the way.',

@@ -14,7 +14,7 @@ import { provenanceBadge } from '../ui/badge';
 import '../ui/codex.css';
 import type { CodexStore } from './codexStore';
 import { citationView, h, icon, moveFocus, prefersReducedMotion, richText, showDialog, srOnly, trapTab } from './dom';
-import { kindLabel, lockedHint, relativeTime, tCount } from './format';
+import { entrySystem, kindLabel, lockedHint, relativeTime, tCount } from './format';
 import { factValueView, type HowWeKnowPanel } from './howWeKnow';
 import { pushNavTarget, removeNavTarget, type CodexNavCommand, type CodexNavTarget } from './nav';
 import { CODEX_KINDS, PROVENANCES, type CodexEntry, type CodexKind } from './types';
@@ -967,10 +967,10 @@ export class CodexPanel implements CodexNavTarget {
 
 /** Short location label for the entry eyebrow: "Solar System", "TRAPPIST-1 system". */
 function systemLabel(e: CodexEntry, entries: readonly CodexEntry[]): string | null {
-  if (!e.systemId) return null;
-  const key = `codex.systemLabel.${e.systemId}`;
+  const sys = entrySystem(e);
+  if (!sys) return null;
+  const key = `codex.systemLabel.${sys}`;
   if (hasKey(key)) return t(key);
-  const star =
-    e.starName ?? entries.find((x) => x.kind === 'star' && x.systemId === e.systemId && x.starName)?.starName;
+  const star = e.starName ?? entries.find((x) => x.kind === 'star' && x.systemId === sys && x.starName)?.starName;
   return star ? t('codex.systemLabel.named', { star }) : null;
 }

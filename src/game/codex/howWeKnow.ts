@@ -10,7 +10,7 @@ import { provenanceBadge } from '../ui/badge';
 import '../ui/codex.css';
 import type { CodexStore } from './codexStore';
 import { citationView, focusables, h, icon, moveFocus, richText, showDialog, trapTab } from './dom';
-import { formatFactValue } from './format';
+import { formatFactValue, isTightUnit } from './format';
 import { pushNavTarget, removeNavTarget, type CodexNavCommand, type CodexNavTarget } from './nav';
 import type { CodexEntry, CodexFact } from './types';
 
@@ -25,7 +25,7 @@ let uid = 0;
 /** "6,371.0084 ± 0.0001 km" with the uncertainty and unit styled separately. */
 export function factValueView(f: CodexFact, cls = 'ks-cx-value'): HTMLElement {
   const p = formatFactValue(f);
-  const unitSpace = p.unit && !['%', '°', '′', '″', '‰'].includes(p.unit) ? ' ' : '';
+  const unitSpace = p.unit && !isTightUnit(p.unit) ? ' ' : '';
   return h(
     'span',
     { class: cls },

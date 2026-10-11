@@ -11,7 +11,13 @@ import codexFixture from '../../tests/fixtures/codex_sample.json';
 import citationsFixture from '../../tests/fixtures/citations_sample.json';
 import { Rng } from '../core/rng';
 import { createCodexUI } from '../game/codex';
-import { CODEX_STORAGE_KEY, CodexStore, publicDataSource, staticSource, withFallback } from '../game/codex/codexStore';
+import {
+  CODEX_STORAGE_KEY,
+  CodexStore,
+  publicDataSource,
+  staticSource,
+  type CodexSource,
+} from '../game/codex/codexStore';
 import { t } from '../game/i18n';
 import { provenanceBadge } from '../game/ui/badge';
 
@@ -90,18 +96,25 @@ addEventListener('resize', drawSky);
 const fixtures = staticSource(codexFixture, citationsFixture);
 const sourceParam = params.get('source');
 let usedFixtures = sourceParam === 'fixtures';
+/** Shipped data when the codex file exists, else the fixtures for both files (never a mix of the two). */
+function shippedOrFixtures(): CodexSource {
+  const shipped = publicDataSource();
+  const codex = shipped.codex();
+  return {
+    codex: () =>
+      codex.catch(() => {
+        usedFixtures = true;
+        return fixtures.codex();
+      }),
+    citations: () =>
+      codex.then(
+        () => shipped.citations(),
+        () => fixtures.citations(),
+      ),
+  };
+}
 const source =
-  sourceParam === 'fixtures'
-    ? fixtures
-    : sourceParam === 'data'
-      ? publicDataSource()
-      : withFallback(publicDataSource(), {
-          codex: () => {
-            usedFixtures = true;
-            return fixtures.codex();
-          },
-          citations: () => fixtures.citations(),
-        });
+  sourceParam === 'fixtures' ? fixtures : sourceParam === 'data' ? publicDataSource() : shippedOrFixtures();
 const store = new CodexStore({ source });
 const ui = createCodexUI(store, { closeKeys: ['KeyC'] });
 
