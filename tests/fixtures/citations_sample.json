@@ -1,0 +1,228 @@
+{
+  "archinal2018": {
+    "authors": "Archinal, B. A. et al.",
+    "year": 2018,
+    "title": "Report of the IAU Working Group on Cartographic Coordinates and Rotational Elements: 2015",
+    "venue": "Celestial Mechanics and Dynamical Astronomy 130, 22",
+    "doi": "10.1007/s10569-017-9805-5",
+    "url": "https://doi.org/10.1007/s10569-017-9805-5",
+    "accessed": "2026-10-10",
+    "verified": true,
+    "note": "Erratum: Celestial Mechanics and Dynamical Astronomy 131, 61 (2019)."
+  },
+  "park2021": {
+    "authors": "Park, R. S., Folkner, W. M., Williams, J. G. & Boggs, D. H.",
+    "year": 2021,
+    "title": "The JPL Planetary and Lunar Ephemerides DE440 and DE441",
+    "venue": "The Astronomical Journal 161(3), 105",
+    "doi": "10.3847/1538-3881/abd414",
+    "url": "https://doi.org/10.3847/1538-3881/abd414",
+    "accessed": "2026-10-11",
+    "verified": false
+  },
+  "iau2015_b3": {
+    "authors": "Prša, A. et al.",
+    "year": 2016,
+    "title": "Nominal Values for Selected Solar and Planetary Quantities: IAU 2015 Resolution B3",
+    "venue": "The Astronomical Journal 152(2), 41",
+    "doi": "10.3847/0004-6256/152/2/41",
+    "url": "https://www.iau.org/common/Uploaded%20files/IAUGA2015-Resolution-B3-recommended-nominal-conversion.pdf",
+    "accessed": "2026-10-10",
+    "verified": true
+  },
+  "connelly2012": {
+    "authors": "Connelly, J. N. et al.",
+    "year": 2012,
+    "title": "The Absolute Chronology and Thermal Processing of Solids in the Solar Protoplanetary Disk",
+    "venue": "Science 338, 651-655",
+    "doi": "10.1126/science.1226919",
+    "url": "https://doi.org/10.1126/science.1226919",
+    "accessed": "2026-10-11",
+    "verified": false
+  },
+  "dalrymple2001": {
+    "authors": "Dalrymple, G. B.",
+    "year": 2001,
+    "title": "The age of the Earth in the twentieth century: a problem (mostly) solved",
+    "venue": "Geological Society, London, Special Publications 190, 205-221",
+    "doi": "10.1144/GSL.SP.2001.190.01.14",
+    "url": "https://doi.org/10.1144/GSL.SP.2001.190.01.14",
+    "accessed": "2026-10-11",
+    "verified": false
+  },
+  "etopo1": {
+    "authors": "Amante, C. & Eakins, B. W.",
+    "year": 2009,
+    "title": "ETOPO1 1 Arc-Minute Global Relief Model: Procedures, Data Sources and Analysis",
+    "venue": "NOAA Technical Memorandum NESDIS NGDC-24, National Geophysical Data Center, NOAA",
+    "doi": "10.7289/V5C8276M",
+    "url": "https://repository.library.noaa.gov/view/noaa/1163",
+    "accessed": "2026-10-10",
+    "verified": true,
+    "license": "US Government work"
+  },
+  "blue_marble_ng": {
+    "authors": "Stöckli, R., Vermote, E., Saleous, N., Simmon, R. & Herring, D.",
+    "year": 2005,
+    "title": "The Blue Marble Next Generation - A true color earth dataset including seasonal dynamics from MODIS",
+    "venue": "NASA Earth Observatory",
+    "doi": null,
+    "url": "https://earthobservatory.nasa.gov/features/BlueMarble/BlueMarble.php",
+    "accessed": "2026-10-10",
+    "verified": true
+  },
+  "ks_generation": {
+    "authors": "Known Sky contributors",
+    "year": 2026,
+    "title": "Seeded procedural generation of terrain and surface detail",
+    "venue": "Known Sky technical plan (docs/TECH_PLAN.md, section 5)",
+    "doi": null,
+    "url": "",
+    "accessed": "2026-10-11",
+    "verified": true,
+    "license": "MIT"
+  },
+  "nasa_planetary_fact_sheet": {
+    "authors": "Williams, D. R. (NASA NSSDCA, Goddard Space Flight Center)",
+    "year": null,
+    "title": "Planetary Fact Sheet - Metric (and per-body fact sheets)",
+    "venue": "NASA Space Science Data Coordinated Archive",
+    "doi": null,
+    "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/",
+    "accessed": "2026-10-10",
+    "verified": true,
+    "note": "Continuously updated web resource."
+  },
+  "dickey1994": {
+    "authors": "Dickey, J. O. et al.",
+    "year": 1994,
+    "title": "Lunar Laser Ranging: A Continuing Legacy of the Apollo Program",
+    "venue": "Science 265, 482-490",
+    "doi": "10.1126/science.265.5171.482",
+    "url": "https://doi.org/10.1126/science.265.5171.482",
+    "accessed": "2026-10-11",
+    "verified": false
+  },
+  "lro_lola": {
+    "authors": "Smith, D. E. et al.",
+    "year": 2010,
+    "title": "Initial observations from the Lunar Orbiter Laser Altimeter (LOLA)",
+    "venue": "Geophysical Research Letters 37, L18204",
+    "doi": "10.1029/2010GL043751",
+    "url": "https://doi.org/10.1029/2010GL043751",
+    "accessed": "2026-10-10",
+    "verified": true
+  },
+  "canup2001": {
+    "authors": "Canup, R. M. & Asphaug, E.",
+    "year": 2001,
+    "title": "Origin of the Moon in a giant impact near the end of the Earth's formation",
+    "venue": "Nature 412, 708-712",
+    "doi": "10.1038/35089010",
+    "url": "https://doi.org/10.1038/35089010",
+    "accessed": "2026-10-11",
+    "verified": false
+  },
+  "gaia_dr3": {
+    "authors": "Gaia Collaboration, Vallenari, A. et al.",
+    "year": 2023,
+    "title": "Gaia Data Release 3: Summary of the content and survey properties",
+    "venue": "Astronomy & Astrophysics 674, A1",
+    "doi": "10.1051/0004-6361/202243940",
+    "url": "https://www.aanda.org/articles/aa/abs/2023/06/aa43940-22/aa43940-22.html",
+    "accessed": "2026-10-10",
+    "verified": true,
+    "license": "CC BY 4.0"
+  },
+  "proxima_b": {
+    "authors": "Anglada-Escudé, G. et al.",
+    "year": 2016,
+    "title": "A terrestrial planet candidate in a temperate orbit around Proxima Centauri",
+    "venue": "Nature 536, 437-440",
+    "doi": "10.1038/nature19106",
+    "url": "https://arxiv.org/abs/1609.03449",
+    "accessed": "2026-10-10",
+    "verified": true
+  },
+  "agol2021": {
+    "authors": "Agol, E. et al.",
+    "year": 2021,
+    "title": "Refining the Transit-timing and Photometric Analysis of TRAPPIST-1: Masses, Radii, Densities, Dynamics, and Ephemerides",
+    "venue": "The Planetary Science Journal 2(1), 1",
+    "doi": "10.3847/PSJ/abd022",
+    "url": "https://iopscience.iop.org/article/10.3847/PSJ/abd022",
+    "accessed": "2026-10-10",
+    "verified": true
+  },
+  "burgasser2017": {
+    "authors": "Burgasser, A. J. & Mamajek, E. E.",
+    "year": 2017,
+    "title": "On the Age of the TRAPPIST-1 System",
+    "venue": "The Astrophysical Journal 845, 110",
+    "doi": "10.3847/1538-4357/aa7fea",
+    "url": "https://arxiv.org/abs/1706.02018",
+    "accessed": "2026-10-10",
+    "verified": true
+  },
+  "gillon2016": {
+    "authors": "Gillon, M. et al.",
+    "year": 2016,
+    "title": "Temperate Earth-sized planets transiting a nearby ultracool dwarf star",
+    "venue": "Nature 533, 221-224",
+    "doi": "10.1038/nature17448",
+    "url": "https://arxiv.org/abs/1605.07211",
+    "accessed": "2026-10-10",
+    "verified": true
+  },
+  "espinoza2025": {
+    "authors": "Espinoza, N. et al.",
+    "year": 2025,
+    "title": "JWST-TST DREAMS: NIRSpec/PRISM Transmission Spectroscopy of the Habitable Zone Planet TRAPPIST-1 e",
+    "venue": "The Astrophysical Journal Letters 990, L52",
+    "doi": "10.3847/2041-8213/adf42e",
+    "url": "https://iopscience.iop.org/article/10.3847/2041-8213/adf42e",
+    "accessed": "2026-10-10",
+    "verified": true,
+    "note": "Companion paper: Glidden et al. 2025, ApJL 990, L53."
+  },
+  "hipparcos2007": {
+    "authors": "van Leeuwen, F.",
+    "year": 2007,
+    "title": "Validation of the new Hipparcos reduction",
+    "venue": "Astronomy & Astrophysics 474, 653-664",
+    "doi": "10.1051/0004-6361:20078357",
+    "url": "https://arxiv.org/abs/0708.1752",
+    "accessed": "2026-10-10",
+    "verified": true
+  },
+  "esa_gaia_parallax": {
+    "authors": "European Space Agency",
+    "year": null,
+    "title": "Parallax (Gaia)",
+    "venue": "ESA Science & Exploration web page",
+    "doi": null,
+    "url": "https://www.esa.int/Science_Exploration/Space_Science/Gaia/Parallax",
+    "accessed": "2026-10-10",
+    "verified": true
+  },
+  "bessel1838": {
+    "authors": "Bessel, F. W.",
+    "year": 1838,
+    "title": "Bestimmung der Entfernung des 61sten Sterns des Schwans",
+    "venue": "Astronomische Nachrichten 16, 65-96",
+    "doi": null,
+    "url": "https://ui.adsabs.harvard.edu/abs/1838AN.....16...65B",
+    "accessed": "2026-10-11",
+    "verified": false
+  },
+  "bipm_si": {
+    "authors": "Bureau International des Poids et Mesures",
+    "year": 2019,
+    "title": "The International System of Units (SI), 9th edition",
+    "venue": "BIPM, Sèvres",
+    "doi": null,
+    "url": "https://www.bipm.org/en/publications/si-brochure",
+    "accessed": "2026-10-11",
+    "verified": false
+  }
+}

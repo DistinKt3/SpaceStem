@@ -1,0 +1,566 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "sun",
+      "title": "Sun",
+      "kind": "star",
+      "bodyId": "10",
+      "starName": "Sun",
+      "systemId": "sol",
+      "unlock": "start",
+      "summary": "The star at the centre of the Solar System: an ordinary G-type main-sequence star, and the calibration point for every other star.",
+      "body": [
+        "Everything we know about other stars is measured against the Sun. It is the only star whose surface we can resolve in fine detail, whose interior we can probe with **helioseismology** (sound waves ringing through it), and whose neutrinos we catch directly.",
+        "Its energy comes from nuclear fusion in the core, where hydrogen is turned into helium. Its light takes about **8 minutes 19 seconds** to cross the 1 au to Earth."
+      ],
+      "facts": [
+        {
+          "label": "Effective temperature",
+          "value": 5772,
+          "unit": "K",
+          "uncertainty": 0.8,
+          "provenance": "measured",
+          "method": "Total solar irradiance and the solar radius, through the Stefan–Boltzmann law",
+          "citation": "iau2015_b3"
+        },
+        {
+          "label": "Radius (IAU nominal)",
+          "value": 695700,
+          "unit": "km",
+          "provenance": "measured",
+          "method": "Conversion constant adopted by the IAU from photospheric radius measurements",
+          "citation": "iau2015_b3"
+        },
+        {
+          "label": "Luminosity (IAU nominal)",
+          "value": 3.828e26,
+          "unit": "W",
+          "provenance": "measured",
+          "method": "Conversion constant adopted by the IAU from total solar irradiance measurements",
+          "citation": "iau2015_b3"
+        },
+        {
+          "label": "Gravitational parameter GM",
+          "value": 132712440041.279,
+          "unit": "km³/s²",
+          "provenance": "measured",
+          "method": "Fitted to planetary and spacecraft ranging (JPL DE440)",
+          "citation": "park2021"
+        },
+        {
+          "label": "Age",
+          "value": 4.567,
+          "unit": "billion years",
+          "provenance": "inferred",
+          "method": "Radiometric dating of the oldest solids in meteorites, assumed to have formed with the Sun",
+          "citation": "connelly2012"
+        }
+      ],
+      "howWeKnow": [
+        {
+          "claim": "The Sun's size, temperature and power output are **measured**: satellites record its total irradiance, and solar astrometry gives its radius.",
+          "method": "Space radiometry and solar astrometry",
+          "provenance": "measured",
+          "citation": "iau2015_b3"
+        },
+        {
+          "claim": "Its age is **inferred**, not measured: the oldest meteorite grains are dated radiometrically, and the Sun is assumed to have formed with them.",
+          "method": "Pb–Pb dating of calcium–aluminium-rich inclusions",
+          "provenance": "inferred",
+          "citation": "connelly2012"
+        }
+      ],
+      "related": ["earth", "parallax", "proxima-centauri"]
+    },
+    {
+      "id": "earth",
+      "title": "Earth",
+      "kind": "body",
+      "bodyId": "399",
+      "systemId": "sol",
+      "unlock": "start",
+      "summary": "Our home world, the third planet from the Sun and the only place known to host life.",
+      "body": [
+        "Earth is the yardstick for every rocky planet in the Codex: when an exoplanet's radius is given as **0.92 Earth radii**, this is the planet being compared.",
+        "Its shape is measured to millimetres by satellite geodesy. Its mass enters through **GM**, the product of the gravitational constant and the mass, which spacecraft tracking pins down far better than either factor alone.",
+        "In Known Sky, Earth's colours come from NASA's Blue Marble imagery and its relief from ETOPO1 elevation data. Detail finer than the data is **generated**: seeded noise that looks plausible but is invented."
+      ],
+      "facts": [
+        {
+          "label": "Equatorial radius",
+          "value": 6378.1366,
+          "unit": "km",
+          "uncertainty": 0.0001,
+          "provenance": "measured",
+          "method": "Satellite geodesy (IAU WGCCRE 2015 report)",
+          "citation": "archinal2018"
+        },
+        {
+          "label": "Polar radius",
+          "value": 6356.7519,
+          "unit": "km",
+          "uncertainty": 0.0001,
+          "provenance": "measured",
+          "method": "Satellite geodesy (IAU WGCCRE 2015 report)",
+          "citation": "archinal2018"
+        },
+        {
+          "label": "Gravitational parameter GM",
+          "value": 398600.435507,
+          "unit": "km³/s²",
+          "provenance": "measured",
+          "method": "Fitted to lunar laser ranging and spacecraft tracking (JPL DE440)",
+          "citation": "park2021"
+        },
+        {
+          "label": "Surface colour",
+          "value": "Blue Marble NG",
+          "provenance": "measured",
+          "method": "Cloud-free MODIS satellite mosaic",
+          "citation": "blue_marble_ng"
+        },
+        {
+          "label": "Elevation grid",
+          "value": 1,
+          "unit": "arc-minute",
+          "provenance": "measured",
+          "method": "Global relief model from satellite altimetry and ship surveys",
+          "citation": "etopo1"
+        },
+        {
+          "label": "Terrain finer than the grid",
+          "value": "Procedural",
+          "provenance": "generated",
+          "method": "Seeded noise added below the resolution of the elevation data",
+          "citation": "ks_generation"
+        },
+        {
+          "label": "Age",
+          "value": 4.54,
+          "unit": "billion years",
+          "uncertainty": 0.05,
+          "provenance": "inferred",
+          "method": "Radiometric dating of meteorites and the oldest terrestrial and lunar rocks",
+          "citation": "dalrymple2001"
+        }
+      ],
+      "howWeKnow": [
+        {
+          "claim": "Earth's size and shape are **measured**: satellite laser ranging and altimetry tie the surface to the planet's centre of mass.",
+          "method": "Satellite geodesy",
+          "provenance": "measured",
+          "citation": "archinal2018"
+        },
+        {
+          "claim": "Its age is **inferred**: no rock survives from Earth's formation, so it is dated through meteorites that formed at the same time.",
+          "method": "Radiometric dating",
+          "provenance": "inferred",
+          "citation": "dalrymple2001"
+        },
+        {
+          "claim": "Surface detail below the 1 arc-minute data grid is **generated** for the game.",
+          "method": "Seeded procedural noise",
+          "provenance": "generated",
+          "citation": "ks_generation"
+        }
+      ],
+      "related": ["moon", "sun", "parallax"]
+    },
+    {
+      "id": "moon",
+      "title": "Moon",
+      "kind": "body",
+      "bodyId": "301",
+      "systemId": "sol",
+      "unlock": "visit",
+      "summary": "Earth's only natural satellite, and the only other world people have walked on.",
+      "body": [
+        "The Moon always shows Earth the same face: it is **tidally locked**, turning once on its axis for every orbit.",
+        "Retroreflectors left by Apollo astronauts and Lunokhod rovers still return laser pulses fired from Earth. Timing those echoes measures the Earth–Moon distance to centimetres, and shows the Moon **slowly drifting away**.",
+        "How the Moon formed is not observed but inferred: the leading explanation is a giant impact between the young Earth and a Mars-sized body."
+      ],
+      "facts": [
+        {
+          "label": "Mean radius",
+          "value": 1737.4,
+          "unit": "km",
+          "provenance": "measured",
+          "method": "Laser altimetry and imaging (IAU WGCCRE 2015 report)",
+          "citation": "archinal2018"
+        },
+        {
+          "label": "Gravitational parameter GM",
+          "value": 4902.800118,
+          "unit": "km³/s²",
+          "provenance": "measured",
+          "method": "Lunar laser ranging and spacecraft tracking (JPL DE440)",
+          "citation": "park2021"
+        },
+        {
+          "label": "Semi-major axis of orbit",
+          "value": 384400,
+          "unit": "km",
+          "provenance": "measured",
+          "method": "Orbit determination",
+          "citation": "nasa_planetary_fact_sheet"
+        },
+        {
+          "label": "Sidereal orbital period",
+          "value": 27.3217,
+          "unit": "days",
+          "provenance": "measured",
+          "method": "Orbit determination",
+          "citation": "nasa_planetary_fact_sheet"
+        },
+        {
+          "label": "Recession from Earth",
+          "value": 3.82,
+          "unit": "cm/year",
+          "uncertainty": 0.07,
+          "provenance": "measured",
+          "method": "Lunar laser ranging to the Apollo retroreflectors",
+          "citation": "dickey1994"
+        },
+        {
+          "label": "Surface elevation",
+          "value": "LOLA",
+          "provenance": "measured",
+          "method": "Lunar Orbiter Laser Altimeter on the Lunar Reconnaissance Orbiter",
+          "citation": "lro_lola"
+        }
+      ],
+      "howWeKnow": [
+        {
+          "claim": "The distance to the Moon is **measured** by timing laser pulses reflected from mirrors placed on its surface.",
+          "method": "Lunar laser ranging",
+          "provenance": "measured",
+          "citation": "dickey1994"
+        },
+        {
+          "claim": "The Moon most likely formed from debris after a **giant impact** on the early Earth.",
+          "method": "Impact simulations matched to the Earth–Moon angular momentum and the Moon's small iron core",
+          "provenance": "inferred",
+          "citation": "canup2001"
+        }
+      ],
+      "related": ["earth", "sun"]
+    },
+    {
+      "id": "proxima-centauri",
+      "title": "Proxima Centauri",
+      "kind": "star",
+      "starName": "Proxima Centauri",
+      "systemId": "alpha-centauri",
+      "unlock": "visit",
+      "summary": "The nearest star to the Sun: a small, cool red dwarf about 4.2 light-years away, with at least one planet.",
+      "body": [
+        "Proxima Centauri is far too faint to see without a telescope, even though no star is closer. It is a **red dwarf**, the most common kind of star in the Galaxy.",
+        "Its distance comes from **parallax**: as Earth orbits the Sun, Proxima appears to shift against far more distant stars, and the size of that shift gives the distance directly."
+      ],
+      "facts": [
+        {
+          "label": "Parallax",
+          "value": 768.0665,
+          "unit": "mas",
+          "uncertainty": 0.0499,
+          "provenance": "measured",
+          "method": "Gaia space astrometry (Data Release 3)",
+          "citation": "gaia_dr3"
+        },
+        {
+          "label": "Distance",
+          "value": 4.2465,
+          "unit": "ly",
+          "uncertainty": 0.0003,
+          "provenance": "measured",
+          "method": "Inverse of the parallax",
+          "citation": "gaia_dr3"
+        },
+        {
+          "label": "First planet found",
+          "value": "2016",
+          "provenance": "measured",
+          "method": "Radial velocity (the star's wobble)",
+          "citation": "proxima_b"
+        }
+      ],
+      "howWeKnow": [
+        {
+          "claim": "Proxima's distance is **measured** by parallax, using geometry alone.",
+          "method": "Trigonometric parallax",
+          "provenance": "measured",
+          "citation": "gaia_dr3"
+        }
+      ],
+      "related": ["parallax", "sun"]
+    },
+    {
+      "id": "trappist-1",
+      "title": "TRAPPIST-1",
+      "kind": "star",
+      "starName": "TRAPPIST-1",
+      "systemId": "trappist-1",
+      "unlock": "visit",
+      "summary": "An ultracool red dwarf about 40 light-years away, orbited by seven Earth-sized planets.",
+      "body": [
+        "TRAPPIST-1 is only slightly larger than Jupiter and has less than a tenth of the Sun's mass. It is so dim that all seven of its planets orbit closer to it than Mercury does to the Sun.",
+        "All seven planets **transit**: they pass in front of the star as seen from Earth. Their tug on one another shifts the timing of those transits, and that is how their masses were weighed."
+      ],
+      "facts": [
+        {
+          "label": "Effective temperature",
+          "value": 2566,
+          "unit": "K",
+          "uncertainty": 26,
+          "provenance": "measured",
+          "method": "Fit to the star's spectral energy distribution",
+          "citation": "agol2021"
+        },
+        {
+          "label": "Radius",
+          "value": 0.1192,
+          "unit": "R☉",
+          "uncertainty": 0.0013,
+          "provenance": "measured",
+          "method": "Transit photometry with the stellar density from the planets' orbits",
+          "citation": "agol2021"
+        },
+        {
+          "label": "Mass",
+          "value": 0.0898,
+          "unit": "M☉",
+          "uncertainty": 0.0023,
+          "provenance": "inferred",
+          "method": "Empirical mass–luminosity relation for M dwarfs",
+          "citation": "agol2021"
+        },
+        {
+          "label": "Luminosity",
+          "value": 0.000553,
+          "unit": "L☉",
+          "uncertainty": 0.000019,
+          "provenance": "measured",
+          "method": "Bolometric flux and distance",
+          "citation": "agol2021"
+        },
+        {
+          "label": "Spectral type",
+          "value": "M8V",
+          "provenance": "measured",
+          "method": "Optical and near-infrared spectroscopy",
+          "citation": "gillon2016"
+        },
+        {
+          "label": "Age",
+          "value": 7.6,
+          "unit": "billion years",
+          "uncertainty": 2.2,
+          "provenance": "inferred",
+          "method": "Kinematics, rotation, activity and metallicity indicators",
+          "citation": "burgasser2017"
+        }
+      ],
+      "howWeKnow": [
+        {
+          "claim": "The star's radius and temperature are **measured** from transits and its spectrum.",
+          "method": "Transit photometry and spectroscopy",
+          "provenance": "measured",
+          "citation": "agol2021"
+        },
+        {
+          "claim": "Its mass is **inferred** from its brightness, using a relation calibrated on M dwarfs in binary systems.",
+          "method": "Mass–luminosity relation",
+          "provenance": "inferred",
+          "citation": "agol2021"
+        }
+      ],
+      "related": ["trappist-1e", "parallax"]
+    },
+    {
+      "id": "trappist-1e",
+      "title": "TRAPPIST-1 e",
+      "kind": "exoplanet",
+      "starName": "TRAPPIST-1",
+      "systemId": "trappist-1",
+      "unlock": "visit",
+      "summary": "A rocky planet slightly smaller than Earth, in the zone around TRAPPIST-1 where liquid water could be stable on the surface.",
+      "body": [
+        "TRAPPIST-1 e receives about **65%** of the starlight Earth gets from the Sun, which places it in its star's habitable zone. Whether it actually has water, or any atmosphere at all, is not yet known.",
+        "Its radius comes from how much starlight it blocks in transit, and its mass from transit-timing variations. Together they give a density close to Earth's, consistent with a rocky planet.",
+        "**JWST** has observed its transits. The data rule out a cloudy hydrogen-dominated atmosphere, but cannot yet tell whether a thinner, Earth-like one exists.",
+        "No one has seen its surface. The landscape you fly over in Known Sky is **generated** from the inferred rocky composition."
+      ],
+      "facts": [
+        {
+          "label": "Radius",
+          "value": 0.92,
+          "unit": "R⊕",
+          "uncertainty": "+0.013/-0.012",
+          "provenance": "measured",
+          "method": "Transit photometry (Spitzer, K2 and ground-based telescopes)",
+          "citation": "agol2021"
+        },
+        {
+          "label": "Mass",
+          "value": 0.692,
+          "unit": "M⊕",
+          "uncertainty": 0.022,
+          "provenance": "measured",
+          "method": "Transit-timing variations (photodynamical fit)",
+          "citation": "agol2021"
+        },
+        {
+          "label": "Density",
+          "value": 0.889,
+          "unit": "ρ⊕",
+          "uncertainty": "+0.030/-0.033",
+          "provenance": "measured",
+          "method": "Derived from the mass and radius",
+          "citation": "agol2021"
+        },
+        {
+          "label": "Orbital period",
+          "value": 6.101013,
+          "unit": "days",
+          "uncertainty": 0.000035,
+          "provenance": "measured",
+          "method": "Transit timing",
+          "citation": "agol2021"
+        },
+        {
+          "label": "Starlight received (Earth = 1)",
+          "value": 0.646,
+          "provenance": "inferred",
+          "method": "Computed from the star's luminosity and the planet's orbit",
+          "citation": "agol2021"
+        },
+        {
+          "label": "Equilibrium temperature",
+          "value": 250,
+          "unit": "K",
+          "provenance": "inferred",
+          "method": "Computed for zero albedo and full heat redistribution; the real surface temperature depends on an unknown atmosphere",
+          "citation": "agol2021"
+        },
+        {
+          "label": "Hydrogen-rich atmosphere",
+          "value": "Ruled out",
+          "provenance": "inferred",
+          "method": "JWST NIRSpec transmission spectroscopy of four transits",
+          "citation": "espinoza2025"
+        },
+        {
+          "label": "Surface terrain",
+          "value": "Procedural",
+          "provenance": "generated",
+          "method": "Seeded terrain chosen from the inferred rocky composition",
+          "citation": "ks_generation"
+        }
+      ],
+      "howWeKnow": [
+        {
+          "claim": "Radius and mass are **measured**: the radius from transit depths, the mass from transit-timing variations caused by the other planets.",
+          "method": "Transit photometry and photodynamical modelling",
+          "provenance": "measured",
+          "citation": "agol2021"
+        },
+        {
+          "claim": "A thick hydrogen atmosphere is **ruled out**; whether a thin secondary atmosphere exists is still open.",
+          "method": "JWST transmission spectroscopy",
+          "provenance": "inferred",
+          "citation": "espinoza2025"
+        },
+        {
+          "claim": "The surface shown in the game is **invented** within those constraints.",
+          "method": "Seeded procedural generation",
+          "provenance": "generated",
+          "citation": "ks_generation"
+        }
+      ],
+      "related": ["trappist-1", "earth"]
+    },
+    {
+      "id": "parallax",
+      "title": "Parallax",
+      "kind": "concept",
+      "unlock": "start",
+      "summary": "How astronomers measure the distance to a star without assuming anything about the star: geometry alone.",
+      "body": [
+        "Hold up a finger and close each eye in turn: the finger jumps against the background. Nearby stars do the same as Earth moves around the Sun, but the shift is tiny.",
+        "A star whose apparent position swings by one arcsecond either side of its average is one **parsec** away, about 3.26 light-years. Even Proxima Centauri, the nearest star, shifts by less than an arcsecond.",
+        "The **Hipparcos** and **Gaia** satellites measured parallaxes from space, free of the blurring atmosphere. Many star distances in Known Sky's catalogue come from them."
+      ],
+      "facts": [
+        {
+          "label": "Parallax of Proxima Centauri",
+          "value": 768.0665,
+          "unit": "mas",
+          "uncertainty": 0.0499,
+          "provenance": "measured",
+          "method": "Gaia space astrometry (Data Release 3)",
+          "citation": "gaia_dr3"
+        },
+        {
+          "label": "Stars in the new Hipparcos reduction",
+          "value": 117955,
+          "provenance": "measured",
+          "method": "Space astrometry, 1989–1993",
+          "citation": "hipparcos2007"
+        },
+        {
+          "label": "Light-years in one parsec",
+          "value": 3.2616,
+          "provenance": "measured",
+          "method": "From the definitions of the parsec and the astronomical unit",
+          "citation": "esa_gaia_parallax"
+        }
+      ],
+      "howWeKnow": [
+        {
+          "claim": "Parallax needs no assumptions about the star itself: only the size of Earth's orbit and a precise angle.",
+          "method": "Trigonometry",
+          "provenance": "measured",
+          "citation": "esa_gaia_parallax"
+        },
+        {
+          "claim": "The first stellar parallax was measured by Friedrich Bessel in 1838, for the star 61 Cygni.",
+          "method": "Heliometer astrometry",
+          "provenance": "measured",
+          "citation": "bessel1838"
+        }
+      ],
+      "related": ["proxima-centauri", "sun", "trappist-1"]
+    },
+    {
+      "id": "hyperspeed",
+      "title": "The hyperspeed drive",
+      "kind": "concept",
+      "unlock": "start",
+      "summary": "The one thing in Known Sky that is pure fiction.",
+      "body": [
+        "The universe in Known Sky is built from real measurements. The drive that carries you between stars is not: no known physics allows travel faster than light.",
+        "It is there because the alternative is waiting more than four years to reach even the nearest star. Everything you find when you arrive is labelled for what it is."
+      ],
+      "facts": [
+        {
+          "label": "Drive speed",
+          "value": "Fictional",
+          "provenance": "generated",
+          "method": "Game mechanic, chosen for playability rather than physics",
+          "citation": "ks_generation"
+        },
+        {
+          "label": "Speed of light",
+          "value": 299792.458,
+          "unit": "km/s",
+          "provenance": "measured",
+          "method": "Exact by the SI definition of the metre",
+          "citation": "bipm_si"
+        }
+      ],
+      "howWeKnow": [],
+      "related": ["parallax", "proxima-centauri"]
+    }
+  ]
+}
