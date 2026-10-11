@@ -22,6 +22,7 @@ import { Cockpit } from '../render/cockpit/cockpit';
 import { createCodexUI } from './codex';
 import { CodexStore } from './codex/codexStore';
 import { CodexDirector } from './codexDirector';
+import { GameTour, tourEnabled, tourStart } from './onboarding/gameTour';
 import type { ExoSystem } from '../world/exo/exoSystem';
 import { loadExoSystems } from '../world/exo/systemLoader';
 import { PARSEC_M } from '../core/constants';
@@ -94,6 +95,8 @@ export class App {
   inDaylightAtmosphere = false;
   /** Real exoplanet systems that can be visited (M4). */
   exo: ExoSystem[] = [];
+  /** The guided opening (docs/ONBOARDING.md); null until it runs or is restarted from Settings. */
+  onboarding: GameTour | null = null;
 
   /** The exoplanet system that owns an anchor id (its star or a planet), if any. */
   exoOf(anchor: string): ExoSystem | undefined {
@@ -106,7 +109,9 @@ export class App {
     // Focusable from script only, so dialogs can return focus to the game when they close.
     canvas.tabIndex = -1;
     this.input = new InputManager(canvas, this.settings);
-    this.panel = new SettingsPanel(this.settings, this.input);
+    // Settings > Guided tour: only where a ship can fly it (not the free camera).
+    const tour = { restart: () => this.restartTour(), end: () => this.onboarding?.end(), isActive: () => this.onboarding?.active ?? false };
+    this.panel = new SettingsPanel(this.settings, this.input, this.params.get('free') === '1' ? {} : { tour });
     this.captions = new Captions(this.settings);
     this.audio = new AudioEngine({ seed: SCORE_SEED, onCaption: (key, secs) => this.captions.show(key, secs) });
     // The key bound to the Codex also closes it (the panel keeps keyboard focus while open).
@@ -221,6 +226,11 @@ export class App {
     // One update so lighting/rotation are known before placing the camera.
     this.sys.update(this.cam.pos, this.simTime, this.pxPerRadian());
     this.place(this.view(this.params.get('view') ?? 'leo'));
+    // The guided opening starts in low Earth orbit where the Moon is above the horizon (docs/ONBOARDING.md).
+    if (tourEnabled(this.params, location.hash)) {
+      this.onboarding = new GameTour(this);
+      if (this.onboarding.willShow) this.place(tourStart(this));
+    }
     document.getElementById('boot')?.classList.add('hidden');
     // Large, non-essential assets stream in after the first frame.
     void this.stars.loadMilkyWay().catch((e: unknown) => console.warn('Milky Way map failed to load', e));
@@ -279,7 +289,15 @@ export class App {
     }
   }
 
+  /** Settings > Restart guided tour: back to the opening orbit, tour from the first step (any ship session). */
+  restartTour(): void {
+    if (!this.sys) return;
+    this.onboarding ??= new GameTour(this);
+    this.onboarding.restart();
+  }
+
   start(): void {
+    this.onboarding?.start();
     const loop = (): void => {
       this.tick();
       requestAnimationFrame(loop);
@@ -320,6 +338,9 @@ export class App {
     // The map is a planning view: the simulation pauses with it (otherwise sim time would advance while the ship's
     // offset stays frozen relative to a rotating body).
     const paused = this.paused || this.panel.isOpen || (this.map?.isOpen ?? false) || codexOpen;
+    // The guided opening watches the map too (one of its steps happens there); it holds still while the game is
+    // paused or the Codex is open.
+    if (!this.paused && !this.panel.isOpen) this.onboarding?.update(codexOpen ? 0 : dt);
     if (paused) this.controller?.idle?.(dt, this);
     if (!paused) this.simTime = this.sys.ephemeris.clampTime(this.simTime + dt * this.timeScale);
     if (this.map?.isOpen) {

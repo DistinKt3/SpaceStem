@@ -17,6 +17,14 @@ import { GamepadMenuNav, pickSpatial, type NavCommand, type NavDirection } from 
 import { CAPTION_SIZES, COLORBLIND_MODES, LIMITS, QUALITY_PRESETS, type Settings, type SettingsData, type SettingsKey } from '../settings/settings';
 
 export type SettingsTab = 'controls' | 'accessibility' | 'audio' | 'graphics';
+
+/** The guided tour's Settings entries (passed only where the tour can run). */
+export interface TourActions {
+  restart(): void;
+  end(): void;
+  /** End is offered only while the tour shows. */
+  isActive(): boolean;
+}
 export const SETTINGS_TABS: readonly SettingsTab[] = ['controls', 'accessibility', 'audio', 'graphics'];
 
 type Child = Node | string | null | undefined | false;
@@ -123,7 +131,7 @@ export class SettingsPanel {
   constructor(
     private readonly settings: Settings,
     private readonly input: InputManager,
-    options: { parent?: HTMLElement } = {},
+    options: { parent?: HTMLElement; tour?: TourActions } = {},
   ) {
     this.device = input.activeDevice;
     this.nav = new GamepadMenuNav(() => {
@@ -257,6 +265,7 @@ export class SettingsPanel {
       this.section(t('settings.a11y.section.colour'), this.colorblind.root),
       this.section(t('settings.a11y.section.motion'), this.reducedMotion.root),
       this.section(t('settings.a11y.section.captions'), this.subtitles.root, this.captionSize.root, this.captionSample),
+      options.tour ? this.tourSection(options.tour) : null,
     );
 
     // --- Audio pane ---
@@ -365,6 +374,7 @@ export class SettingsPanel {
       this.deviceChoice.set(this.device);
     }
     this.element.dataset['input'] = this.input.activeDevice === 'pad' ? 'pad' : 'keyboard';
+    if (this.tourEnd) this.tourEnd.hidden = !this.tourActive();
     this.sync(this.settings.data, new Set(Object.keys(this.settings.data) as SettingsKey[]));
     this.renderControls();
     this.renderHints();
@@ -844,6 +854,34 @@ export class SettingsPanel {
   private announce(text: string): void {
     this.live.textContent = '';
     requestAnimationFrame(() => (this.live.textContent = text));
+  }
+
+  private tourEnd: HTMLButtonElement | null = null;
+  private tourActive: () => boolean = () => false;
+
+  /**
+   * Accessibility > Guided tour (docs/ONBOARDING.md): the keyboard and gamepad way to replay or end the tour (Tab is a
+   * game binding, so the card's own buttons are for the mouse). The dialog closes first, so the tour card's live
+   * region is no longer inert when it announces the change.
+   */
+  private tourSection(tour: TourActions): HTMLElement {
+    const restart = h('button', { type: 'button', class: 'ks-btn' }, icon('reset'), h('span', {}, t('onboarding.settings.restart')));
+    restart.addEventListener('click', () => {
+      this.close();
+      tour.restart();
+    });
+    const end = h('button', { type: 'button', class: 'ks-btn ks-btn-quiet' }, h('span', {}, t('onboarding.settings.end')));
+    end.addEventListener('click', () => {
+      this.close();
+      tour.end();
+    });
+    this.tourEnd = end;
+    this.tourActive = () => tour.isActive();
+    return this.section(
+      t('onboarding.settings.section'),
+      h('p', { class: 'ks-note' }, t('onboarding.settings.restart.hint')),
+      h('div', { class: 'ks-tour-actions' }, restart, end),
+    );
   }
 
   // --- Widget builders ----------------------------------------------------------------------------------------------
