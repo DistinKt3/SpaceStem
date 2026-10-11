@@ -3,9 +3,21 @@ import { readFileSync } from 'node:fs';
 import { ACTION_IDS, defaultBindings, isActionId } from '../../src/game/input/actions';
 import { t } from '../../src/game/i18n';
 import { FACTS, circularSpeed, factParams, orbitPeriod } from '../../src/game/onboarding/facts';
-import { ALIGN_TOLERANCE_RAD, LookTracker, actionLabel, angleBetween, isAligned } from '../../src/game/onboarding/snapshot';
+import {
+  ALIGN_TOLERANCE_RAD,
+  LookTracker,
+  actionLabel,
+  angleBetween,
+  isAligned,
+} from '../../src/game/onboarding/snapshot';
 import { APPROACH_DISTANCE_M, MOON_ID, STEPS, STEP_IDS, type StepId } from '../../src/game/onboarding/steps';
-import { DEFAULT_TIMING, ONBOARDING_STORAGE_KEY, TourMachine, parsePersisted, type TourTiming } from '../../src/game/onboarding/tour';
+import {
+  DEFAULT_TIMING,
+  ONBOARDING_STORAGE_KEY,
+  TourMachine,
+  parsePersisted,
+  type TourTiming,
+} from '../../src/game/onboarding/tour';
 import type { OnboardingSnapshot, OnboardingStorage } from '../../src/game/onboarding/types';
 
 class MemoryStorage implements OnboardingStorage {
@@ -62,10 +74,31 @@ const GOAL: Record<Exclude<StepId, 'done'>, Partial<OnboardingSnapshot>> = {
   target: { throttle: 0.4 },
   align: { throttle: 0.4, alignedToTarget: true },
   cruise: { throttle: 0.4, alignedToTarget: true, mode: 'cruise' },
-  approach: { throttle: 0.4, alignedToTarget: true, mode: 'cruise', nearKey: 'moon', altitudeM: 1.5e7, targetDistanceM: 1.5e7 },
-  land: { mode: 'thrusters', nearKey: 'moon', altitudeM: 2.5, targetDistanceM: 2.5, landed: true, alignedToTarget: true },
+  approach: {
+    throttle: 0.4,
+    alignedToTarget: true,
+    mode: 'cruise',
+    nearKey: 'moon',
+    altitudeM: 1.5e7,
+    targetDistanceM: 1.5e7,
+  },
+  land: {
+    mode: 'thrusters',
+    nearKey: 'moon',
+    altitudeM: 2.5,
+    targetDistanceM: 2.5,
+    landed: true,
+    alignedToTarget: true,
+  },
   map: { nearKey: 'moon', altitudeM: 2.5, targetDistanceM: 2.5, landed: true, mapOpen: true },
-  hyperspeed: { nearKey: 'moon', altitudeM: 4e7, targetId: '*1', targetKind: 'star', targetDistanceM: 4e16, hyperPhase: 'spool' },
+  hyperspeed: {
+    nearKey: 'moon',
+    altitudeM: 4e7,
+    targetId: '*1',
+    targetKind: 'star',
+    targetDistanceM: 4e16,
+    hyperPhase: 'spool',
+  },
 };
 
 const FAST: TourTiming = { minDwell: 1, hold: 0.25, grace: 1.5, doneLinger: 10 };
@@ -80,7 +113,11 @@ function advance(m: TourMachine, s: OnboardingSnapshot): void {
   for (let i = 0; i < 400 && m.stepId === from; i++) m.update(0.05, s);
 }
 
-function machine(storage: OnboardingStorage | null = new MemoryStorage(), timing: Partial<TourTiming> = FAST, log?: string[]): TourMachine {
+function machine(
+  storage: OnboardingStorage | null = new MemoryStorage(),
+  timing: Partial<TourTiming> = FAST,
+  log?: string[],
+): TourMachine {
   return new TourMachine({ storage, timing, ...(log ? { onStepChange: (id: string) => log.push(id) } : {}) });
 }
 
@@ -193,7 +230,10 @@ describe('onboarding tour: state machine', () => {
 
   it('skip on the closing card only closes it', () => {
     const storage = new MemoryStorage();
-    storage.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify({ v: 1, status: 'active', step: 'hyperspeed', collapsed: false }));
+    storage.setItem(
+      ONBOARDING_STORAGE_KEY,
+      JSON.stringify({ v: 1, status: 'active', step: 'hyperspeed', collapsed: false }),
+    );
     const m = machine(storage);
     m.start();
     run(m, 4, snap(GOAL.hyperspeed));
@@ -312,7 +352,10 @@ describe('onboarding tour: state machine', () => {
 
   it('landing on Earth does not count as landing on the Moon', () => {
     const storage = new MemoryStorage();
-    storage.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify({ v: 1, status: 'active', step: 'throttle', collapsed: false }));
+    storage.setItem(
+      ONBOARDING_STORAGE_KEY,
+      JSON.stringify({ v: 1, status: 'active', step: 'throttle', collapsed: false }),
+    );
     const m = machine(storage);
     m.start();
     run(m, 0.5, snap({ landed: true, nearKey: 'earth', altitudeM: 2.5 }));
@@ -321,8 +364,15 @@ describe('onboarding tour: state machine', () => {
 
   it('reads parsePersisted defensively', () => {
     expect(parsePersisted(null)).toBeNull();
-    expect(parsePersisted(JSON.stringify({ v: 1, status: 'done', step: 'nope' }))).toEqual({ v: 1, status: 'done', step: 'look', collapsed: false });
-    expect(parsePersisted(JSON.stringify({ v: 1, status: 'active', step: 'map', collapsed: 'yes' }))?.collapsed).toBe(false);
+    expect(parsePersisted(JSON.stringify({ v: 1, status: 'done', step: 'nope' }))).toEqual({
+      v: 1,
+      status: 'done',
+      step: 'look',
+      collapsed: false,
+    });
+    expect(parsePersisted(JSON.stringify({ v: 1, status: 'active', step: 'map', collapsed: 'yes' }))?.collapsed).toBe(
+      false,
+    );
   });
 
   it('uses sensible default timing', () => {
@@ -371,7 +421,18 @@ describe('onboarding tour: steps and nudges', () => {
 describe('onboarding tour: text', () => {
   const en = JSON.parse(readFileSync('src/game/locales/en.onboarding.json', 'utf8')) as Record<string, string>;
   const facts = factParams();
-  const known = new Set([...Object.keys(facts), 'thrusters', 'impulse', 'cruise', 'button', 'body', 'n', 'total', 'goal', 'hint']);
+  const known = new Set([
+    ...Object.keys(facts),
+    'thrusters',
+    'impulse',
+    'cruise',
+    'button',
+    'body',
+    'n',
+    'total',
+    'goal',
+    'hint',
+  ]);
   const placeholders = (msg: string): string[] => [...msg.matchAll(/\{(\w+)\}/g)].map((m) => m[1]!);
 
   it('owns only onboarding.* keys', () => {
@@ -380,7 +441,8 @@ describe('onboarding tour: text', () => {
 
   it('has a goal, a key hint and a science line for every step', () => {
     for (const id of STEP_IDS) {
-      for (const part of ['goal', 'hint', 'science']) expect(en[`onboarding.step.${id}.${part}`], `${id}.${part}`).toBeTruthy();
+      for (const part of ['goal', 'hint', 'science'])
+        expect(en[`onboarding.step.${id}.${part}`], `${id}.${part}`).toBeTruthy();
     }
   });
 
@@ -390,7 +452,8 @@ describe('onboarding tour: text', () => {
       for (const p of placeholders(msg)) expect(isActionId(p) || known.has(p), `${key}: {${p}}`).toBe(true);
     }
     // Every step except the last tells the player which key to use.
-    for (const id of STEP_IDS.slice(0, -1)) expect(placeholders(en[`onboarding.step.${id}.hint`]!).some(isActionId), id).toBe(true);
+    for (const id of STEP_IDS.slice(0, -1))
+      expect(placeholders(en[`onboarding.step.${id}.hint`]!).some(isActionId), id).toBe(true);
   });
 
   it('labels the fictional drives as fiction', () => {
@@ -439,7 +502,11 @@ describe('onboarding tour: snapshot helpers', () => {
 
   it('judges alignment with a tolerance, or the target disc when it is larger', () => {
     const fwd = { x: 0, y: 0, z: -1 };
-    const off = (deg: number, d = 1e8) => ({ x: Math.sin((deg * Math.PI) / 180) * d, y: 0, z: -Math.cos((deg * Math.PI) / 180) * d });
+    const off = (deg: number, d = 1e8) => ({
+      x: Math.sin((deg * Math.PI) / 180) * d,
+      y: 0,
+      z: -Math.cos((deg * Math.PI) / 180) * d,
+    });
     expect(angleBetween(fwd, off(10))).toBeCloseTo((10 * Math.PI) / 180, 9);
     expect(isAligned(fwd, off(2))).toBe(true);
     expect(isAligned(fwd, off((ALIGN_TOLERANCE_RAD * 180) / Math.PI + 0.5))).toBe(false);
@@ -455,9 +522,12 @@ describe('onboarding tour: snapshot helpers', () => {
     expect(actionLabel({ bindings, padBindings }, 'kbm', 'thrust')).toBe('S / W');
     expect(actionLabel({ bindings, padBindings }, 'pad', 'hyperspeed')).toBe('Y');
     // Rebinding shows the new key; an unbound first slot falls back to the second; nothing bound says so.
-    const rebound = { ...bindings, targetNext: [{ type: 'key' as const, code: 'KeyO' }, null] as [{ type: 'key'; code: string }, null] };
+    const rebound = {
+      ...bindings,
+      targetNext: [{ type: 'key' as const, code: 'KeyO' }, null] as [{ type: 'key'; code: string }, null],
+    };
     expect(actionLabel({ bindings: rebound, padBindings }, 'kbm', 'targetNext')).toBe('O');
-    const second = { ...bindings, yaw: [null, bindings['yaw']![1]] as typeof bindings['yaw'] & object };
+    const second = { ...bindings, yaw: [null, bindings['yaw']![1]] as (typeof bindings)['yaw'] & object };
     expect(actionLabel({ bindings: second, padBindings }, 'kbm', 'yaw')).toBe('← / →');
     expect(actionLabel({ bindings, padBindings }, 'pad', 'autoAlign')).toBe(t('input.unbound'));
     expect(ACTION_IDS.length).toBeGreaterThan(0);

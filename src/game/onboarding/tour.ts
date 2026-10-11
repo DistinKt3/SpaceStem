@@ -181,7 +181,10 @@ export class TourMachine {
       return;
     }
     this.status = p.status;
-    this.index = Math.max(0, this.steps.findIndex((s) => s.id === p.step));
+    this.index = Math.max(
+      0,
+      this.steps.findIndex((s) => s.id === p.step),
+    );
     this.collapsedState = p.collapsed;
   }
 
@@ -305,7 +308,12 @@ export class TourMachine {
 
   private save(): void {
     if (this.status === 'new') return;
-    const data: PersistedTour = { v: ONBOARDING_VERSION, status: this.status, step: this.steps[this.index]!.id, collapsed: this.collapsedState };
+    const data: PersistedTour = {
+      v: ONBOARDING_VERSION,
+      status: this.status,
+      step: this.steps[this.index]!.id,
+      collapsed: this.collapsedState,
+    };
     try {
       this.storage?.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify(data));
     } catch {

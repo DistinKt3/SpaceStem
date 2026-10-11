@@ -41,7 +41,11 @@ const LABEL_REFRESH_S = 0.2;
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
-function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, parent?: HTMLElement): HTMLElementTagNameMap[K] {
+function el<K extends keyof HTMLElementTagNameMap>(
+  tag: K,
+  cls: string,
+  parent?: HTMLElement,
+): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag);
   if (cls) e.className = cls;
   parent?.append(e);
@@ -142,8 +146,16 @@ export class Onboarding {
     const mark = el('span', 'ks-onb-mark', this.goal);
     mark.setAttribute('aria-hidden', 'true');
     mark.append(
-      svg('0 0 20 20', '<circle class="ks-onb-ring" cx="10" cy="10" r="7.25"/><circle class="ks-onb-dot" cx="10" cy="10" r="2.2"/>', 'ks-onb-mark-pending'),
-      svg('0 0 20 20', '<circle class="ks-onb-disc" cx="10" cy="10" r="8"/><path class="ks-onb-check" d="M6.2 10.3 8.8 12.8 13.9 7.4"/>', 'ks-onb-mark-done'),
+      svg(
+        '0 0 20 20',
+        '<circle class="ks-onb-ring" cx="10" cy="10" r="7.25"/><circle class="ks-onb-dot" cx="10" cy="10" r="2.2"/>',
+        'ks-onb-mark-pending',
+      ),
+      svg(
+        '0 0 20 20',
+        '<circle class="ks-onb-disc" cx="10" cy="10" r="8"/><path class="ks-onb-check" d="M6.2 10.3 8.8 12.8 13.9 7.4"/>',
+        'ks-onb-mark-done',
+      ),
     );
     this.goalText = el('span', 'ks-onb-goal-text', this.goal);
     this.goalDone = el('span', 'ks-onb-sr', this.goal);
@@ -298,7 +310,9 @@ export class Onboarding {
     const finale = this.tour.finale;
     this.root.dataset['step'] = id;
     this.root.dataset['state'] = finale ? 'done' : 'step';
-    this.eyebrow.textContent = t(finale ? 'onboarding.eyebrow.done' : id === 'look' ? 'onboarding.eyebrow.welcome' : 'onboarding.eyebrow');
+    this.eyebrow.textContent = t(
+      finale ? 'onboarding.eyebrow.done' : id === 'look' ? 'onboarding.eyebrow.welcome' : 'onboarding.eyebrow',
+    );
     this.goalText.textContent = t(`onboarding.step.${id}.goal`);
     this.mini.textContent = this.goalText.textContent;
     this.optionalTag.textContent = step.optional ? t('onboarding.optional') : '';
@@ -333,11 +347,14 @@ export class Onboarding {
     this.farewellTimer = setTimeout(() => {
       this.farewellTimer = 0;
       this.root.dataset['leaving'] = 'true';
-      this.farewellTimer = setTimeout(() => {
-        this.farewellTimer = 0;
-        if (this.shown === 'farewell') this.shown = null;
-        this.applyVisibility();
-      }, this.motionReduced() ? 0 : 400);
+      this.farewellTimer = setTimeout(
+        () => {
+          this.farewellTimer = 0;
+          if (this.shown === 'farewell') this.shown = null;
+          this.applyVisibility();
+        },
+        this.motionReduced() ? 0 : 400,
+      );
     }, FAREWELL_MS);
   }
 
@@ -413,7 +430,10 @@ export class Onboarding {
     }
     const text = el('span', 'ks-onb-nudge-text');
     this.renderTemplate(text, n.key, { button: t('map.showStars'), ...n.params });
-    this.nudge.replaceChildren(svg('0 0 16 16', '<path d="M8 2.2 14.6 13.6H1.4z"/><path d="M8 6.6v3.2M8 11.7h.01"/>', 'ks-onb-nudge-icon'), text);
+    this.nudge.replaceChildren(
+      svg('0 0 16 16', '<path d="M8 2.2 14.6 13.6H1.4z"/><path d="M8 6.6v3.2M8 11.7h.01"/>', 'ks-onb-nudge-icon'),
+      text,
+    );
     this.nudge.hidden = false;
     this.root.dataset['nudge'] = 'true';
   }
@@ -422,10 +442,15 @@ export class Onboarding {
     const p = this.tour.progress();
     const finale = this.tour.finale;
     const n = Math.min(p.index + 1, p.total);
-    this.count.textContent = finale ? t('onboarding.count', { n: p.total, total: p.total }) : t('onboarding.count', { n, total: p.total });
+    this.count.textContent = finale
+      ? t('onboarding.count', { n: p.total, total: p.total })
+      : t('onboarding.count', { n, total: p.total });
     this.bar.setAttribute('aria-valuemax', String(p.total));
     this.bar.setAttribute('aria-valuenow', String(p.done.filter(Boolean).length));
-    this.bar.setAttribute('aria-valuetext', finale ? t('onboarding.progress.done', { total: p.total }) : t('onboarding.progress', { n, total: p.total }));
+    this.bar.setAttribute(
+      'aria-valuetext',
+      finale ? t('onboarding.progress.done', { total: p.total }) : t('onboarding.progress', { n, total: p.total }),
+    );
     this.bar.setAttribute('aria-label', t('onboarding.region'));
     if (this.bar.childElementCount !== p.total) this.bar.replaceChildren(...p.done.map(() => el('i', 'ks-onb-seg')));
     p.done.forEach((done, i) => {
@@ -443,7 +468,15 @@ export class Onboarding {
     const goal = t(`onboarding.step.${step.id}.goal`);
     const hint = this.plain(`onboarding.step.${step.id}.hint`, this.params());
     if (this.tour.finale) this.announce(t('onboarding.announce.done', { goal, hint }));
-    else this.announce(t(step.optional ? 'onboarding.announce.optional' : 'onboarding.announce.step', { n: p.index + 1, total: p.total, goal, hint }));
+    else
+      this.announce(
+        t(step.optional ? 'onboarding.announce.optional' : 'onboarding.announce.step', {
+          n: p.index + 1,
+          total: p.total,
+          goal,
+          hint,
+        }),
+      );
   }
 
   private announceComplete(): void {

@@ -208,7 +208,8 @@ body.ks-map-open .ks-onb {
   transition: transform 0.25s ease;
 }
 
-.ks-onb[data-collapsed='true'] .ks-onb-chevron {
+/* Expanded: the chevron points up (fold away); minimised: down (unfold). */
+.ks-onb[data-collapsed='false'] .ks-onb-chevron {
   transform: rotate(180deg);
 }
 

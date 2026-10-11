@@ -24,7 +24,14 @@ import { InputManager } from '../game/input/inputManager';
 import { COLORBLIND_MODES, Settings, type ColorblindMode } from '../game/settings/settings';
 import { Captions } from '../game/ui/captions';
 import { SettingsPanel } from '../game/ui/settingsPanel';
-import { Onboarding, actionLabel, ONBOARDING_STORAGE_KEY, STEP_IDS, type OnboardingSnapshot, type TourTiming } from '../game/onboarding/onboarding';
+import {
+  Onboarding,
+  actionLabel,
+  ONBOARDING_STORAGE_KEY,
+  STEP_IDS,
+  type OnboardingSnapshot,
+  type TourTiming,
+} from '../game/onboarding/onboarding';
 
 const params = new URLSearchParams(location.search);
 const storage = ((): Storage | null => {
@@ -45,7 +52,10 @@ if (params.get('reset') === '1') {
 const resumeAt = params.get('step');
 if (resumeAt && (STEP_IDS as readonly string[]).includes(resumeAt)) {
   try {
-    storage?.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify({ v: 1, status: 'active', step: resumeAt, collapsed: false }));
+    storage?.setItem(
+      ONBOARDING_STORAGE_KEY,
+      JSON.stringify({ v: 1, status: 'active', step: resumeAt, collapsed: false }),
+    );
   } catch {
     // Storage blocked: the tour starts at the beginning.
   }
@@ -169,10 +179,15 @@ class Sim {
     this.setTarget(list[(i + dir + list.length) % list.length] ?? null);
   }
 
-  /** Steering away breaks alignment. */
+  /** Turning the head adds to the view rotation only. */
+  look(rad: number): void {
+    this.looked += rad;
+  }
+
+  /** Steering the ship turns the view too, and breaks alignment (auto-align holds the nose, as in the game). */
   steer(rad: number): void {
     this.looked += rad;
-    if (rad > 0.02 && !this.autoAlign) this.aligned = false;
+    if (rad > 0.005 && !this.autoAlign) this.aligned = false;
   }
 
   nextMode(dir: 1 | -1): void {
@@ -229,15 +244,18 @@ class Sim {
     // Speed along the nose: thrusters up to 3 km/s, the drives governed by distance to the nearest surface.
     const k = this.mode === 'impulse' ? 0.6 : 0.9;
     this.speed = this.mode === 'thrusters' ? this.throttle * 3000 : this.throttle * Math.max(2000, k * this.altitude);
-    if (this.aligned && this.target?.id === '301' && !this.anchor.startsWith('*')) {
+    // Nose on the Moon: close in. Otherwise: climb away from whichever body is nearest.
+    const towardMoon = this.aligned && this.target?.id === '301' && !this.anchor.startsWith('*');
+    if (towardMoon) {
       const step = Math.min(this.speed * dt, this.moonDist - 2.5);
       this.moonDist -= step;
       this.earthAlt += step;
     } else if (this.speed > 0) {
-      this.earthAlt += this.speed * dt * 0.3;
+      if (this.nearKey === 'moon') this.moonDist += this.speed * dt;
+      else this.earthAlt += this.speed * dt;
     }
-    // The drives drop to thrusters near a surface; thrusters descend with strafe and touch down below 3 m.
-    if (this.mode !== 'thrusters' && this.moonDist < 2e4) {
+    // The drives drop to thrusters when closing in on a surface (as in ship.ts).
+    if (towardMoon && this.mode !== 'thrusters' && this.moonDist < 2e4) {
       this.mode = 'thrusters';
       this.throttle = 0;
     }
@@ -394,7 +412,10 @@ document.body.append(map);
 let mapMode: 'system' | 'stars' = 'system';
 
 function renderMap(): void {
-  mapTitle.replaceChildren(el('strong', '', t(mapMode === 'system' ? 'map.systemTitle' : 'map.starsTitle')), el('span', '', t('onboarding.demo.mapNote')));
+  mapTitle.replaceChildren(
+    el('strong', '', t(mapMode === 'system' ? 'map.systemTitle' : 'map.starsTitle')),
+    el('span', '', t('onboarding.demo.mapNote')),
+  );
   const modeBtn = el('button', 'ks-map-mode', t(mapMode === 'system' ? 'map.showStars' : 'map.showSystem'));
   modeBtn.type = 'button';
   modeBtn.addEventListener('click', () => {
@@ -402,7 +423,9 @@ function renderMap(): void {
     renderMap();
   });
   const entries: SimTarget[] =
-    mapMode === 'system' ? TARGETS.map((x) => ({ id: x.id, kind: x.kind, name: x.name() })) : STARS.map((s) => ({ id: s.id, kind: 'star', name: s.name() }));
+    mapMode === 'system'
+      ? TARGETS.map((x) => ({ id: x.id, kind: x.kind, name: x.name() }))
+      : STARS.map((s) => ({ id: s.id, kind: 'star', name: s.name() }));
   const buttons = entries.map((e) => {
     const b = el('button', 'ks-map-entry');
     b.type = 'button';
@@ -437,7 +460,7 @@ h1.id = 'lab-title';
 lab.append(h1, el('p', '', t('onboarding.demo.lede')), el('h2', '', t('onboarding.demo.simulate')));
 const grid = el('div', 'lab-grid');
 const fake: Record<string, () => void> = {
-  look: () => sim.steer(0.6),
+  look: () => sim.look(1.2),
   throttle: () => (sim.throttle = 0.5),
   targetMoon: () => sim.setTarget({ id: '301', kind: 'moon', name: t('body.moon') }),
   targetOther: () => sim.setTarget({ id: '499', kind: 'planet', name: t('body.mars') }),
@@ -543,11 +566,23 @@ function hudState(): HudState {
     governorSpeed: Math.max(2000, 0.9 * sim.altitude),
     altitude: sim.altitude,
     verticalSpeed: 0,
-    nearName: sim.nearKey.startsWith('star-') ? (STARS.find((s) => s.id === sim.anchor)?.name() ?? '') : t(`body.${sim.nearKey}`),
+    nearName: sim.nearKey.startsWith('star-')
+      ? (STARS.find((s) => s.id === sim.anchor)?.name() ?? '')
+      : t(`body.${sim.nearKey}`),
     flightAssist: true,
     landed: sim.landed,
     velocityDir: null,
-    target: tg && dist !== null ? { id: tg.id, name: tg.name, rel: targetRel(), radius: tg.id === '301' ? MOON_RADIUS_M : 0, provenance: 'measured', kind: tg.kind } : null,
+    target:
+      tg && dist !== null
+        ? {
+            id: tg.id,
+            name: tg.name,
+            rel: targetRel(),
+            radius: tg.id === '301' ? MOON_RADIUS_M : 0,
+            provenance: 'measured',
+            kind: tg.kind,
+          }
+        : null,
     labels: [],
     utc: `${new Date().toISOString().replace('T', ' ').slice(0, 19)} UTC`,
     sunDistance: AU_M,
@@ -572,12 +607,20 @@ function frame(now: number): void {
   }
   const playing = !panel.isOpen && !sim.mapOpen;
   if (playing) {
+    // Rates as in ShipController: head look 0.003 rad per pixel; steering 1.1 rad/s at full input.
     const m = input.mouseDelta();
-    const look = input.held('headLook');
-    const steer = Math.hypot(input.axis('pitch'), input.axis('yaw')) * 1.1 * dt + (look ? 0 : Math.hypot(m.x, m.y) * 0.02 * 1.1 * dt);
-    sim.steer(steer + (look ? Math.hypot(m.x, m.y) * 0.003 : 0));
+    const headLook = input.held('headLook');
+    if (headLook) sim.look(Math.hypot(m.x, m.y) * 0.003);
+    sim.steer(
+      Math.min(1, Math.hypot(input.axis('pitch'), input.axis('yaw')) + (headLook ? 0 : Math.hypot(m.x, m.y) * 0.02)) *
+        1.1 *
+        dt,
+    );
     const steps = input.pressCount('throttleUp') - input.pressCount('throttleDown');
-    sim.throttle = Math.max(sim.mode === 'thrusters' ? -0.5 : 0, Math.min(1, sim.throttle + steps * 0.05 + input.axis('thrust') * dt * 0.6));
+    sim.throttle = Math.max(
+      sim.mode === 'thrusters' ? -0.5 : 0,
+      Math.min(1, sim.throttle + steps * 0.05 + input.axis('thrust') * dt * 0.6),
+    );
     if (input.justPressed('throttleZero')) sim.throttle = 0;
     if (input.justPressed('modeNext')) sim.nextMode(1);
     if (input.justPressed('modePrev')) sim.nextMode(-1);
@@ -618,8 +661,20 @@ function frame(now: number): void {
           alt: formatDistance(sim.altitude),
         }),
       ),
-      el('div', '', sim.target && dist !== null ? t('onboarding.demo.target', { name: sim.target.name, dist: formatDistance(dist) }) : t('onboarding.demo.noTarget')),
-      el('div', '', onboarding.stepId ? t('onboarding.demo.step', { step: onboarding.stepId }) : t('onboarding.demo.stepNone', { status: stepLog.at(-1) ?? '-' })),
+      el(
+        'div',
+        '',
+        sim.target && dist !== null
+          ? t('onboarding.demo.target', { name: sim.target.name, dist: formatDistance(dist) })
+          : t('onboarding.demo.noTarget'),
+      ),
+      el(
+        'div',
+        '',
+        onboarding.stepId
+          ? t('onboarding.demo.step', { step: onboarding.stepId })
+          : t('onboarding.demo.stepNone', { status: stepLog.at(-1) ?? '-' }),
+      ),
     );
   }
   requestAnimationFrame(frame);
@@ -628,4 +683,15 @@ function frame(now: number): void {
 onboarding.start();
 requestAnimationFrame(frame);
 
-(window as unknown as { __ks: unknown }).__ks = { onboarding, settings, input, sim, panel, captions, hud, stepLog, setMap, t };
+(window as unknown as { __ks: unknown }).__ks = {
+  onboarding,
+  settings,
+  input,
+  sim,
+  panel,
+  captions,
+  hud,
+  stepLog,
+  setMap,
+  t,
+};

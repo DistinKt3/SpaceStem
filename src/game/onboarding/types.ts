@@ -16,7 +16,7 @@ export interface OnboardingSnapshot {
   speed: number;
   /** Key of the nearest body ('earth', 'moon', ...). */
   nearKey: string;
-  /** Height above the nearest body's surface (m). */
+  /** Height above the nearest body's mean radius (m), as SolarSystem.nearest reports it. */
   altitudeM: number;
   landed: boolean;
   /** Current target: a body id ('301' is the Moon) or a catalogue star ('*<index>'). */

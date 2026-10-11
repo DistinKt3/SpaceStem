@@ -9,7 +9,18 @@
 import { t } from '../i18n';
 import type { OnboardingSnapshot } from './types';
 
-export const STEP_IDS = ['look', 'throttle', 'target', 'align', 'cruise', 'approach', 'land', 'map', 'hyperspeed', 'done'] as const;
+export const STEP_IDS = [
+  'look',
+  'throttle',
+  'target',
+  'align',
+  'cruise',
+  'approach',
+  'land',
+  'map',
+  'hyperspeed',
+  'done',
+] as const;
 export type StepId = (typeof STEP_IDS)[number];
 
 /** Body id of the Moon in the catalogue (NAIF id). */
@@ -54,7 +65,8 @@ const nearMoon = (s: OnboardingSnapshot): boolean =>
 /** Body keys of stars: the Sun, and catalogue stars made into bodies when visited ('star-<index>'). */
 const isStarKey = (key: string): boolean => key === 'sun' || key.startsWith('star-');
 
-const moonTarget = (s: OnboardingSnapshot): Nudge | null => (s.targetId === MOON_ID ? null : { key: 'onboarding.nudge.moonTarget' });
+const moonTarget = (s: OnboardingSnapshot): Nudge | null =>
+  s.targetId === MOON_ID ? null : { key: 'onboarding.nudge.moonTarget' };
 
 export const STEPS: readonly StepDef[] = [
   { id: 'look', minDwell: 4, done: (s) => s.lookedAroundRad >= LOOK_AROUND_RAD },
@@ -82,9 +94,11 @@ export const STEPS: readonly StepDef[] = [
     catchUp: true,
     done: (s) => s.hyperPhase !== 'idle' || s.anchor.startsWith('*'),
     nudge: (s) => {
+      // On the map, map advice first; back in the cockpit, whatever stands in the way of the jump.
+      if (s.mapOpen)
+        return { key: s.targetKind === 'star' ? 'onboarding.nudge.closeMap' : 'onboarding.nudge.pickStarOnMap' };
       if (s.landed) return { key: 'onboarding.nudge.liftOff' };
-      if (s.targetKind !== 'star') return { key: s.mapOpen ? 'onboarding.nudge.pickStarOnMap' : 'onboarding.nudge.pickStar' };
-      if (s.mapOpen) return { key: 'onboarding.nudge.closeMap' };
+      if (s.targetKind !== 'star') return { key: 'onboarding.nudge.pickStar' };
       if (s.altitudeM < HYPER_MIN_ALTITUDE_M && !isStarKey(s.nearKey)) {
         return { key: 'onboarding.nudge.gravityWell', params: { body: t(`body.${s.nearKey}`) } };
       }
