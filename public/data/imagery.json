@@ -1,0 +1,15 @@
+{
+ "tiles": {
+  "earth": {
+   "tileSize": 512,
+   "maxLevel": 3,
+   "format": "webp"
+  },
+  "moon": {
+   "tileSize": 512,
+   "maxLevel": 2,
+   "format": "webp"
+  }
+ },
+ "tex": {}
+}

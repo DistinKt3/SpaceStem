@@ -23,6 +23,10 @@ export class ChunkWorkerPool {
     for (let i = 0; i < size; i++) {
       const w = new Worker(new URL('./chunkWorker.ts', import.meta.url), { type: 'module' });
       w.onmessage = (ev: MessageEvent<{ id: number; data?: ChunkData; error?: string }>) => this.onDone(i, ev.data);
+      w.onerror = (ev: ErrorEvent) => {
+        console.error('[chunk worker]', ev.message);
+        ev.preventDefault();
+      };
       this.workers.push(w);
       this.busy.push(false);
     }

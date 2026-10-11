@@ -17,10 +17,18 @@ await page.waitForFunction(() => window.__ks !== undefined, null, { timeout: 600
 const views = viewsArg ? viewsArg.split(',') : [''];
 for (const v of views) {
   if (v) await page.evaluate((name) => window.__ks?.setView?.(name), v);
-  await page.waitForTimeout(Number(waitArg));
+  // Wait for terrain chunks to finish (or the time limit).
+  const until = Date.now() + Number(waitArg);
+  await page.waitForTimeout(1500);
+  while (Date.now() < until) {
+    const pending = await page.evaluate(() => window.__ks?.pending?.() ?? 0);
+    if (pending === 0) break;
+    await page.waitForTimeout(1000);
+  }
+  await page.waitForTimeout(1500);
   const data = await page.evaluate(() => window.__ks?.capture?.() ?? document.querySelector('canvas')?.toDataURL());
   if (data) writeFileSync(`${out}${v ? '_' + v : ''}.png`, Buffer.from(data.split(',')[1], 'base64'));
-  const hud = await page.evaluate(() => document.getElementById('hud')?.textContent ?? '');
+  const hud = await page.evaluate(() => (document.getElementById('hud')?.innerText ?? '') + '\n' + JSON.stringify(window.__ks?.stats?.() ?? {}));
   console.log(`--- ${v}\n${hud}`);
 }
 console.log(logs.slice(0, 20).join('\n'));

@@ -35,6 +35,17 @@ export default tseslint.config(
       'no-restricted-imports': ['error', { patterns: ['**/render/**', '**/world/**', '**/data/**', '**/game/**', 'three', 'three/*'] }],
     },
   },
+  {
+    // TSL shader graphs are dynamically typed node trees; keep strict typing at the module boundary instead.
+    files: ['src/render/materials/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-argument': 'off',
+      '@typescript-eslint/no-unsafe-return': 'off',
+    },
+  },
   { files: ['**/*.js'], ...tseslint.configs.disableTypeChecked },
   prettier,
 );

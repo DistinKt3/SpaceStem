@@ -23,11 +23,18 @@ ctx.onmessage = (ev: MessageEvent<WorkerIn>) => {
     ctx.postMessage({ id: msg.id, error: `no config ${msg.key}` });
     return;
   }
-  const data = buildChunk(cfg, msg.req);
+  let data;
+  try {
+    data = buildChunk(cfg, msg.req);
+  } catch (e) {
+    ctx.postMessage({ id: msg.id, error: e instanceof Error ? e.message : String(e) });
+    return;
+  }
   ctx.postMessage({ id: msg.id, data }, [
     data.positions.buffer,
     data.normals.buffer,
     data.uvs.buffer,
+    data.fuvs.buffer,
     data.extras.buffer,
   ]);
 };

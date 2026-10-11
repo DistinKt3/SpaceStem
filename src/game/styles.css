@@ -1,0 +1,32 @@
+:root {
+  --ks-bg: #02040a;
+  --ks-fg: #d8e6ff;
+  --ks-dim: #8aa0c0;
+  --ks-accent: #7fd4ff;
+  --ks-panel: rgba(8, 18, 34, 0.55);
+  --ks-border: rgba(127, 212, 255, 0.28);
+  --ks-measured: #7fd4ff;
+  --ks-inferred: #ffd27f;
+  --ks-generated: #c49bff;
+  --ks-font: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --ks-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 16px;
+}
+html, body { margin: 0; height: 100%; background: var(--ks-bg); color: var(--ks-fg); overflow: hidden; font-family: var(--ks-font); }
+canvas { display: block; width: 100vw; height: 100vh; }
+#hud {
+  position: fixed; left: 1.2rem; bottom: 1.2rem; min-width: 18rem; padding: 0.7rem 0.9rem;
+  background: var(--ks-panel); border: 1px solid var(--ks-border); border-radius: 0.6rem;
+  backdrop-filter: blur(6px); font: 0.8rem/1.5 var(--ks-mono); pointer-events: none;
+}
+#hud .row { display: flex; justify-content: space-between; gap: 1.2rem; }
+#hud .k { color: var(--ks-dim); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.7rem; }
+#hud .v { color: var(--ks-fg); }
+#boot {
+  position: fixed; inset: 0; display: grid; place-items: center; background: var(--ks-bg);
+  transition: opacity 0.8s ease; z-index: 10;
+}
+#boot.hidden { opacity: 0; pointer-events: none; }
+#boot h1 { font-weight: 300; letter-spacing: 0.4em; text-transform: uppercase; margin: 0 0 0.5rem; font-size: 2rem; }
+#boot p { color: var(--ks-dim); margin: 0.3rem 0; text-align: center; }
+@media (prefers-reduced-motion: reduce) { #boot { transition: none; } }

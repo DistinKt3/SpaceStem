@@ -21,6 +21,8 @@ export interface TerrainOptions {
   /** Max relief above/below the sphere, meters (for culling bounds). */
   maxRelief?: number;
   maxChunks?: number;
+  /** Optional per-chunk material (e.g. the best loaded imagery tile); called for visible chunks every update. */
+  materialFor?: (face: number, level: number, ix: number, iy: number) => THREE.Material;
 }
 
 interface Chunk {
@@ -49,6 +51,7 @@ export class PlanetTerrain {
   private readonly index: THREE.BufferAttribute;
   private readonly chunks = new Map<string, Chunk>();
   private readonly maxChunks: number;
+  private readonly materialFor: TerrainOptions['materialFor'];
   private frame = 0;
   private visible: Chunk[] = [];
   readonly stats = { visibleChunks: 0, cachedChunks: 0, maxLevelVisible: 0, triangles: 0 };
@@ -61,9 +64,10 @@ export class PlanetTerrain {
     this.material = opts.material;
     this.grid = opts.grid ?? 32;
     this.maxLevel = opts.maxLevel ?? 18;
-    this.errorPx = opts.errorPx ?? 1.5;
+    this.errorPx = opts.errorPx ?? 2;
     this.maxRelief = opts.maxRelief ?? 10_000;
     this.maxChunks = opts.maxChunks ?? 1200;
+    this.materialFor = opts.materialFor;
     this.index = new THREE.BufferAttribute(buildIndices(this.grid), 1);
     this.group.name = `terrain:${this.config.key}`;
     pool.register(this.config);
@@ -89,6 +93,7 @@ export class PlanetTerrain {
     g.setAttribute('position', new THREE.BufferAttribute(data.positions, 3));
     g.setAttribute('normal', new THREE.BufferAttribute(data.normals, 3));
     g.setAttribute('uv', new THREE.BufferAttribute(data.uvs, 2));
+    g.setAttribute('fuv', new THREE.BufferAttribute(data.fuvs, 2));
     g.setAttribute('extras', new THREE.BufferAttribute(data.extras, 2));
     g.setIndex(this.index);
     g.boundingSphere = new THREE.Sphere(new THREE.Vector3(), data.radius);
@@ -212,6 +217,7 @@ export class PlanetTerrain {
     for (const c of out) {
       if (c.mesh) {
         c.mesh.visible = true;
+        if (this.materialFor) c.mesh.material = this.materialFor(c.face, c.level, c.ix, c.iy);
         tris += (this.index.count / 3) | 0;
         if (c.level > maxLevel) maxLevel = c.level;
       }

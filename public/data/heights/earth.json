@@ -1,0 +1,1 @@
+{"width": 5400, "height": 2700, "quantumM": 2, "encoding": "int16-gradient-gzip", "units": "m", "source": "NOAA ETOPO 2022 60 arc-second surface elevation, every 4th sample (4 arc-minute); ocean floor clamped to -2 m (ocean flag)", "minM": -2.0, "maxM": 7344.0}

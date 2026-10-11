@@ -3,9 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Known Sky: fly through the real universe, with every object labeled Measured, Inferred or Generated." />
     <title>Known Sky</title>
   </head>
   <body>
-    <p>Known Sky is booting. The M0 spike is at <a href="spike.html">spike.html</a>.</p>
+    <canvas id="c" aria-label="Known Sky 3D view"></canvas>
+    <div id="hud" role="status" aria-live="off"></div>
+    <div id="boot">
+      <div>
+        <h1>Known Sky</h1>
+        <p>The universe is real. The drive is fictional.</p>
+        <p id="boot-status">Loading…</p>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

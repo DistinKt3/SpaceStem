@@ -26,6 +26,8 @@ export interface HeightConfig {
   /** Clamp heights below this to it (sea surface), meters. Undefined = no ocean. */
   seaLevel?: number;
   heightmap?: HeightmapData;
+  /** Smallest crater-cell level (2 = whole-body craters; higher = only small craters, e.g. below data resolution). */
+  craterMinLevel?: number;
 }
 
 function sampleHeightmap(hm: HeightmapData, lat: number, lon: number): number {
@@ -53,7 +55,7 @@ function sampleHeightmap(hm: HeightmapData, lat: number, lon: number): number {
  * Deterministic crater field. Craters live in cells of a cube-face grid at several levels; each cell holds at most one
  * crater with hashed position and radius. Profile: parabolic bowl + raised rim + ejecta falloff.
  */
-function craters(cfg: HeightConfig, x: number, y: number, z: number): number {
+function craters(cfg: HeightConfig, x: number, y: number, z: number, minFeatureM: number): number {
   let h = 0;
   const R = cfg.radius;
   // Pick the dominant face for cell indexing.
@@ -68,8 +70,9 @@ function craters(cfg: HeightConfig, x: number, y: number, z: number): number {
   const dn = x * f.n[0] + y * f.n[1] + z * f.n[2];
   const u = (x * f.t[0] + y * f.t[1] + z * f.t[2]) / dn;
   const v = (x * f.b[0] + y * f.b[1] + z * f.b[2]) / dn;
-  for (let level = 2; level <= 13; level++) {
+  for (let level = cfg.craterMinLevel ?? 2; level <= 17; level++) {
     const cells = 1 << level;
+    if ((2 * R) / cells < minFeatureM) break; // finer craters are below this mesh's resolution
     const cu = ((u + 1) / 2) * cells;
     const cv = ((v + 1) / 2) * cells;
     const ci = Math.floor(cu);
@@ -101,8 +104,18 @@ function craters(cfg: HeightConfig, x: number, y: number, z: number): number {
   return h;
 }
 
-/** Height (m) at unit body-fixed direction (x, y, z). */
-export function heightAt(cfg: HeightConfig, x: number, y: number, z: number): number {
+/** Octaves of fBm whose wavelength stays >= minFeatureM, given the base wavelength. */
+function octavesFor(baseWavelengthM: number, maxOctaves: number, minFeatureM: number): number {
+  if (minFeatureM <= 0) return maxOctaves;
+  const n = Math.floor(Math.log2(baseWavelengthM / minFeatureM)) + 1;
+  return Math.max(1, Math.min(maxOctaves, n));
+}
+
+/**
+ * Height (m) at unit body-fixed direction (x, y, z). `minFeatureM` skips procedural detail finer than that size (a
+ * coarse chunk does not need sub-vertex craters); 0 = full detail (collision, altitude).
+ */
+export function heightAt(cfg: HeightConfig, x: number, y: number, z: number, minFeatureM = 0): number {
   let h = 0;
   if (cfg.heightmap) {
     const lat = Math.asin(Math.max(-1, Math.min(1, z)));
@@ -112,28 +125,28 @@ export function heightAt(cfg: HeightConfig, x: number, y: number, z: number): nu
   const R = cfg.radius;
   switch (cfg.procedural) {
     case 'earthlike': {
-      // Sub-data-resolution detail: ~a few hundred meters of relief at km scale, fading on oceans.
-      const s = R / 20_000; // feature scale ~20 km
-      const n = fbm3(cfg.seed, x * s, y * s, z * s, 11);
+      // Sub-data-resolution detail: relief at 20 km wavelength and below, fading on oceans.
+      const s = R / 20_000;
+      const n = fbm3(cfg.seed, x * s, y * s, z * s, octavesFor(20_000, 11, minFeatureM));
       const land = cfg.heightmap ? Math.max(0, Math.min(1, h / 200)) : 1;
       h += n * cfg.amplitude * land;
       break;
     }
     case 'cratered': {
       const s = R / 50_000;
-      h += fbm3(cfg.seed, x * s, y * s, z * s, 6) * cfg.amplitude * 0.3;
-      h += craters(cfg, x, y, z);
+      h += fbm3(cfg.seed, x * s, y * s, z * s, octavesFor(50_000, 9, minFeatureM)) * cfg.amplitude * 0.3;
+      h += craters(cfg, x, y, z, minFeatureM);
       break;
     }
     case 'icy': {
       const s = R / 30_000;
-      const n = fbm3(cfg.seed, x * s, y * s, z * s, 6);
+      const n = fbm3(cfg.seed, x * s, y * s, z * s, octavesFor(30_000, 8, minFeatureM));
       h += Math.abs(n) * cfg.amplitude - cfg.amplitude * 0.3;
       break;
     }
     case 'volcanic': {
       const s = R / 40_000;
-      h += fbm3(cfg.seed, x * s, y * s, z * s, 7) * cfg.amplitude;
+      h += fbm3(cfg.seed, x * s, y * s, z * s, octavesFor(40_000, 9, minFeatureM)) * cfg.amplitude;
       break;
     }
     case 'none':

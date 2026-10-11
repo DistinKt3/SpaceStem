@@ -19,6 +19,8 @@ export interface ChunkData {
   positions: Float32Array;
   normals: Float32Array;
   uvs: Float32Array;
+  /** Cube-face coordinates in [0,1]^2 across the whole face (for tile-pyramid imagery). */
+  fuvs: Float32Array;
   /** Per-vertex flags: x = ocean (0/1), y = height (m) for shading. */
   extras: Float32Array;
   minHeight: number;
@@ -83,6 +85,8 @@ export function buildChunk(cfg: HeightConfig, req: ChunkRequest): ChunkData {
   const m = n + 2; // with a 1-sample border for normals
   const du = (u1 - u0) / grid;
   const dv = (v1 - v0) / grid;
+  // Vertex spacing (m); procedural detail below a quarter of it is skipped (cost, aliasing).
+  const minFeature = ((R * (u1 - u0) * Math.PI) / 4 / grid) * 0.25;
 
   const center = new Float64Array(3);
   faceToSphere(face, (u0 + u1) / 2, (v0 + v1) / 2, center);
@@ -104,7 +108,7 @@ export function buildChunk(cfg: HeightConfig, req: ChunkRequest): ChunkData {
       const x = D[0]!;
       const y = D[1]!;
       const z = D[2]!;
-      const h = heightAt(cfg, x, y, z);
+      const h = heightAt(cfg, x, y, z, minFeature);
       const k = j * m + i;
       H[k] = h;
       OCEAN[k] = isOcean(cfg, x, y, z) ? 1 : 0;
@@ -124,7 +128,7 @@ export function buildChunk(cfg: HeightConfig, req: ChunkRequest): ChunkData {
   for (let j = 0; j < grid; j++) {
     for (let i = 0; i < grid; i++) {
       faceToSphere(face, u0 + (i + 0.5) * du, v0 + (j + 0.5) * dv, D);
-      const r = R + heightAt(cfg, D[0]!, D[1]!, D[2]!);
+      const r = R + heightAt(cfg, D[0]!, D[1]!, D[2]!, minFeature);
       const k00 = ((j + 1) * m + (i + 1)) * 3;
       const k10 = k00 + 3;
       const k01 = k00 + m * 3;
@@ -141,10 +145,16 @@ export function buildChunk(cfg: HeightConfig, req: ChunkRequest): ChunkData {
   const positions = new Float32Array(vcount * 3);
   const normals = new Float32Array(vcount * 3);
   const uvs = new Float32Array(vcount * 2);
+  const fuvs = new Float32Array(vcount * 2);
   const extras = new Float32Array(vcount * 2);
   let radius = 0;
 
   const write = (vi: number, k: number, drop: number): void => {
+    // Face coordinates of bordered-grid sample k.
+    const gi = (k % m) - 1;
+    const gj = Math.floor(k / m) - 1;
+    fuvs[vi * 2] = (u0 + gi * du + 1) / 2;
+    fuvs[vi * 2 + 1] = (v0 + gj * dv + 1) / 2;
     const px = P[k * 3]!;
     const py = P[k * 3 + 1]!;
     const pz = P[k * 3 + 2]!;
@@ -210,6 +220,7 @@ export function buildChunk(cfg: HeightConfig, req: ChunkRequest): ChunkData {
     positions,
     normals,
     uvs,
+    fuvs,
     extras,
     minHeight: minH,
     maxHeight: maxH,

@@ -1,0 +1,1 @@
+{"width": 2880, "height": 1440, "quantumM": 2, "encoding": "int16-gradient-gzip", "units": "m", "source": "NASA SVS CGI Moon Kit ldem_16 (LRO LOLA) averaged to 8 px/deg; meters above 1737.4 km", "minM": -8728.0, "maxM": 10552.0}
