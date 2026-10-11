@@ -1026,7 +1026,7 @@
      "citation": "jpl-sat-phys"
     },
     {
-     "claim": "The in-game map is probably based on spacecraft images, but its sources are not documented.",
+     "claim": "The in-game map's source images and orientation are not documented.",
      "method": "The NASA 3D Resources files give no source mosaic or orientation",
      "provenance": "inferred",
      "citation": "nasa-3d-resources"
