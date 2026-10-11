@@ -182,6 +182,8 @@ jumpStatus?, secondsToFull?, heatState? })` each frame. It writes to the DOM onl
   ("Emergency climb") on its own line, so no message is spoken twice. Colours are the theme tokens, so the colour-blind
   palettes apply; every state also has a word or shape. Sizes are rem (text scaling). Animations stop under
   `prefers-reduced-motion` and `html[data-reduced-motion='true']` (the game setting).
+- Its glass panel has a darker base than the other HUD panels, so it stays readable over a star's glare, which is
+  where it matters most.
 - `setDensity('compact')` tightens the spacing. The game sets it from the HUD height measured in rem (under 36 rem),
   which follows the text-scale setting; a rem media query would not, because rem in a media query is always 16 px.
 

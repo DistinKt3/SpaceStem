@@ -23,6 +23,7 @@ interface Controller {
   fuel: { system: { hyperFuel: number; heat: number; heatState: string; refuel(a?: number): void }; climbing: boolean };
 }
 interface KsApp {
+  audio: { play(cue: string): void };
   paused: boolean;
   simTime: number;
   sys: { byId: Map<string, unknown> };
@@ -117,11 +118,22 @@ test('fuel loop in the game: refusal, a paid jump, the refund on abort and the e
     c.ship.mode = 'cruise';
     c.ship.throttle = 0;
     c.fuel.system.heat = 0.98;
+    // Record the audio cues the fuel loop plays (each also shows a caption).
+    const cues: string[] = [];
+    const play = app.audio.play.bind(app.audio);
+    app.audio.play = (cue: string) => {
+      cues.push(cue);
+      play(cue);
+    };
     app.paused = true;
     for (let i = 0; i < 10; i++) c.update(0.1, app);
-    return { d: off.length(), climbing: c.fuel.climbing, state: c.fuel.system.heatState };
+    app.audio.play = play;
+    return { d: off.length(), climbing: c.fuel.climbing, state: c.fuel.system.heatState, cues };
   });
   expect(start).toMatchObject({ climbing: true, state: 'emergency' });
+  // Critical and then the limit: the heat-critical cue each time, and no generic alert cue on top.
+  expect(start.cues.filter((q) => q === 'heat-critical').length).toBeGreaterThanOrEqual(1);
+  expect(start.cues).not.toContain('alert');
   await expect(warn).toContainText('Emergency climb');
   await expect(gauge).toHaveAttribute('data-heat', 'emergency');
   await expect(gauge.locator('.ks-fuel-flag--heat')).toHaveText('Emergency');

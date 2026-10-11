@@ -58,7 +58,8 @@ const CSS = `
   --ks-fuel-v: 0; --ks-fuel-h: 0; --ks-fuel-a: 0; --ks-fuel-w: 0; --ks-fuel-m: 0;
   position: relative; box-sizing: border-box; width: 14.5rem; max-width: 100%;
   padding: 0.55rem 0.75rem 0.65rem; color: var(--ks-fg); font: 400 0.72rem/1.3 var(--ks-mono);
-  background: linear-gradient(180deg, rgba(14, 30, 54, 0.55), var(--ks-panel));
+  /* A darker base under the theme's panel colour: this widget matters most next to a star, where the view is white. */
+  background: linear-gradient(180deg, rgba(14, 30, 54, 0.55), var(--ks-panel)), linear-gradient(rgba(2, 6, 14, 0.55), rgba(2, 6, 14, 0.55));
   border: var(--ks-border-w, 1px) solid var(--ks-border); border-radius: 0.6rem;
   -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
   box-shadow: 0 0 1.5rem rgba(0, 0, 0, 0.35), inset 0 0 1.1rem rgba(127, 212, 255, 0.06);
