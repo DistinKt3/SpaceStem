@@ -1,0 +1,640 @@
+/*
+ * Guided opening card (src/game/onboarding/onboarding.ts). A compact glass card at the top left: clear of the reticle
+ * (its width stops short of the screen centre), the HUD's top, left and right panels, and the cockpit displays in the
+ * lower half of the view. Tokens come from styles.css and ui.css (colour-blind palettes override them); sizes are rem
+ * so the text-scale setting applies; motion is off under reduced motion.
+ */
+
+/*
+ * The card sits in a full-viewport layer that is a size container. Container queries measured in rem follow the
+ * text-scale setting (rem is the root font size), so the layout adapts to larger text, not just to smaller windows.
+ */
+.ks-onb-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 6;
+  pointer-events: none;
+  container: ks-onb / size;
+}
+
+.ks-onb {
+  position: absolute;
+  left: 1.2rem;
+  top: 2.2rem;
+  box-sizing: border-box;
+  /* Clear of the HUD's top panel (about 9 rem either side of the centre) and, always, of the reticle. */
+  width: clamp(14rem, calc(50cqw - 10.4rem), 28rem);
+  max-width: calc(50cqw - 2.9rem);
+  max-height: calc(100cqh - 3.4rem);
+  overflow: hidden auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  padding: 0.7rem 0.85rem 0.75rem;
+  color: var(--ks-fg);
+  font: 400 0.84rem/1.45 var(--ks-font);
+  text-align: left;
+  overflow-wrap: break-word;
+  background:
+    radial-gradient(130% 80% at 0% 0%, color-mix(in srgb, var(--ks-accent) 11%, transparent), transparent 62%),
+    var(--ks-panel);
+  border: var(--ks-border-w, 1px) solid var(--ks-border);
+  border-radius: 0.85rem;
+  backdrop-filter: blur(10px) saturate(1.15);
+  -webkit-backdrop-filter: blur(10px) saturate(1.15);
+  box-shadow:
+    0 0.9rem 2.4rem rgba(0, 0, 0, 0.38),
+    inset 0 0 1.6rem color-mix(in srgb, var(--ks-accent) 5%, transparent);
+  pointer-events: auto;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Too narrow (in rem) to stay left of the top panel: use the width up to the reticle instead, to keep lines long. */
+@container ks-onb (max-width: 46rem) {
+  .ks-onb {
+    width: min(28rem, calc(50cqw - 2.9rem));
+  }
+}
+
+.ks-onb[hidden] {
+  display: none;
+}
+
+/* A thin highlight along the top edge, like light catching the glass. */
+.ks-onb::before {
+  content: '';
+  position: absolute;
+  left: 0.9rem;
+  right: 35%;
+  top: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--ks-accent), transparent);
+  opacity: 0.75;
+  pointer-events: none;
+}
+
+/* Without the cockpit the HUD footer sits at the bottom, so the card can use the corner. */
+body:not(.ks-cockpit-on) .ks-onb {
+  top: 1.2rem;
+}
+
+/* The map keeps its title at the top left and its list on the right: the card moves to the free bottom-left corner. */
+body.ks-map-open .ks-onb {
+  top: auto;
+  bottom: 1.2rem;
+}
+
+.ks-onb-sr {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* --- Header ------------------------------------------------------------------------------------------------------ */
+
+.ks-onb-head {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.6rem;
+  min-height: 1.6rem;
+  padding-right: 2rem;
+}
+
+.ks-onb-eyebrow,
+.ks-onb-mini {
+  margin: 0;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.ks-onb-eyebrow {
+  font: 600 0.64rem/1.25 var(--ks-mono);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ks-accent);
+}
+
+.ks-onb-mini {
+  display: none;
+  flex: 1 1 8rem;
+  font: 600 0.8rem/1.3 var(--ks-font);
+}
+
+.ks-onb-count {
+  font: 500 0.66rem/1 var(--ks-mono);
+  color: var(--ks-dim);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ks-onb-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  flex: 1 1 4.5rem;
+  min-width: 4.5rem;
+  height: 0.5rem;
+}
+
+.ks-onb-seg {
+  flex: 1 1 0;
+  box-sizing: border-box;
+  height: 0.22rem;
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--ks-fg) 22%, transparent);
+  transition:
+    background-color 0.3s,
+    height 0.3s;
+}
+
+/* Optional steps are hollow and dashed; the current step is taller; done steps are filled (shape, not just colour). */
+.ks-onb-seg.is-optional {
+  height: 0.34rem;
+  background: transparent;
+  border: 1px dashed color-mix(in srgb, var(--ks-fg) 45%, transparent);
+}
+
+.ks-onb-seg.is-current {
+  height: 0.42rem;
+  background: color-mix(in srgb, var(--ks-accent) 45%, transparent);
+}
+
+.ks-onb-seg.is-done {
+  height: 0.22rem;
+  border: 0;
+  background: var(--ks-accent);
+  box-shadow: 0 0 0.4rem color-mix(in srgb, var(--ks-accent) var(--ks-glow, 35%), transparent);
+}
+
+.ks-onb-icon-btn {
+  display: inline-grid;
+  place-items: center;
+  position: absolute;
+  right: 0;
+  top: -0.025rem;
+  width: 1.65rem;
+  height: 1.65rem;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 0.45rem;
+  background: transparent;
+  color: var(--ks-dim);
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
+}
+
+.ks-onb-icon-btn:hover {
+  color: var(--ks-fg);
+  border-color: var(--ks-border);
+}
+
+.ks-onb-chevron {
+  width: 1rem;
+  height: 1rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 0.25s ease;
+}
+
+/* Expanded: the chevron points up (fold away); minimised: down (unfold). */
+.ks-onb[data-collapsed='false'] .ks-onb-chevron {
+  transform: rotate(180deg);
+}
+
+.ks-onb :focus-visible {
+  outline: 2px solid var(--ks-focus, var(--ks-accent));
+  outline-offset: 2px;
+}
+
+/* --- Body -------------------------------------------------------------------------------------------------------- */
+
+.ks-onb-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.45rem;
+  margin-top: 0.45rem;
+}
+
+.ks-onb-goal {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.25rem 0.5rem;
+  margin: 0;
+  font: 600 1.02rem/1.3 var(--ks-font);
+  letter-spacing: 0.01em;
+}
+
+.ks-onb-goal-text {
+  flex: 1 1 6rem;
+  min-width: 0;
+  transition: color 0.3s;
+}
+
+.ks-onb-mark {
+  display: grid;
+  flex: none;
+  width: 1.15rem;
+  height: 1.15rem;
+  margin-top: 0.08rem;
+}
+
+.ks-onb-mark svg {
+  grid-area: 1 / 1;
+  width: 100%;
+  height: 100%;
+}
+
+.ks-onb-ring {
+  fill: none;
+  stroke: var(--ks-accent);
+  stroke-width: 1.5;
+}
+
+.ks-onb-dot {
+  fill: var(--ks-accent);
+  animation: ks-onb-pulse 2.4s ease-in-out infinite;
+}
+
+.ks-onb-disc {
+  fill: var(--ks-ok);
+}
+
+.ks-onb-check {
+  fill: none;
+  stroke: #03140b;
+  stroke-width: 2.1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.ks-onb-mark-done {
+  display: none;
+}
+
+.ks-onb[data-phase='complete'] .ks-onb-mark-pending,
+.ks-onb[data-state='done'] .ks-onb-mark-pending {
+  display: none;
+}
+
+.ks-onb[data-phase='complete'] .ks-onb-mark-done,
+.ks-onb[data-state='done'] .ks-onb-mark-done {
+  display: block;
+  animation: ks-onb-pop 0.38s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+
+.ks-onb[data-phase='complete'][data-state='step'] .ks-onb-goal-text {
+  color: var(--ks-ok);
+}
+
+.ks-onb-optional {
+  align-self: center;
+  padding: 0.08rem 0.45rem;
+  border: 1px dashed color-mix(in srgb, var(--ks-fg) 45%, transparent);
+  border-radius: 1rem;
+  color: var(--ks-dim);
+  font: 600 0.58rem/1.3 var(--ks-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.ks-onb-optional[hidden] {
+  display: none;
+}
+
+.ks-onb-hint {
+  margin: 0;
+  line-height: 1.65;
+  transition: opacity 0.3s;
+}
+
+.ks-onb[data-phase='complete'][data-state='step'] .ks-onb-hint {
+  opacity: 0.55;
+}
+
+.ks-onb-key {
+  display: inline-block;
+  box-sizing: border-box;
+  min-width: 1.45rem;
+  margin: 0 0.06rem;
+  padding: 0.1rem 0.38rem 0.08rem;
+  border: 1px solid color-mix(in srgb, var(--ks-fg) 34%, transparent);
+  border-bottom-width: 2px;
+  border-radius: 0.32rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.03));
+  color: var(--ks-fg);
+  font: 600 0.74rem/1.15 var(--ks-mono);
+  text-align: center;
+  white-space: nowrap;
+  vertical-align: 0.06em;
+  box-shadow: 0 0 0.6rem color-mix(in srgb, var(--ks-accent) 10%, transparent);
+}
+
+.ks-onb-key.is-unbound {
+  border-style: dashed;
+  color: var(--ks-dim);
+  font: 500 0.7rem/1.15 var(--ks-font);
+}
+
+.ks-onb-nudge {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0.38rem 0.55rem;
+  border: 1px solid color-mix(in srgb, var(--ks-warn) 50%, transparent);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--ks-warn) 9%, transparent);
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+
+.ks-onb-nudge[hidden] {
+  display: none;
+}
+
+.ks-onb-nudge-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.ks-onb-nudge-icon {
+  flex: none;
+  width: 0.95rem;
+  height: 0.95rem;
+  margin-top: 0.22rem;
+  fill: none;
+  stroke: var(--ks-warn);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.ks-onb-science {
+  margin: 0.1rem 0 0;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--ks-hairline, rgba(255, 255, 255, 0.07));
+  color: var(--ks-dim);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.ks-onb-science-tag {
+  margin-right: 0.45rem;
+  color: color-mix(in srgb, var(--ks-accent) 80%, var(--ks-dim));
+  font: 600 0.58rem/1 var(--ks-mono);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* --- Footer ------------------------------------------------------------------------------------------------------ */
+
+.ks-onb-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.5rem;
+  margin-top: 0.6rem;
+}
+
+.ks-onb-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.3rem 0.65rem;
+  border: var(--ks-border-w, 1px) solid var(--ks-border);
+  border-radius: 0.45rem;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ks-fg);
+  font: 500 0.76rem/1.2 var(--ks-font);
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background-color 0.15s,
+    color 0.15s;
+}
+
+.ks-onb-btn:hover {
+  border-color: var(--ks-accent);
+  background: color-mix(in srgb, var(--ks-accent) 12%, transparent);
+}
+
+.ks-onb-btn[hidden] {
+  display: none;
+}
+
+.ks-onb-btn-quiet {
+  border-color: var(--ks-hairline, rgba(255, 255, 255, 0.1));
+  background: transparent;
+  color: var(--ks-dim);
+}
+
+.ks-onb-btn-quiet:hover {
+  color: var(--ks-fg);
+}
+
+.ks-onb-restart {
+  flex: 1 1 10rem;
+  margin: 0;
+  color: var(--ks-dim);
+  font-size: 0.7rem;
+  line-height: 1.6;
+}
+
+.ks-onb-restart .ks-onb-key {
+  min-width: 0;
+  font-size: 0.64rem;
+  padding: 0.04rem 0.3rem 0.02rem;
+}
+
+/* --- States ------------------------------------------------------------------------------------------------------ */
+
+.ks-onb[data-collapsed='true'] {
+  width: auto;
+  max-width: min(28rem, calc(50cqw - 2.9rem));
+  padding-block: 0.45rem;
+}
+
+.ks-onb[data-collapsed='true'] .ks-onb-body,
+.ks-onb[data-collapsed='true'] .ks-onb-foot,
+.ks-onb[data-collapsed='true'] .ks-onb-eyebrow,
+.ks-onb[data-collapsed='true'] .ks-onb-bar {
+  display: none;
+}
+
+.ks-onb[data-collapsed='true'] .ks-onb-mini {
+  display: block;
+}
+
+.ks-onb[data-state='done'] .ks-onb-goal {
+  font-weight: 300;
+  font-size: 1.3rem;
+  letter-spacing: 0.04em;
+}
+
+.ks-onb[data-state='farewell'] .ks-onb-bar,
+.ks-onb[data-state='farewell'] .ks-onb-count,
+.ks-onb[data-state='farewell'] .ks-onb-collapse,
+.ks-onb[data-state='farewell'] .ks-onb-mark,
+.ks-onb[data-state='farewell'] .ks-onb-science,
+.ks-onb[data-state='farewell'] .ks-onb-foot {
+  display: none;
+}
+
+.ks-onb[data-leaving='true'] {
+  opacity: 0;
+  transform: translateY(-0.4rem);
+  transition:
+    opacity 0.4s ease,
+    transform 0.4s ease;
+}
+
+/*
+ * Shorter windows: the HUD's left panel sits at mid-height, so the card tightens up, and while a nudge is showing the
+ * science line steps aside (it returns with the next step).
+ */
+@container ks-onb (max-height: 50rem) {
+  .ks-onb[data-nudge='true'] .ks-onb-science {
+    display: none;
+  }
+}
+
+@container ks-onb (max-height: 44rem) {
+  .ks-onb {
+    padding: 0.55rem 0.75rem 0.6rem;
+  }
+
+  .ks-onb-body {
+    gap: 0.32rem;
+    margin-top: 0.32rem;
+  }
+
+  .ks-onb-hint {
+    line-height: 1.55;
+  }
+
+  .ks-onb-science {
+    padding-top: 0.38rem;
+    line-height: 1.42;
+  }
+
+  .ks-onb-foot {
+    margin-top: 0.42rem;
+  }
+}
+
+@container ks-onb (max-height: 36rem) {
+  body:not(.ks-cockpit-on) .ks-onb {
+    top: 0.8rem;
+  }
+
+  .ks-onb {
+    top: 2rem;
+  }
+}
+
+/* --- High contrast: opaque surfaces, white rules ------------------------------------------------------------------ */
+
+:root[data-colorblind='high-contrast'] .ks-onb {
+  background: #000000;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+}
+
+:root[data-colorblind='high-contrast'] .ks-onb::before {
+  display: none;
+}
+
+:root[data-colorblind='high-contrast'] .ks-onb-key {
+  border-color: #ffffff;
+  background: #000000;
+  box-shadow: none;
+}
+
+:root[data-colorblind='high-contrast'] .ks-onb-btn {
+  border-color: #ffffff;
+}
+
+/* --- Motion ------------------------------------------------------------------------------------------------------ */
+
+@keyframes ks-onb-in {
+  from {
+    opacity: 0;
+    transform: translateY(-0.6rem) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes ks-onb-step {
+  from {
+    opacity: 0;
+    transform: translateX(-0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* No overshoot: the tick stays inside its box (a scaled-up mark would spill out of the card at large text). */
+@keyframes ks-onb-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.4) rotate(-20deg);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes ks-onb-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.ks-onb.is-entering {
+  animation: ks-onb-in 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.ks-onb-body.is-entering {
+  animation: ks-onb-step 0.38s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.ks-onb[data-motion='reduced'],
+.ks-onb[data-motion='reduced'] *,
+.ks-onb[data-motion='reduced'] ::before,
+:root[data-reduced-motion='true'] .ks-onb,
+:root[data-reduced-motion='true'] .ks-onb * {
+  animation: none !important;
+  transition: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ks-onb,
+  .ks-onb * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
