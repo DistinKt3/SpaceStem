@@ -7,7 +7,7 @@
    "kind": "body",
    "bodyId": "10",
    "unlock": "start",
-   "summary": "Our star: a ball of hot plasma about 109 times wider than Earth, shining by nuclear fusion in its core for roughly 4.6 billion years.",
+   "summary": "Our star: a ball of hot plasma about 109 times wider than Earth. Solar models and meteorite ages indicate it has shone by nuclear fusion in its core for about 4.6 billion years.",
    "body": [
     "The Sun is a G-type main-sequence star (spectral type G2 V). It has about 333,000 times the mass of Earth, far more than all the planets together.",
     "Its mass is known through gravity. The orbits of planets and spacecraft measure the product **GM** (gravitational constant times mass) very precisely; dividing by the constant G, which is known far less precisely, gives the mass in kilograms.",
@@ -45,8 +45,8 @@
      "label": "Effective temperature",
      "value": 5772,
      "unit": "K",
-     "provenance": "measured",
-     "method": "NASA planetary fact sheet value",
+     "provenance": "inferred",
+     "method": "NASA fact sheet value; an effective temperature is derived from the measured luminosity and radius (Stefan-Boltzmann law), not observed directly",
      "citation": "nasa-sun-factsheet"
     },
     {
@@ -119,8 +119,8 @@
      "citation": "bouvier2010"
     },
     {
-     "claim": "The game's solar radius, 695,700 km, is the IAU nominal value: an exact conversion constant, not a new measurement.",
-     "method": "IAU 2015 Resolution B3",
+     "claim": "The game's solar radius, 695,700 km, equals the IAU nominal solar radius, an exact value fixed by definition.",
+     "method": "Definition: IAU 2015 Resolution B3 (nominal values are exact conversion constants)",
      "provenance": "measured",
      "citation": "prsa2016"
     },
@@ -149,7 +149,7 @@
     "Mercury is only about 38% of Earth's width, yet it is dense, with a mean density close to Earth's. Its orbit takes 88 Earth days and is the most elongated of the eight planets in this game (eccentricity 0.21).",
     "It rotates once every 58.6 days, exactly two thirds of its year. Combined with its orbital motion, this makes one solar day (sunrise to sunrise) last about 176 Earth days, two full Mercury years.",
     "Mercury has no real atmosphere, only a thin exosphere that is essentially a vacuum. Its average temperature is about 440 K, reaching 590-725 K on the side facing the Sun.",
-    "Even so, radar-bright deposits near its north pole are water ice. NASA's MESSENGER spacecraft confirmed this with its neutron spectrometer in 2012.",
+    "Even so, radar-bright deposits near its north pole are thought to be mainly water ice. In 2012 hydrogen measured by the neutron spectrometer on NASA's MESSENGER spacecraft, combined with thermal models, strongly supported that interpretation, but it remains **Inferred**.",
     "In the game, Mercury's colours come from a Solar System Scope map based on spacecraft imagery. The hills and craters you fly over at low altitude are **Generated** detail, not Mercury's real topography."
    ],
    "facts": [
@@ -255,13 +255,13 @@
    "kind": "body",
    "bodyId": "299",
    "unlock": "visit",
-   "summary": "Earth's near-twin in size, wrapped in a crushing carbon-dioxide atmosphere that makes it the hottest planet in the Solar System.",
+   "summary": "Earth's near-twin in size, wrapped in a crushing carbon-dioxide atmosphere, and the hottest planet in the Solar System.",
    "body": [
     "Venus is 95% of Earth's diameter and 81% of its mass, but its surface is hostile: the average temperature is about 737 K (464 °C) and the surface pressure is about 90 times Earth's.",
-    "Its atmosphere is 96.5% carbon dioxide. That thick blanket traps heat in a runaway greenhouse effect, which is why Venus is hotter than Mercury even though it is almost twice as far from the Sun.",
+    "Its atmosphere is 96.5% carbon dioxide. Scientists explain the heat by a runaway greenhouse effect: the thick blanket traps heat, which is why Venus is hotter than Mercury even though it is almost twice as far from the Sun.",
     "Venus spins backwards compared with most planets, and very slowly: one rotation takes 243 Earth days, longer than its 225-day year. A solar day on Venus lasts about 117 Earth days.",
     "Dense, persistent clouds of corrosive acid hide the surface from view in visible light. Underneath, the surface has volcanoes and deformed mountains.",
-    "In the game, Venus is drawn as its cloud tops using an artist-processed map, and its haze is a **Generated** approximation chosen to look plausible. Neither is a photograph."
+    "In the game, Venus is drawn as its cloud tops using a Solar System Scope map, an artist-processed composite based on NASA imagery, and its haze is a **Generated** approximation chosen to look plausible. Neither is a photograph."
    ],
    "facts": [
     {
@@ -466,12 +466,20 @@
      "citation": "nasa-earth-factsheet"
     },
     {
+     "label": "Source elevation grid (ETOPO 2022 version used)",
+     "value": 60,
+     "unit": "arc-seconds",
+     "provenance": "measured",
+     "method": "Grid spacing of the ETOPO 2022 surface-elevation product the game downloads",
+     "citation": "etopo2022"
+    },
+    {
      "label": "Elevation data spacing in the game",
      "value": 4,
      "unit": "arc-minutes",
      "provenance": "measured",
-     "method": "NOAA ETOPO 2022 60 arc-second grid, every 4th sample; finer relief is Generated",
-     "citation": "etopo2022"
+     "method": "ETOPO 2022 60 arc-second grid, every 4th sample, as built by tools/pipeline/textures.py (public/data/heights/earth.json); finer relief is Generated",
+     "citation": "known-sky-pipeline"
     }
    ],
    "howWeKnow": [
@@ -543,7 +551,7 @@
     "The Moon is about a quarter of Earth's width. It orbits Earth every 27.3 days and rotates exactly once per orbit, so the same hemisphere always faces Earth. This is called tidal locking.",
     "It is moving away from Earth by about 3.8 cm per year, while tides slowly lengthen Earth's day. Lunar laser ranging, one of the data sets behind JPL's ephemerides, tracks the Moon's distance precisely.",
     "Most scientists think the Moon formed from debris thrown out when a large body struck the young Earth. This giant-impact idea is a well-supported model, not something anyone observed.",
-    "With almost no atmosphere, the surface swings from about 95 K at night to 390 K by day at the equator. Apollo astronauts brought back 382 kg of lunar rock and soil.",
+    "With almost no atmosphere, the surface swings from about 95 K at night to 390 K by day at the equator. Between 1969 and 1972 six Apollo missions brought back 382 kg of lunar rock and soil.",
     "In the game, the Moon's colours come from NASA's Lunar Reconnaissance Orbiter camera mosaic (via NASA's CGI Moon Kit) and its mountains and craters from the LRO laser altimeter (LOLA). Near the poles the colour map is filled from a lower-resolution altimeter brightness map. Detail smaller than a few kilometres is **Generated**."
    ],
    "facts": [
@@ -623,12 +631,20 @@
      "citation": "jpl-astro-constants"
     },
     {
+     "label": "LOLA elevation grid in the CGI Moon Kit (version used)",
+     "value": 16,
+     "unit": "pixels per degree",
+     "provenance": "measured",
+     "method": "Global LOLA grids at 4, 16 and 64 px/deg are offered; the game downloads the 16 px/deg grid",
+     "citation": "svs-cgi-moon-kit"
+    },
+    {
      "label": "Elevation data in the game",
      "value": 8,
      "unit": "pixels per degree",
      "provenance": "measured",
-     "method": "LOLA elevation (CGI Moon Kit, 16 px/deg) averaged to 8 px/deg, about 3.8 km",
-     "citation": "svs-cgi-moon-kit"
+     "method": "LOLA grid from the CGI Moon Kit averaged 2 x 2 to 8 px/deg, about 3.8 km at the equator (tools/pipeline/textures.py; public/data/heights/moon.json)",
+     "citation": "known-sky-pipeline"
     }
    ],
    "howWeKnow": [
@@ -673,6 +689,12 @@
      "method": "LROC Wide Angle Camera",
      "provenance": "measured",
      "citation": "lroc-wac"
+    },
+    {
+     "claim": "Six Apollo missions brought back 382 kg of lunar rocks, cores, pebbles, sand and dust between 1969 and 1972.",
+     "method": "Sample inventory of NASA's lunar sample curation facility",
+     "provenance": "measured",
+     "citation": "nasa-lunar-samples"
     }
    ],
    "related": [
@@ -688,11 +710,11 @@
    "kind": "body",
    "bodyId": "499",
    "unlock": "visit",
-   "summary": "The cold, dusty red planet: a desert world with a thin carbon-dioxide atmosphere and clear evidence that liquid water once pooled on its surface.",
+   "summary": "The cold, dusty red planet: a desert world with a thin carbon-dioxide atmosphere and strong evidence that liquid water once pooled on its surface.",
    "body": [
     "Mars is about half Earth's width, with a day only 40 minutes longer than ours and a tilt similar to Earth's, so it has seasons. Its year lasts 687 Earth days.",
     "The atmosphere is thin, mostly carbon dioxide, with an average surface pressure of about 6 millibars, less than 1% of Earth's. The average temperature is around 214 K (-59 °C).",
-    "Rocks studied by the Curiosity rover in Gale crater show that an ancient lake once existed there, with water that could have supported microbial life. No life has been found on Mars.",
+    "Fine-grained sedimentary rocks studied by the Curiosity rover in Gale crater are interpreted as the deposits of an ancient lake, with water that could have supported microbial life. That lake is **Inferred** from the rocks; no life has been found on Mars.",
     "Fine dust in the Martian air scatters light differently from Earth's air: Curiosity photographed sunsets that look bluish around the Sun.",
     "In the game, Mars's colours come from a Solar System Scope map, and its haze is a **Generated** artistic approximation. The relief you fly over is **Generated** too: the game does not yet use Mars's real laser-altimeter topography."
    ],
@@ -816,7 +838,7 @@
     "It orbits only about 6,000 km above Mars's surface, completing an orbit in 7.65 hours, faster than Mars rotates.",
     "Tides are pulling Phobos closer to Mars by about 1.8 m per century. NASA expects it to crash into Mars or break up into a ring in roughly 50 million years; this is a prediction, not an observation.",
     "Both Martian moons look like dark, carbon-rich asteroids, but their origin is still debated: they may be captured asteroids, though some evidence contradicts that idea.",
-    "In the game, Phobos's map comes from spacecraft images collected in NASA's 3D Resources; small-scale relief is **Generated**."
+    "In the game, Phobos's map is the USGS global mosaic of Viking Orbiter images; small-scale relief is **Generated**."
    ],
    "facts": [
     {
@@ -902,6 +924,12 @@
      "method": "Comparison of composition and orbit with asteroid models (NASA summary)",
      "provenance": "inferred",
      "citation": "nasa-phobos"
+    },
+    {
+     "claim": "The in-game map is a USGS mosaic of Viking Orbiter images.",
+     "method": "USGS Astrogeology global mosaic (DLR control network), resampled by the game",
+     "provenance": "measured",
+     "citation": "usgs-phobos-mosaic"
     }
    ],
    "related": [
@@ -922,7 +950,7 @@
     "Like Phobos, it looks like a dark, carbon-rich asteroid of the kind found in the outer asteroid belt. Its craters are partly filled in, which gives it a smoother look than Phobos.",
     "Its mean density, about 1.5 g/cm³ with an uncertainty of about 11%, is derived from its measured gravitational pull and its size.",
     "Asaph Hall discovered Deimos in 1877, the same year he found Phobos.",
-    "In the game, Deimos's map comes from spacecraft images collected in NASA's 3D Resources; small-scale relief is **Generated**."
+    "In the game, Deimos's map comes from NASA's 3D Resources. Which images it was made from, and how its longitudes line up, are not documented, so treat it as approximate. Small-scale relief is **Generated**."
    ],
    "facts": [
     {
@@ -996,6 +1024,12 @@
      "method": "JPL Mars satellite ephemeris solution",
      "provenance": "measured",
      "citation": "jpl-sat-phys"
+    },
+    {
+     "claim": "The in-game map's source images and orientation are not documented.",
+     "method": "The NASA 3D Resources files give no source mosaic or orientation",
+     "provenance": "inferred",
+     "citation": "nasa-3d-resources"
     }
    ],
    "related": [
@@ -1133,13 +1167,13 @@
    "kind": "body",
    "bodyId": "501",
    "unlock": "visit",
-   "summary": "The innermost of Jupiter's four large moons and, according to NASA, the most volcanically active world in the Solar System, heated from inside by tides.",
+   "summary": "The innermost of Jupiter's four large moons and, according to NASA, the most volcanically active world in the Solar System, thought to be heated from inside by tides.",
    "body": [
     "Io is slightly larger than Earth's Moon. Galileo Galilei discovered it in 1610, together with Europa, Ganymede and Callisto.",
     "In 1979 an image taken by Voyager for navigation showed volcanic plumes rising from Io: the first evidence of active volcanism on any world other than Earth.",
-    "Around the time of Voyager 1's flyby, Peale, Cassen and Reynolds predicted that energy released by tidal flexing could melt much of Io's interior, and that the effects might be visible in Voyager's pictures.",
+    "Around the time of Voyager 1's flyby, Peale, Cassen and Reynolds predicted that energy released by tidal flexing could melt much of Io's interior, and that the effects might be visible in Voyager's pictures. Tidal heating explains Io's volcanism, but it is **Inferred**: it cannot be watched directly.",
     "Io's orbital period is almost exactly half of Europa's and a quarter of Ganymede's. This rhythm, a resonance, keeps the moons tugging on each other again and again.",
-    "In the game, Io's map comes from spacecraft images collected in NASA's 3D Resources; volcanic relief at small scales is **Generated**."
+    "In the game, Io's map is the USGS global colour mosaic of Galileo and Voyager images; volcanic relief at small scales is **Generated**."
    ],
    "facts": [
     {
@@ -1225,6 +1259,12 @@
      "method": "Ratio of measured orbital periods",
      "provenance": "inferred",
      "citation": "nasa-jovian-satellites-factsheet"
+    },
+    {
+     "claim": "The in-game map is a USGS mosaic of Galileo and Voyager images.",
+     "method": "USGS Astrogeology global colour mosaic, resampled by the game",
+     "provenance": "measured",
+     "citation": "usgs-io-mosaic"
     }
    ],
    "related": [
@@ -1246,7 +1286,7 @@
     "As Jupiter's tilted magnetic field sweeps past, Europa responds with a changing magnetic field of its own. NASA's Galileo spacecraft measured this, and the simplest explanation is an electric current flowing in a global layer of salty liquid water beneath the ice.",
     "That ocean is **Inferred**: no one has seen or sampled it. Its depth and saltiness are not yet known.",
     "NASA's Europa Clipper launched on 14 October 2024 and is due at Jupiter in April 2030, where it plans 49 close flybys of Europa. ESA's Juice mission will also observe it.",
-    "In the game, Europa's map comes from spacecraft images collected in NASA's 3D Resources; fine relief is **Generated**."
+    "In the game, Europa's map is the USGS global mosaic of Voyager and Galileo images. About 4.3% of it has no image data; the game fills those gaps with the map's average brightness, which is not real data. Fine relief is **Generated**."
    ],
    "facts": [
     {
@@ -1313,6 +1353,14 @@
      "provenance": "measured",
      "method": "Galileo Galilei",
      "citation": "jpl-sat-discovery"
+    },
+    {
+     "label": "Part of the in-game map with no image data",
+     "value": 4.3,
+     "unit": "%",
+     "provenance": "measured",
+     "method": "No-data pixels counted on the USGS mosaic by tools/pipeline/textures.py (public/data/imagery.json); the game fills them with the map's mean brightness",
+     "citation": "known-sky-pipeline"
     }
    ],
    "howWeKnow": [
@@ -1333,6 +1381,12 @@
      "method": "Mission status (NASA)",
      "provenance": "measured",
      "citation": "nasa-europa-clipper"
+    },
+    {
+     "claim": "The in-game map is a USGS mosaic of Voyager and Galileo images.",
+     "method": "USGS Astrogeology global mosaic, resampled by the game",
+     "provenance": "measured",
+     "citation": "usgs-europa-mosaic"
     }
    ],
    "related": [
@@ -1356,7 +1410,7 @@
     "In 1996 NASA's Galileo spacecraft discovered that Ganymede has its own internal magnetic field, about 750 nanotesla at the equator. It is the only moon known to have one, and it produces auroras around the moon's poles.",
     "The Hubble Space Telescope watched those auroral ovals rock back and forth as Jupiter's field changes. They rock less than expected for a solid moon, which points to a salty, electrically conducting ocean deep beneath the ice. The ocean is **Inferred**, not seen.",
     "ESA's Juice spacecraft, launched on 14 April 2023, is due at Jupiter in July 2031 and will make Ganymede its primary target.",
-    "In the game, Ganymede's map comes from spacecraft images collected in NASA's 3D Resources; fine relief is **Generated**."
+    "In the game, Ganymede's map is the USGS global mosaic of Voyager and Galileo images. About 3.5% of it has no image data; the game fills those gaps with the map's average brightness, which is not real data. Fine relief is **Generated**."
    ],
    "facts": [
     {
@@ -1424,6 +1478,14 @@
      "provenance": "measured",
      "method": "Galileo Galilei",
      "citation": "jpl-sat-discovery"
+    },
+    {
+     "label": "Part of the in-game map with no image data",
+     "value": 3.5,
+     "unit": "%",
+     "provenance": "measured",
+     "method": "No-data pixels counted on the USGS mosaic by tools/pipeline/textures.py (public/data/imagery.json); the game fills them with the map's mean brightness",
+     "citation": "known-sky-pipeline"
     }
    ],
    "howWeKnow": [
@@ -1456,6 +1518,12 @@
      "method": "Mission plan (ESA)",
      "provenance": "measured",
      "citation": "esa-juice"
+    },
+    {
+     "claim": "The in-game map is a USGS mosaic of Voyager and Galileo images.",
+     "method": "USGS Astrogeology global mosaic, resampled by the game",
+     "provenance": "measured",
+     "citation": "usgs-ganymede-mosaic"
     }
    ],
    "related": [
@@ -1477,7 +1545,7 @@
     "Callisto is almost as wide as Mercury and orbits Jupiter every 16.7 days. Its dark surface is crowded with craters.",
     "Galileo's magnetometer detected a magnetic signal induced by Jupiter's changing field near Callisto, as at Europa. A salty ocean beneath the surface is the most likely explanation, but it is **Inferred**, and Europa's ocean is supported by more independent evidence.",
     "ESA's Juice spacecraft, arriving at Jupiter in 2031, will study Callisto as one of three possibly ocean-bearing moons.",
-    "In the game, Callisto's map comes from NASA's 3D Resources and contains blank, filled-in areas where no usable images exist. Those patches, and all fine relief, are not real data."
+    "In the game, Callisto's map is the USGS global mosaic of Voyager and Galileo images. About 3.8% of it has no image data; the game fills those gaps with the map's average brightness, which is not real data. Fine relief is **Generated**."
    ],
    "facts": [
     {
@@ -1537,6 +1605,14 @@
      "provenance": "measured",
      "method": "Galileo Galilei",
      "citation": "jpl-sat-discovery"
+    },
+    {
+     "label": "Part of the in-game map with no image data",
+     "value": 3.8,
+     "unit": "%",
+     "provenance": "measured",
+     "method": "No-data pixels counted on the USGS mosaic by tools/pipeline/textures.py (public/data/imagery.json); the game fills them with the map's mean brightness",
+     "citation": "known-sky-pipeline"
     }
    ],
    "howWeKnow": [
@@ -1554,8 +1630,14 @@
     },
     {
      "claim": "Blank areas of the in-game map are fill, not imagery.",
-     "method": "The USGS Voyager/Galileo mosaic has no data on 3.8% of its area; the game fills those pixels with the map's mean brightness",
+     "method": "The game fills the 3.8% of the USGS mosaic that has no data with the map's mean brightness (tools/pipeline/textures.py)",
      "provenance": "generated",
+     "citation": "known-sky-pipeline"
+    },
+    {
+     "claim": "The in-game map is a USGS mosaic of Voyager and Galileo images.",
+     "method": "USGS Astrogeology global mosaic, resampled by the game",
+     "provenance": "measured",
      "citation": "usgs-callisto-mosaic"
     }
    ],
@@ -1634,7 +1716,7 @@
      "value": 74658,
      "unit": "km",
      "provenance": "measured",
-     "method": "Distance from Saturn's centre (NASA rings fact sheet)",
+     "method": "Distance from Saturn's centre (NASA rings fact sheet); the game uses the same value",
      "citation": "nasa-saturn-rings-factsheet"
     },
     {
@@ -1642,7 +1724,7 @@
      "value": 136780,
      "unit": "km",
      "provenance": "measured",
-     "method": "NASA rings fact sheet; the game uses 136,775 km",
+     "method": "NASA rings fact sheet; the game uses the same value",
      "citation": "nasa-saturn-rings-factsheet"
     },
     {
@@ -1693,13 +1775,13 @@
    "kind": "body",
    "bodyId": "602",
    "unlock": "visit",
-   "summary": "A small, bright moon of Saturn that sprays jets of water ice from its south pole, fed by a global ocean beneath its shell.",
+   "summary": "A small, bright moon of Saturn that sprays jets of ice grains and water vapour from its south pole, probably fed by a global ocean beneath its icy shell.",
    "body": [
     "Enceladus is only about 500 km across, yet it is geologically active today.",
     "The Cassini spacecraft found warm fractures near its south pole venting jets of icy particles and water vapour. The jets supply material to Saturn's faint E ring and probably come from liquid water below the surface.",
-    "Over seven years Cassini tracked how Enceladus wobbles as it orbits. The wobble is too large for an icy shell frozen onto a rocky core, so the shell must float on a **global ocean**.",
-    "Flying through the plume, Cassini detected molecular hydrogen, a sign of water reacting with rock in hydrothermal processes, and later sodium phosphates, showing that the ocean holds phosphorus at concentrations at least 100 times higher than Earth's oceans. These are ingredients and energy sources that life as we know it uses; none of them is a detection of life.",
-    "In the game, Enceladus's map from NASA's 3D Resources is incomplete: large white regions are fill, not data. Fine relief is **Generated**."
+    "Over seven years Cassini tracked how Enceladus wobbles as it orbits. The wobble is too large for an icy shell frozen onto a rocky core, and is best explained if the shell floats on a global ocean. That ocean is **Inferred**: no spacecraft has seen it directly.",
+    "Flying through the plume, Cassini detected molecular hydrogen, which the team interprets as a sign of water reacting with rock in hydrothermal processes. Ice grains from the plume contain sodium phosphates, which suggest that the ocean holds phosphorus at concentrations at least 100 times higher than Earth's oceans. These are ingredients and energy sources that life as we know it uses; none of them is a detection of life.",
+    "In the game, Enceladus's map is the USGS global mosaic of Cassini images. It covers the whole moon. Fine relief is **Generated**."
    ],
    "facts": [
     {
@@ -1794,6 +1876,12 @@
      "method": "Cassini Cosmic Dust Analyzer spectra of plume ice grains plus lab analogues",
      "provenance": "inferred",
      "citation": "postberg2023"
+    },
+    {
+     "claim": "The in-game map is a USGS mosaic of Cassini images.",
+     "method": "USGS Astrogeology global mosaic, resampled by the game",
+     "provenance": "measured",
+     "citation": "usgs-enceladus-mosaic"
     }
    ],
    "related": [
@@ -1809,14 +1897,14 @@
    "kind": "body",
    "bodyId": "606",
    "unlock": "visit",
-   "summary": "Saturn's largest moon: bigger than Mercury, wrapped in a thick nitrogen atmosphere, with rain, rivers and lakes of liquid methane and ethane.",
+   "summary": "Saturn's largest moon: bigger than Mercury and wrapped in a thick nitrogen atmosphere, with dark features near its poles interpreted as lakes and seas of liquid methane and ethane.",
    "body": [
     "Titan is the second-largest moon in the Solar System and the only moon with a substantial atmosphere. That atmosphere is mostly nitrogen with some methane, and its surface pressure is about 1.5 times Earth's.",
-    "At the surface it is 93.65 K (about -180 °C), so cold that methane and ethane can be liquid. Titan is the only place besides Earth known to have liquids on its surface.",
-    "The Huygens probe, released by the Cassini spacecraft, parachuted through the haze. Its pictures showed highlands cut by drainage channels and, after landing, ground that looks like a dry riverbed.",
+    "At the surface it is 93.65 K (about -180 °C), so cold that methane and ethane can be liquid. NASA describes Titan as the only place besides Earth known to have liquids on its surface; because that rests on interpreting radar and images, the Codex marks it **Inferred**.",
+    "The Huygens probe, released by the Cassini spacecraft, parachuted through the haze. Its pictures showed bright highlands cut by branching channels that drain into dark lowlands and, after landing, ground the team describes as a dry riverbed: traces of liquid that once flowed.",
     "Cassini's radar later revealed more than 75 radar-dark patches near the north pole that are interpreted as lakes of liquid hydrocarbons.",
     "NASA's Dragonfly rotorcraft is planned to launch no earlier than July 2028 to fly between sites on Titan.",
-    "In the game, Titan appears as an orange globe of haze. Its surface is hidden in visible light, and the game's haze and colours are a **Generated** approximation, not a surface map."
+    "In the game, Titan is an orange globe of haze whose colour is **Inferred** from Titan's measured visible brightness spectrum. Cassini's near-infrared map of the surface, a global mosaic published by the USGS, shows through only faintly, because in visible light the haze hides the ground. Small-scale relief is **Generated**."
    ],
    "facts": [
     {
@@ -1894,6 +1982,14 @@
      "provenance": "measured",
      "method": "Christiaan Huygens",
      "citation": "jpl-sat-discovery"
+    },
+    {
+     "label": "Wavelength of Cassini's global surface map",
+     "value": 938,
+     "unit": "nm",
+     "provenance": "measured",
+     "method": "Cassini ISS filter used for the global mosaic the game shows faintly under the haze",
+     "citation": "nasa-pia19658"
     }
    ],
    "howWeKnow": [
@@ -1916,6 +2012,12 @@
      "citation": "stofan2007"
     },
     {
+     "claim": "Titan is the only place besides Earth known to have liquids on its surface.",
+     "method": "Interpretation of Cassini radar and imaging (NASA summary)",
+     "provenance": "inferred",
+     "citation": "nasa-titan"
+    },
+    {
      "claim": "Titan is the only moon with a substantial atmosphere.",
      "method": "Spacecraft and telescope observations (NASA)",
      "provenance": "measured",
@@ -1926,6 +2028,30 @@
      "method": "Mission plan (NASA)",
      "provenance": "measured",
      "citation": "nasa-dragonfly"
+    },
+    {
+     "claim": "The haze colour in the game follows Titan's measured visible albedo spectrum.",
+     "method": "Spectrophotometry of Titan at 300-1,000 nm, converted to a colour by the game",
+     "provenance": "inferred",
+     "citation": "karkoschka1994"
+    },
+    {
+     "claim": "The in-game surface map is the USGS release of Cassini's global Titan mosaic.",
+     "method": "USGS Astrogeology global mosaic, resampled by the game",
+     "provenance": "measured",
+     "citation": "usgs-titan-mosaic"
+    },
+    {
+     "claim": "The faint surface map in the game is Cassini's 938 nm global mosaic.",
+     "method": "Cassini ISS images through a near-infrared filter; the USGS distributes the June 2015 mosaic",
+     "provenance": "measured",
+     "citation": "nasa-pia19658"
+    },
+    {
+     "claim": "About 3 to 5% of that map has no images and is shown as uniform grey.",
+     "method": "Data gap in the northern mid-latitudes of the sub-Saturn hemisphere",
+     "provenance": "measured",
+     "citation": "nasa-pia19658"
     }
    ],
    "related": [
@@ -2163,7 +2289,7 @@
     "How it was captured is not known. One proposal is that Triton was once part of a pair of bodies, and a close pass by Neptune split the pair and kept Triton.",
     "Voyager 2 found at least four active geyser-like plumes in 1989. Columns of dark material rose about 8 km and drifted more than 100 km downwind, even though the surface is only about 38 K.",
     "Its surface is a rigid crust, probably water ice, coated with bright nitrogen frost and streaked by darker organic material.",
-    "Voyager 2 photographed only part of Triton during its brief flyby. In the game's map, areas without images are left blank; they are not real data, and fine relief is **Generated** everywhere."
+    "Voyager 2 photographed only part of Triton during its brief flyby. The game's map is the USGS Voyager 2 colour mosaic: about 39% of it has no image data and is filled with the map's average brightness, which is not real data. Fine relief is **Generated** everywhere."
    ],
    "facts": [
     {
@@ -2240,6 +2366,14 @@
      "provenance": "measured",
      "method": "William Lassell",
      "citation": "jpl-sat-discovery"
+    },
+    {
+     "label": "Part of the in-game map with no image data",
+     "value": 38.6,
+     "unit": "%",
+     "provenance": "measured",
+     "method": "No-data pixels counted on the USGS mosaic by tools/pipeline/textures.py (public/data/imagery.json); the game fills them with the map's mean brightness",
+     "citation": "known-sky-pipeline"
     }
    ],
    "howWeKnow": [
@@ -2268,10 +2402,16 @@
      "citation": "smith1989"
     },
     {
-     "claim": "Only part of Triton has image coverage.",
-     "method": "The USGS Voyager 2 mosaic used in the game has no data on 38.6% of its area (Voyager 2 flew past in 1989 and saw mainly the southern hemisphere)",
+     "claim": "Voyager 2 imaged only part of Triton.",
+     "method": "Coverage of the USGS Voyager 2 global colour mosaic",
      "provenance": "measured",
      "citation": "usgs-triton-mosaic"
+    },
+    {
+     "claim": "The unimaged part of the in-game map is filled with the map's average brightness.",
+     "method": "Gap filling by tools/pipeline/textures.py",
+     "provenance": "generated",
+     "citation": "known-sky-pipeline"
     }
    ],
    "related": [
@@ -2292,7 +2432,7 @@
     "Pluto's orbit is tilted and elongated. It ranges from about 30 to 49 au from the Sun, so for part of each 248-year orbit Pluto is closer to the Sun than Neptune.",
     "NASA's New Horizons flew past on 14 July 2015. It found surfaces of very different ages, a water-ice crust, convection in surface ice, wind streaks, glacial flow, and an extended atmosphere with a global haze layer and a surface pressure near 10 microbars.",
     "Pluto and its large moon Charon always show each other the same face: they are mutually tidally locked.",
-    "In the game, Pluto's surface map is the USGS New Horizons mosaic. Areas New Horizons did not image have no data in the mosaic, and relief at small scales is **Generated**."
+    "In the game, Pluto's map is the USGS New Horizons mosaic. About 32% of it has no image data, because New Horizons could not see those regions; the game fills them with the map's average brightness, which is **Generated**, as is small-scale relief."
    ],
    "facts": [
     {
@@ -2359,6 +2499,14 @@
      "provenance": "measured",
      "method": "Clyde Tombaugh",
      "citation": "nasa-pluto-factsheet"
+    },
+    {
+     "label": "Part of the in-game map with no image data",
+     "value": 31.9,
+     "unit": "%",
+     "provenance": "measured",
+     "method": "No-data pixels counted on the USGS mosaic by tools/pipeline/textures.py (public/data/imagery.json); the game fills them with the map's mean brightness",
+     "citation": "known-sky-pipeline"
     }
    ],
    "howWeKnow": [
@@ -2406,7 +2554,7 @@
     "Charon orbits every 6.39 days, exactly the time both Pluto and Charon take to rotate, so each always shows the other the same face.",
     "New Horizons revealed tectonic features, including a trough at least 350 km long and up to 14 km deep, and a dark reddish cap at the north pole.",
     "The red cap is thought to come from gas escaping Pluto that freezes onto Charon's cold winter pole and is changed by ultraviolet light into reddish compounds. This explanation is a model that fits the images; it is **Inferred**.",
-    "In the game, Charon's map is the USGS New Horizons mosaic. Areas without images have no data, and fine relief is **Generated**."
+    "In the game, Charon's map is the USGS New Horizons mosaic. About 34% of it has no image data, because New Horizons could not see those regions; the game fills them with the map's average brightness, which is **Generated**, as is small-scale relief."
    ],
    "facts": [
     {
@@ -2466,6 +2614,14 @@
      "provenance": "measured",
      "method": "James W. Christy",
      "citation": "jpl-sat-discovery"
+    },
+    {
+     "label": "Part of the in-game map with no image data",
+     "value": 34.0,
+     "unit": "%",
+     "provenance": "measured",
+     "method": "No-data pixels counted on the USGS mosaic by tools/pipeline/textures.py (public/data/imagery.json); the game fills them with the map's mean brightness",
+     "citation": "known-sky-pipeline"
     }
    ],
    "howWeKnow": [
@@ -2486,6 +2642,12 @@
      "method": "Thermal and chemical modelling matched to New Horizons images",
      "provenance": "inferred",
      "citation": "grundy2016"
+    },
+    {
+     "claim": "The in-game map is spacecraft imagery where New Horizons could see.",
+     "method": "USGS LORRI-MVIC global mosaic",
+     "provenance": "measured",
+     "citation": "usgs-charon-mosaic"
     }
    ],
    "related": [
@@ -2502,9 +2664,9 @@
    "summary": "An ultracool red dwarf about 40.7 light-years away, only a little larger than Jupiter, orbited by seven Earth-sized planets.",
    "body": [
     "TRAPPIST-1 is an ultracool dwarf star of spectral type M8 V. It has about 9% of the Sun's mass and 12% of its radius, a surface temperature near 2,570 K, and about 1/1,800 of the Sun's luminosity. It is faint in visible light but relatively bright in the infrared.",
-    "In 2016 astronomers reported three Earth-sized planets transiting the star. A year later, an intensive campaign with NASA's Spitzer Space Telescope and ground-based telescopes revealed seven. The six inner planets form a near-resonant chain: their periods are close to ratios of small whole numbers, which suggests they formed farther out and migrated inward.",
-    "Because all seven planets transit, their sizes are measured. Because they tug on one another, their transit times shift slightly from orbit to orbit, and modelling those shifts gives masses precise to 3-5%. All seven have similar densities, consistent with rocky worlds somewhat poorer in iron than Earth, or Earth-like worlds with extra light material such as water.",
-    "The star is old, about 7.6 ± 2.2 billion years, and magnetically active. Starspots, bright faculae and flares contaminate JWST transit spectra of its planets, which is one reason their atmospheres are so hard to study.",
+    "In 2016 astronomers reported three Earth-sized planets transiting the star. A year later, an intensive campaign with NASA's Spitzer Space Telescope and ground-based telescopes revealed seven. K2 then measured the period of the outermost planet, h: it matched the value predicted if all seven orbits are linked in a chain of resonances. Such an architecture suggests that the planets formed farther from the star and migrated inward.",
+    "Because all seven planets transit, their sizes are measured. Because they tug on one another, their transit times shift slightly from orbit to orbit, and modelling those shifts gives masses precise to 3-5%. Both are scaled by the star's own radius and mass, which rest partly on an empirical relation for red dwarfs. All seven have similar densities, consistent with rocky worlds somewhat poorer in iron than Earth, or Earth-like worlds with extra light material such as water.",
+    "Age indicators suggest the star is old, about 7.6 ± 2.2 billion years, and it is magnetically active. Starspots, bright faculae and flares contaminate JWST transit spectra of its planets, which is one reason their atmospheres are so hard to study.",
     "In the game, every planet surface you see in this system is **Generated**: no telescope can image them."
    ],
    "facts": [
@@ -2616,6 +2778,18 @@
      "method": "JWST NIRISS transit spectra of TRAPPIST-1 b",
      "provenance": "measured",
      "citation": "lim2023"
+    },
+    {
+     "claim": "TRAPPIST-1 h's 18.77-day period completes a chain of three-body resonances linking all seven planets.",
+     "method": "K2 photometry of planet h compared with Laplace-resonance predictions",
+     "provenance": "inferred",
+     "citation": "luger2017"
+    },
+    {
+     "claim": "The resonant chain suggests the planets formed farther out and migrated inward.",
+     "method": "Interpretation of the orbital architecture",
+     "provenance": "inferred",
+     "citation": "gillon2017"
     }
    ],
    "related": [
@@ -2651,7 +2825,7 @@
      "unit": "R⊕",
      "uncertainty": "+0.014/-0.012",
      "provenance": "measured",
-     "method": "Transit depth from Spitzer photometry and the star's radius (Agol et al. 2021)",
+     "method": "Transit depth from Spitzer photometry, scaled by the star's radius (Agol et al. 2021)",
      "citation": "agol2021"
     },
     {
@@ -2660,7 +2834,7 @@
      "unit": "M⊕",
      "uncertainty": 0.069,
      "provenance": "measured",
-     "method": "Transit-timing variations fitted with an N-body model (Agol et al. 2021, as listed in the NASA Exoplanet Archive)",
+     "method": "Transit-timing variations fitted with an N-body model, scaled by the star's mass (Agol et al. 2021, as listed in the NASA Exoplanet Archive)",
      "citation": "agol2021"
     },
     {
@@ -2779,10 +2953,10 @@
    "kind": "exoplanet",
    "systemId": "trappist-1",
    "unlock": "visit",
-   "summary": "An Earth-sized planet receiving a little more starlight than Venus does; JWST rules out a thick carbon-dioxide atmosphere like Venus's.",
+   "summary": "An Earth-sized planet receiving a little more starlight than Venus does; the heat JWST measured from its day side disfavours a thick carbon-dioxide atmosphere like Venus's.",
    "body": [
     "TRAPPIST-1 c orbits in 2.4 days and receives about twice the starlight Earth gets, a little more than Venus receives from the Sun.",
-    "JWST measured its day-side heat at 15 microns in 2023: a brightness temperature of 380 ± 31 K. That is too hot for a thick, carbon-dioxide-rich atmosphere, and a Venus-like atmosphere with sulfuric-acid clouds is disfavoured.",
+    "JWST measured its day-side heat at 15 microns in 2023: a brightness temperature of 380 ± 31 K. That high temperature disfavours a thick, carbon-dioxide-rich atmosphere; the data rule out a range of cloud-free oxygen and carbon-dioxide atmospheres, and a Venus-like atmosphere with sulfuric-acid clouds is also disfavoured.",
     "A later JWST phase curve found a day side near 369 K and a cold night side. TRAPPIST-1 c may be airless with a fairly reflective surface, or keep a thin, oxygen-rich atmosphere; atmospheres of 1 bar or more are strongly disfavoured.",
     "If the planet formed with water, the lack of a thick atmosphere suggests it began relatively poor in volatiles.",
     "**The surface you see in the game is Generated.** Its atmosphere, if any, is unknown."
@@ -2794,7 +2968,7 @@
      "unit": "R⊕",
      "uncertainty": "+0.014/-0.012",
      "provenance": "measured",
-     "method": "Transit depth from Spitzer photometry and the star's radius (Agol et al. 2021)",
+     "method": "Transit depth from Spitzer photometry, scaled by the star's radius (Agol et al. 2021)",
      "citation": "agol2021"
     },
     {
@@ -2803,7 +2977,7 @@
      "unit": "M⊕",
      "uncertainty": 0.056,
      "provenance": "measured",
-     "method": "Transit-timing variations fitted with an N-body model (Agol et al. 2021, as listed in the NASA Exoplanet Archive)",
+     "method": "Transit-timing variations fitted with an N-body model, scaled by the star's mass (Agol et al. 2021, as listed in the NASA Exoplanet Archive)",
      "citation": "agol2021"
     },
     {
@@ -2925,9 +3099,9 @@
    "kind": "exoplanet",
    "systemId": "trappist-1",
    "unlock": "visit",
-   "summary": "A small planet at the inner edge of TRAPPIST-1's habitable zone whose JWST spectrum is flat: no clear sign of an atmosphere.",
+   "summary": "A small planet at the inner edge of TRAPPIST-1's estimated habitable zone whose JWST spectrum is flat: no clear sign of an atmosphere.",
    "body": [
-    "TRAPPIST-1 d is about 79% of Earth's width and 39% of its mass, and receives about 1.1 times the starlight Earth does. That places it at the inner edge of the star's habitable zone.",
+    "TRAPPIST-1 d is about 79% of Earth's width and 39% of its mass, and receives about 1.1 times the starlight Earth does. That places it at the inner edge of the star's estimated habitable zone.",
     "JWST observed two transits with its near-infrared spectrograph. After correcting for the star's spots, which add slopes of 500-1,000 parts per million, the spectrum is flat to within about 100-150 ppm.",
     "That rules out clear hydrogen-rich atmospheres and many heavier ones resembling a haze-free Titan, a cloud-free Venus, early Mars, or cloud-free versions of ancient and modern Earth. If d has an atmosphere, it is probably very thin or hidden by high-altitude haze or clouds.",
     "**The surface you see in the game is Generated.** Whether TRAPPIST-1 d has any atmosphere is unknown."
@@ -2939,7 +3113,7 @@
      "unit": "R⊕",
      "uncertainty": "+0.011/-0.010",
      "provenance": "measured",
-     "method": "Transit depth from Spitzer photometry and the star's radius (Agol et al. 2021)",
+     "method": "Transit depth from Spitzer photometry, scaled by the star's radius (Agol et al. 2021)",
      "citation": "agol2021"
     },
     {
@@ -2948,7 +3122,7 @@
      "unit": "M⊕",
      "uncertainty": 0.012,
      "provenance": "measured",
-     "method": "Transit-timing variations fitted with an N-body model (Agol et al. 2021, as listed in the NASA Exoplanet Archive)",
+     "method": "Transit-timing variations fitted with an N-body model, scaled by the star's mass (Agol et al. 2021, as listed in the NASA Exoplanet Archive)",
      "citation": "agol2021"
     },
     {
@@ -3033,6 +3207,12 @@
      "citation": "piaulet2025"
     },
     {
+     "claim": "It lies at the edge of the habitable zone.",
+     "method": "Equilibrium temperature compared with habitable-zone limits",
+     "provenance": "inferred",
+     "citation": "piaulet2025"
+    },
+    {
      "claim": "The planet's surface in the game is not an observation.",
      "method": "Procedural generation within the measured size and temperature",
      "provenance": "generated",
@@ -3052,12 +3232,12 @@
    "kind": "exoplanet",
    "systemId": "trappist-1",
    "unlock": "visit",
-   "summary": "A habitable-zone planet that could keep liquid water on its surface if it has an atmosphere. Whether it has one is still unknown.",
+   "summary": "A planet in the estimated habitable zone of its star: it could keep liquid water on its surface if it has an atmosphere. Whether it has one is still unknown.",
    "body": [
-    "TRAPPIST-1 e is a little smaller than Earth and receives about two thirds of the starlight Earth gets. It lies in the star's habitable zone, where liquid water could exist on the surface if the planet has a suitable atmosphere.",
+    "TRAPPIST-1 e is a little smaller than Earth and receives about two thirds of the starlight Earth gets. It lies in the star's estimated habitable zone, where liquid water could exist on the surface if the planet has a suitable atmosphere.",
     "JWST observed four transits in 2023. The spectra are strongly affected by the star's spots, which current star models cannot fully explain, so the team modelled that contamination statistically.",
     "The data rule out cloudy, hydrogen-dominated atmospheres. They do not show strong evidence for or against any atmosphere: a bare rock fits, and so does a nitrogen-rich atmosphere with traces of carbon dioxide and methane. Carbon-dioxide-rich atmospheres as thick as Venus's are weakly disfavoured.",
-    "A longer JWST programme is now observing e right after transits of the airless planet b, to correct for the star's contamination more directly.",
+    "A longer JWST programme is now observing e right after transits of planet b, which is unlikely to have a substantial atmosphere, to correct for the star's contamination more directly.",
     "**Any oceans, clouds, ice or land you see on this planet in the game are Generated.** Its atmosphere and surface are unknown."
    ],
    "facts": [
@@ -3067,7 +3247,7 @@
      "unit": "R⊕",
      "uncertainty": "+0.013/-0.012",
      "provenance": "measured",
-     "method": "Transit depth from Spitzer photometry and the star's radius (Agol et al. 2021)",
+     "method": "Transit depth from Spitzer photometry, scaled by the star's radius (Agol et al. 2021)",
      "citation": "agol2021"
     },
     {
@@ -3076,7 +3256,7 @@
      "unit": "M⊕",
      "uncertainty": 0.022,
      "provenance": "measured",
-     "method": "Transit-timing variations fitted with an N-body model (Agol et al. 2021, as listed in the NASA Exoplanet Archive)",
+     "method": "Transit-timing variations fitted with an N-body model, scaled by the star's mass (Agol et al. 2021, as listed in the NASA Exoplanet Archive)",
      "citation": "agol2021"
     },
     {
@@ -3186,9 +3366,9 @@
    "kind": "exoplanet",
    "systemId": "trappist-1",
    "unlock": "visit",
-   "summary": "An Earth-sized planet in the cooler part of TRAPPIST-1's habitable zone, whose first JWST transit spectra were published in 2026; its atmosphere is still unknown.",
+   "summary": "An Earth-sized planet in the cooler part of TRAPPIST-1's estimated habitable zone, whose first JWST transit spectra were published in 2026; its atmosphere is still unknown.",
    "body": [
-    "TRAPPIST-1 f is almost exactly Earth's size and mass and receives about 37% of the starlight Earth gets, in the cooler part of the habitable zone.",
+    "TRAPPIST-1 f is almost exactly Earth's size and mass and receives about 37% of the starlight Earth gets, in the cooler part of the estimated habitable zone.",
     "The first JWST transit spectra of f, from five transits, were published in September 2026. Every visit included at least one stellar flare, but unlike for the inner planets, the team saw no sign of contamination from unseen starspots.",
     "The cleanest visits rule out hydrogen- and helium-rich atmospheres with surface pressures above about 20 millibars. Limits on heavier atmospheres depend on how the data are processed, so whether f has an atmosphere remains open.",
     "**The surface you see in the game is Generated.** Its atmosphere is unknown."
@@ -3200,7 +3380,7 @@
      "unit": "R⊕",
      "uncertainty": "+0.013/-0.012",
      "provenance": "measured",
-     "method": "Transit depth from Spitzer photometry and the star's radius (Agol et al. 2021)",
+     "method": "Transit depth from Spitzer photometry, scaled by the star's radius (Agol et al. 2021)",
      "citation": "agol2021"
     },
     {
@@ -3209,7 +3389,7 @@
      "unit": "M⊕",
      "uncertainty": 0.031,
      "provenance": "measured",
-     "method": "Transit-timing variations fitted with an N-body model (Agol et al. 2021, as listed in the NASA Exoplanet Archive)",
+     "method": "Transit-timing variations fitted with an N-body model, scaled by the star's mass (Agol et al. 2021, as listed in the NASA Exoplanet Archive)",
      "citation": "agol2021"
     },
     {
@@ -3313,10 +3493,10 @@
    "kind": "exoplanet",
    "systemId": "trappist-1",
    "unlock": "visit",
-   "summary": "The largest TRAPPIST-1 planet, slightly bigger than Earth, in the outer part of the habitable zone; very little is known about its atmosphere.",
+   "summary": "The largest TRAPPIST-1 planet, slightly bigger than Earth, in the outer part of the estimated habitable zone; very little is known about its atmosphere.",
    "body": [
     "TRAPPIST-1 g is about 13% wider and 32% more massive than Earth, the largest planet in the system, and receives about a quarter of the starlight Earth gets.",
-    "It counts as one of the system's habitable-zone planets, together with e and f. Its equilibrium temperature of about 200 K means it would be frozen unless an atmosphere keeps it warmer.",
+    "Climate-model estimates place it in the system's habitable zone, together with e and f. Its equilibrium temperature of about 200 K means it would be frozen unless an atmosphere keeps it warmer.",
     "Earlier transit spectra taken from space and from the ground ruled out cloud-free, hydrogen-rich atmospheres for every TRAPPIST-1 planet, including g. JWST has observed all seven planets, but this Codex's sources contain no published JWST measurement of g's atmosphere as of October 2026.",
     "**The surface you see in the game is Generated.** Its atmosphere is unknown."
    ],
@@ -3327,7 +3507,7 @@
      "unit": "R⊕",
      "uncertainty": "+0.015/-0.013",
      "provenance": "measured",
-     "method": "Transit depth from Spitzer photometry and the star's radius (Agol et al. 2021)",
+     "method": "Transit depth from Spitzer photometry, scaled by the star's radius (Agol et al. 2021)",
      "citation": "agol2021"
     },
     {
@@ -3336,7 +3516,7 @@
      "unit": "M⊕",
      "uncertainty": 0.038,
      "provenance": "measured",
-     "method": "Transit-timing variations fitted with an N-body model (Agol et al. 2021, as listed in the NASA Exoplanet Archive)",
+     "method": "Transit-timing variations fitted with an N-body model, scaled by the star's mass (Agol et al. 2021, as listed in the NASA Exoplanet Archive)",
      "citation": "agol2021"
     },
     {
@@ -3449,8 +3629,8 @@
    "summary": "The outermost known TRAPPIST-1 planet: small, cold, and receiving about one seventh of the starlight Earth gets.",
    "body": [
     "TRAPPIST-1 h is about three quarters of Earth's width and a third of its mass, and orbits every 18.8 days.",
-    "It receives about 14% of the starlight Earth gets, so without a thick greenhouse atmosphere it would be frozen. Like its siblings, it cannot have a cloud-free, hydrogen-rich atmosphere; beyond that, nothing is known about its air.",
-    "JWST transit timings show that h's transits have drifted by up to tens of minutes from the 2021 forecast, a reminder that even 'measured' orbits are models that get updated. That result comes from a research note that, as far as we know, has not been peer reviewed.",
+    "It receives about 14% of the starlight Earth gets, so without a thick greenhouse atmosphere it would be frozen. As for its siblings, transit spectra rule out a cloud-free, hydrogen-rich atmosphere; beyond that, nothing is known about its air.",
+    "A 2024 research note reported that new JWST transit times of h have drifted by up to tens of minutes from the 2021 forecast, a reminder that orbits fitted to measurements are models that get updated. A short note is not a full peer-reviewed analysis (its authors postponed that), so the Codex marks the drift **Inferred**.",
     "**The surface you see in the game is Generated.** Its atmosphere is unknown."
    ],
    "facts": [
@@ -3460,7 +3640,7 @@
      "unit": "R⊕",
      "uncertainty": 0.014,
      "provenance": "measured",
-     "method": "Transit depth from Spitzer photometry and the star's radius (Agol et al. 2021)",
+     "method": "Transit depth from Spitzer photometry, scaled by the star's radius (Agol et al. 2021)",
      "citation": "agol2021"
     },
     {
@@ -3469,7 +3649,7 @@
      "unit": "M⊕",
      "uncertainty": 0.02,
      "provenance": "measured",
-     "method": "Transit-timing variations fitted with an N-body model (Agol et al. 2021, as listed in the NASA Exoplanet Archive)",
+     "method": "Transit-timing variations fitted with an N-body model, scaled by the star's mass (Agol et al. 2021, as listed in the NASA Exoplanet Archive)",
      "citation": "agol2021"
     },
     {
@@ -3543,8 +3723,8 @@
     },
     {
      "claim": "Its transit times drifted by up to tens of minutes from the 2021 forecast.",
-     "method": "23 new JWST transit timings (research note)",
-     "provenance": "measured",
+     "method": "23 new JWST transit times compared with the 2021 N-body forecast (research note, not a full peer-reviewed paper)",
+     "provenance": "inferred",
      "citation": "agol2024"
     },
     {
@@ -3577,7 +3757,7 @@
     "Sirius A is a hot, metallic-line A-type star about twice the Sun's mass. Seen from Earth it is the brightest star in the night sky, because it is both luminous and close.",
     "It has a companion, **Sirius B**, a white dwarf: the dense core left behind by a star that has already finished its life. Sirius B has about the Sun's mass, and it is the brightest and nearest white dwarf known.",
     "The two stars orbit each other every 50.13 years. Combining nearly two decades of Hubble images with historical measurements back to the 19th century gives their masses to about 1%.",
-    "The system is young, roughly 230 million years old. Sirius B's progenitor must have been more massive than Sirius A to have evolved first, and how the two interacted while keeping such an eccentric orbit is still a puzzle.",
+    "Models put the system's age at roughly 230 million years, young for a star. Sirius B's progenitor is thought to have been more massive than Sirius A, since it evolved first, and how the two interacted while keeping such an eccentric orbit is still a puzzle.",
     "In the game, Sirius's position and brightness come from the HYG catalogue, based on Hipparcos measurements."
    ],
    "facts": [
@@ -3781,6 +3961,12 @@
      "method": "Not recovered in February and April 2025; needs re-detection",
      "provenance": "inferred",
      "citation": "sanghi2025"
+    },
+    {
+     "claim": "The IAU approved the proper name Rigil Kentaurus for Alpha Centauri A in 2016.",
+     "method": "IAU Working Group on Star Names catalogue",
+     "provenance": "measured",
+     "citation": "iau-csn"
     }
    ],
    "related": [
@@ -3797,7 +3983,7 @@
    "unlock": "visit",
    "summary": "The smaller partner of Alpha Centauri A: an orange K-type star a little less massive than the Sun.",
    "body": [
-    "Alpha Centauri B is a K1 V star, cooler and smaller than the Sun, with about 86% of its radius and 97% of its mass. Its proper name, recognized by the IAU, is Toliman.",
+    "Alpha Centauri B is a K1 V star, cooler and smaller than the Sun, with about 86% of its radius and 97% of its mass. In 2018 the IAU approved its proper name, Toliman.",
     "B and A orbit each other every 80 years or so, and the pair is circled at a great distance by Proxima Centauri.",
     "An Earth-mass planet candidate, 'Alpha Centauri Bb', was once announced from tiny radial-velocity wobbles of B. A re-analysis showed that its 3.24-day signal almost certainly came from the way the observations were spaced in time, not from a planet. No planet is confirmed around B.",
     "In the game, B is placed using the HYG catalogue's Hipparcos distance, the same as A."
@@ -3857,6 +4043,12 @@
      "method": "Re-analysis of the radial-velocity data and its time sampling",
      "provenance": "inferred",
      "citation": "rajpaul2016"
+    },
+    {
+     "claim": "The IAU approved the proper name Toliman for Alpha Centauri B in 2018.",
+     "method": "IAU Working Group on Star Names catalogue",
+     "provenance": "measured",
+     "citation": "iau-csn"
     }
    ],
    "related": [
@@ -3871,13 +4063,13 @@
    "kind": "star",
    "starName": "Proxima Centauri",
    "unlock": "visit",
-   "summary": "The closest star to the Sun: a small, flaring red dwarf 4.25 light-years away with at least two planets, including Earth-mass Proxima b.",
+   "summary": "The closest star to the Sun: a small, flaring red dwarf 4.25 light-years away with at least two planets, including Proxima b, which has at least about one Earth mass.",
    "body": [
     "Proxima Centauri is a red dwarf with about 12% of the Sun's mass, 14% of its radius and a surface near 3,050 K. It gives out only about 0.1% of the Sun's light, so although it is our nearest star it is far too faint to see without a telescope.",
-    "Gaia measured its parallax to better than 0.01%, putting it 4.2465 light-years away. Proxima is gravitationally bound to Alpha Centauri A and B, circling them roughly every 550,000 years; today it is near the far point of that orbit, about 13,000 au from the pair.",
-    "Two planets are confirmed by the radial-velocity method. **Proxima b** (2016) has at least 1.06 Earth masses and orbits every 11.2 days in the star's habitable zone. **Proxima d**, confirmed in 2025, has at least 0.26 Earth masses and orbits every 5.1 days. A third signal, a candidate called Proxima c with a period of about 5 years, is not confirmed.",
+    "Gaia measured its parallax to better than 0.01%, putting it 4.2465 light-years away. Measurements of its motion indicate that Proxima is gravitationally bound to Alpha Centauri A and B, circling them roughly every 550,000 years; today it is near the far point of that orbit, about 13,000 au from the pair.",
+    "Two planets are confirmed by the radial-velocity method. **Proxima b** (2016) has at least 1.06 Earth masses and orbits every 11.2 days, within what climate models count as the star's habitable zone. **Proxima d**, confirmed in 2025, has at least 0.26 Earth masses and orbits every 5.1 days. A third signal, a candidate called Proxima c with a period of about 5 years, is not confirmed.",
     "Proxima is an active flare star. In March 2016 a superflare made it about 68 times brighter in visible light, briefly reaching naked-eye brightness. Repeated flares like this could strip the ozone from an Earth-like atmosphere on Proxima b, so its habitability is very uncertain.",
-    "In the game, Proxima is placed using the HYG catalogue's Hipparcos parallax (4.23 ly), about 0.5% closer than Gaia's value."
+    "In the game, Proxima is placed using the HYG catalogue's Hipparcos parallax (4.23 ly), about 0.5% closer than Gaia's value. When you arrive, the game estimates its size from magnitude and colour at about 0.07 solar radii, half the measured size (see Star brightness in the game)."
    ],
    "facts": [
     {
@@ -3924,6 +4116,14 @@
      "citation": "anglada2016"
     },
     {
+     "label": "Game's size estimate (from magnitude and colour)",
+     "value": 0.075,
+     "unit": "R☉",
+     "provenance": "inferred",
+     "method": "HYG absolute magnitude and B-V colour, with a bolometric correction (src/world/starCatalog.ts, inferStar)",
+     "citation": "known-sky-pipeline"
+    },
+    {
      "label": "Mass",
      "value": 0.12,
      "unit": "M☉",
@@ -3935,8 +4135,8 @@
      "label": "Effective temperature",
      "value": 3050,
      "unit": "K",
-     "provenance": "measured",
-     "method": "Approximate value quoted by Anglada-Escudé et al. 2016",
+     "provenance": "inferred",
+     "method": "Approximate value quoted by Anglada-Escudé et al. 2016; effective temperatures come from fits of stellar models to the spectrum",
      "citation": "anglada2016"
     },
     {
@@ -4001,7 +4201,8 @@
     "alpha-centauri-a",
     "alpha-centauri-b",
     "concept-radial-velocity",
-    "concept-parallax"
+    "concept-parallax",
+    "concept-star-brightness"
    ]
   },
   {
@@ -4010,11 +4211,11 @@
    "kind": "exoplanet",
    "starName": "Proxima Centauri",
    "unlock": "visit",
-   "summary": "An Earth-mass planet in the habitable zone of the nearest star. We know its minimum mass and orbit, but not its size, atmosphere or surface.",
+   "summary": "A planet of at least about one Earth mass orbiting the nearest star, within what climate models count as its habitable zone. We know its minimum mass and orbit, but not its size, atmosphere or surface.",
    "body": [
     "Proxima b was announced in 2016 after astronomers measured Proxima Centauri wobbling towards and away from us every 11.2 days. Later observations with the ESPRESSO and NIRPS spectrographs confirmed it.",
     "The radial-velocity method gives only a **minimum mass**, at least 1.06 Earth masses, because we do not know how the orbit is tilted to our line of sight.",
-    "It orbits about 0.05 au from its star, about one twentieth of Earth's distance from the Sun, and lies in Proxima's habitable zone. It may be tidally locked, as many close-in exoplanets are thought to be, but that has not been measured.",
+    "It orbits about 0.05 au from its star, about one twentieth of Earth's distance from the Sun, within Proxima's habitable zone as estimated by climate models. It may be tidally locked, as many close-in exoplanets are thought to be, but that has not been measured.",
     "Its radius, whether it has an atmosphere, and what its surface is like are all unknown. Proxima's strong flares are a serious challenge for any atmosphere or life.",
     "**Anything shown for Proxima b's surface in the game is Generated.**"
    ],
@@ -4218,7 +4419,7 @@
     "Its distance is uncertain. Hipparcos gives about 500 light-years with a large error; a model-based study gives about 550; other measurements quoted by astronomers suggest about 720. So the light you see left the star roughly 500 to 700 years ago.",
     "Between November 2019 and March 2020 Betelgeuse faded to magnitude 1.6, far below its usual range. Images showed its southern half ten times darker than usual. The best explanation is a cloud of dust that formed after a cool patch appeared on the star's surface, following an outflow of material seen in ultraviolet light.",
     "Betelgeuse may have a small companion star on a roughly 6-year orbit. A 2024 image from the Gemini North telescope shows a probable detection, but only at about 1.5 sigma, and Hubble did not detect it in ultraviolet light. It is not confirmed.",
-    "In the game, Betelgeuse is placed using the HYG catalogue's Hipparcos distance. The size the game computes for it from magnitude and colour is much smaller than detailed models suggest."
+    "In the game, Betelgeuse is placed using the HYG catalogue's Hipparcos distance. The size the game computes for it from magnitude and colour, about 510 solar radii, is only about two thirds of what detailed models suggest."
    ],
    "facts": [
     {
@@ -4271,6 +4472,14 @@
      "provenance": "inferred",
      "method": "Evolutionary, seismic and hydrodynamic models (MESA)",
      "citation": "joyce2020"
+    },
+    {
+     "label": "Game's size estimate (from magnitude and colour)",
+     "value": 507,
+     "unit": "R☉",
+     "provenance": "inferred",
+     "method": "HYG absolute magnitude and B-V colour, with a bolometric correction (src/world/starCatalog.ts, inferStar)",
+     "citation": "known-sky-pipeline"
     },
     {
      "label": "Present-day mass",
@@ -4444,7 +4653,7 @@
    "summary": "A bright white star 25 light-years away that spins so fast it bulges at the equator, seen almost pole-on, and surrounded by a wide disc of dust.",
    "body": [
     "Vega has long served as a standard star: astronomers used it to calibrate both stellar spectra and brightness measurements.",
-    "Interferometers revealed that Vega rotates at more than 90% of the speed at which it would start to fly apart, and that we happen to look almost straight down on its pole. Its poles are about 2,250 K hotter than its equator, which explains why it looked oddly bright for its type.",
+    "Interferometers revealed that Vega is a rapid rotator. Models fitted to the data put its spin at more than 90% of the speed at which it would start to fly apart, show that we happen to look almost straight down on its pole, and make its poles about 2,250 K hotter than its equator, which explains why it looked oddly bright for its type.",
     "In 1984 the IRAS satellite found that Vega gives off far more infrared light than a star of its temperature should: the first such excess seen around a normal main-sequence star. It comes from solid particles orbiting the star, thought to be material left over from its formation.",
     "JWST images show the disc to be remarkably smooth and symmetric, with a broad outer belt from about 80 to 170 au. That argues against Saturn-mass planets beyond about 10 au, though a smaller planet could still be hiding closer in.",
     "In the game, Vega is placed using the HYG catalogue's Hipparcos distance."
@@ -4567,7 +4776,8 @@
     "**Inferred** means the value is not observed directly but follows from measurements through physics, models or calculation: a planet's density from its mass and radius, a star's age, an equilibrium temperature, or a distance in light-years computed from a parallax. Inferred values are only as good as the models behind them.",
     "**Generated** means the game made it up within physical rules because no data exist: the rocks and small craters under your ship, the terrain of an exoplanet, the glow of a star's surface. Generation is seeded, so every player sees the same world, but it is not real.",
     "The Codex never presents Inferred or Generated content as fact. When better data arrive, such as a new Gaia release or a new JWST spectrum, an object can be promoted from Generated to Inferred or Measured.",
-    "Measured does not mean final. When JWST timed new transits of TRAPPIST-1 h, they had drifted by up to tens of minutes from the 2021 forecast. Science keeps updating its numbers, and so does this Codex."
+    "Two edge cases follow fixed rules. Exact defined constants, such as the speed of light in metres per second, are shown as **Measured** with the method 'Definition'. Planet sizes and masses from transits and transit timing count as **Measured**, even though their absolute scale depends on the star's own size and mass, which may themselves be **Inferred**.",
+    "Measured does not mean final. In 2024 a research note reported that new JWST transit times of TRAPPIST-1 h had drifted by up to tens of minutes from the 2021 forecast. Science keeps updating its numbers, and so does this Codex."
    ],
    "facts": [
     {
@@ -4618,8 +4828,8 @@
     },
     {
      "claim": "Published orbits can shift when new data arrive.",
-     "method": "JWST transit timings of TRAPPIST-1 h",
-     "provenance": "measured",
+     "method": "JWST transit times of TRAPPIST-1 h compared with the 2021 forecast (research note, not a full peer-reviewed paper)",
+     "provenance": "inferred",
      "citation": "agol2024"
     }
    ],
@@ -4801,7 +5011,7 @@
     "In 2005 two groups showed that these timing variations could reveal unseen planets, even ones with about Earth's mass, especially when the planets are near an orbital resonance.",
     "Kepler-9 (2010) was confirmed this way: two Saturn-size planets whose orbital periods were changing by 4 and 39 minutes per orbit, a sign of mutual gravity near a 2:1 resonance.",
     "The seven TRAPPIST-1 planets are packed so tightly that their transit times pin down all seven masses to 3-5%. That is equivalent to measuring the star's wobble to 2.5 cm/s, about a hundred times finer than current radial-velocity instruments can.",
-    "Timing models have to be updated as new data arrive: new JWST timings show TRAPPIST-1 h drifting by up to tens of minutes from the 2021 forecast."
+    "Timing models have to be updated as new data arrive: in 2024 a research note reported new JWST timings of TRAPPIST-1 h drifting by up to tens of minutes from the 2021 forecast."
    ],
    "facts": [
     {
@@ -4961,7 +5171,7 @@
      "value": 299792458,
      "unit": "m/s",
      "provenance": "measured",
-     "method": "Exact by SI definition (listed by JPL)",
+     "method": "Definition: exact by the SI definition of the metre (listed by JPL)",
      "citation": "jpl-astro-constants"
     },
     {
@@ -5009,20 +5219,20 @@
      "value": 3230,
      "unit": "ly",
      "provenance": "inferred",
-     "method": "HYG stars filtered to within about 990 pc",
-     "citation": "hyg-v41"
+     "method": "The farthest HYG star the game keeps is 990 pc away (public/data/stars.bin), converted to light-years",
+     "citation": "known-sky-pipeline"
     }
    ],
    "howWeKnow": [
     {
      "claim": "The speed of light is 299,792,458 m/s.",
-     "method": "SI definition",
+     "method": "Definition (SI)",
      "provenance": "measured",
      "citation": "jpl-astro-constants"
     },
     {
      "claim": "The astronomical unit is exactly 149,597,870,700 m.",
-     "method": "IAU 2012 Resolution B2",
+     "method": "Definition: IAU 2012 Resolution B2",
      "provenance": "measured",
      "citation": "iau2012-b2"
     },
@@ -5201,11 +5411,11 @@
    "unlock": "scan",
    "summary": "The range of distances from a star where a rocky planet with the right atmosphere could keep liquid water on its surface. Being in it does not make a planet habitable.",
    "body": [
-    "Every star has a habitable zone: too close and water boils away, too far and it freezes. Hotter, brighter stars have wider zones farther out; dim red dwarfs have narrow zones very close in.",
+    "In climate models every star has a habitable zone: too close and water boils away, too far and it freezes. Hotter, brighter stars have wider zones farther out; dim red dwarfs have narrow zones very close in.",
     "The edges come from climate models. A widely used 2013 calculation puts the conservative habitable zone of our Sun between about 0.99 and 1.70 au, which places Earth near the inner edge.",
     "Astronomers compare the starlight a planet receives with what Earth receives rather than its temperature, because the real temperature depends on unknowns such as clouds, reflectivity and greenhouse gases.",
-    "Being in the zone is not enough. Mars lies inside the Sun's conservative habitable zone, yet it is a cold desert today. Planets of red dwarfs also face strong flares: superflares from Proxima Centauri could strip the ozone from an Earth-like atmosphere.",
-    "In this game, TRAPPIST-1 e, f and g lie in their star's habitable zone (d at its inner edge), and so does Proxima b. Whether any of them has an atmosphere, let alone water, is unknown."
+    "Being in the zone is not enough. By that estimate Mars lies inside the Sun's conservative habitable zone, yet it is a cold desert today. Planets of red dwarfs also face strong flares: superflares from Proxima Centauri could strip the ozone from an Earth-like atmosphere.",
+    "By the estimates cited in this Codex, TRAPPIST-1 e, f and g lie in their star's habitable zone (d at its inner edge), and so does Proxima b. Whether any of them has an atmosphere, let alone water, is unknown."
    ],
    "facts": [
     {
@@ -5309,24 +5519,24 @@
      "label": "Game ephemeris window",
      "value": "2026-2032",
      "provenance": "measured",
-     "method": "JPL Horizons state vectors fitted with Chebyshev polynomials",
-     "citation": "jpl-horizons"
+     "method": "Time span of the JPL Horizons state vectors fitted with Chebyshev polynomials by tools/pipeline/ephemeris.py (public/data/ephemeris.json)",
+     "citation": "known-sky-pipeline"
     },
     {
      "label": "Largest fit error, Moon",
      "value": 6.9,
      "unit": "m",
      "provenance": "measured",
-     "method": "Comparison with independent Horizons samples (public/data/ephemeris.json)",
-     "citation": "jpl-horizons"
+     "method": "Largest difference from held-out Horizons samples, computed by tools/pipeline/ephemeris.py (public/data/ephemeris.json)",
+     "citation": "known-sky-pipeline"
     },
     {
      "label": "Largest fit error, any body (Uranus)",
      "value": 1519,
      "unit": "m",
      "provenance": "measured",
-     "method": "Comparison with independent Horizons samples (public/data/ephemeris.json)",
-     "citation": "jpl-horizons"
+     "method": "Largest difference from held-out Horizons samples, computed by tools/pipeline/ephemeris.py (public/data/ephemeris.json)",
+     "citation": "known-sky-pipeline"
     }
    ],
    "howWeKnow": [
@@ -5386,8 +5596,8 @@
      "label": "HYG stars in the game",
      "value": 109400,
      "provenance": "measured",
-     "method": "HYG v4.1 filtered to valid distances within 1,000 pc (public/data/stars.json)",
-     "citation": "hyg-v41"
+     "method": "HYG v4.1 stars with a known distance, as kept by tools/pipeline/stars.py (public/data/stars.json)",
+     "citation": "known-sky-pipeline"
     },
     {
      "label": "Gaia launch",
@@ -5453,7 +5663,7 @@
     "Special relativity, published by Albert Einstein in 1905, makes the speed of light, 299,792,458 m/s, a limit: an object with mass would need unlimited energy to reach it.",
     "NASA's Voyager 1, the most distant human-made object, travels at about 17 km/s relative to the Sun. At that speed, crossing the distance to Proxima Centauri would take about 75,000 years.",
     "In the game, an interstellar jump takes roughly half a minute whatever the distance. Crossing 4.25 light-years in about 25 seconds would mean moving about five million times faster than light. That is pure fiction, and it is labelled **Generated**.",
-    "General relativity does allow some exotic solutions on paper. In 1994 Miguel Alcubierre described a 'warp drive' that contracts space ahead of a ship and expands it behind, so the ship could outpace light as seen from outside. It needs 'exotic matter' with negative energy density, and later calculations found the total energy required to be physically unattainable.",
+    "General relativity does allow some exotic solutions on paper. In 1994 Miguel Alcubierre described a 'warp drive' that contracts space ahead of a ship and expands it behind, so the ship could outpace light as seen from outside. It needs 'exotic matter' with negative energy density. For Alcubierre's original design, later calculations found the total energy required physically unattainable; a modified design cuts the requirement to a few solar masses of negative mass, which is still exotic matter.",
     "Traversable wormholes, shortcuts through spacetime, were described by Morris and Thorne in 1988 as a teaching tool. They need material whose tension exceeds its energy density; no known material behaves that way, though the authors noted it could not be ruled out firmly. There is no known way to build a warp drive or a wormhole."
    ],
    "facts": [
@@ -5462,7 +5672,7 @@
      "value": 299792458,
      "unit": "m/s",
      "provenance": "measured",
-     "method": "Exact by SI definition (listed by JPL)",
+     "method": "Definition: exact by the SI definition of the metre (listed by JPL)",
      "citation": "jpl-astro-constants"
     },
     {
@@ -5512,10 +5722,16 @@
      "citation": "alcubierre1994"
     },
     {
-     "claim": "The energy needed for a warp bubble is physically unattainable.",
+     "claim": "For Alcubierre's original warp bubble, the total energy needed is physically unattainable.",
      "method": "Quantum inequality limits on negative energy",
      "provenance": "inferred",
      "citation": "pfenning1997"
+    },
+    {
+     "claim": "A modified warp geometry still needs negative mass, of the order of a few solar masses.",
+     "method": "Solution of Einstein's field equations",
+     "provenance": "inferred",
+     "citation": "vandenbroeck1999"
     },
     {
      "claim": "Traversable wormholes require material violating the energy conditions.",
@@ -5539,34 +5755,34 @@
    "body": [
     "**Earth:** colour from NASA's Blue Marble Next Generation (July 2004), night lights from NASA's Black Marble (2016), clouds from a single 2002 composite, and elevation from NOAA's ETOPO 2022 at about 7 km spacing. Hills, rocks and features smaller than that are Generated.",
     "**Moon:** colour from the Lunar Reconnaissance Orbiter camera mosaic, processed for natural colour by NASA's Scientific Visualization Studio, with the polar regions filled from laser-altimeter brightness; elevation from LOLA at about 3.8 km spacing. Smaller craters are Generated.",
-    "**Pluto and Charon:** New Horizons global mosaics published by the USGS. Regions the spacecraft did not image have no data.",
-    "**Other moons** (Io, Europa, Ganymede, Callisto, Enceladus, Titan, Phobos, Deimos, Triton): spacecraft-based maps from NASA's 3D Resources. Some contain blank fill where no images exist, and Titan's shows haze, not ground. Their relief is Generated.",
+    "**Moons and dwarf planets:** global mosaics of spacecraft images published by the USGS: New Horizons for Pluto and Charon, Galileo and Voyager for Io, Europa, Ganymede and Callisto, Cassini for Enceladus and Titan, Voyager 2 for Triton and Viking for Phobos. Where no spacecraft saw the ground, about a third of Pluto, Charon and Triton and a few per cent of Europa, Ganymede and Callisto, the game fills the gap with the map's average brightness. That fill is Generated.",
+    "**Titan** is drawn as its haze, with a colour Inferred from its measured brightness spectrum; Cassini's near-infrared surface map shows through only faintly. **Deimos** uses a map from NASA's 3D Resources whose source images are not documented. Relief on all these worlds is Generated.",
     "**Planets** (Mercury, Venus's clouds, Mars, Jupiter, Saturn and its rings, Uranus, Neptune): Solar System Scope textures. Their makers say they are based on NASA imagery, colour-tuned, slightly over-saturated, and that unmapped gaps are filled with invented terrain. Real laser-altimeter topography exists for Mars but the game does not use it yet; relief on rocky planets is Generated, and giant-planet clouds are fixed snapshots.",
     "**Exoplanets:** every surface is Generated. No telescope can resolve them; only sizes, masses, orbits and a few limits on atmospheres are known."
    ],
    "facts": [
     {
-     "label": "Earth colour map",
+     "label": "Month of the Blue Marble map used in the game",
      "value": "July 2004",
      "provenance": "measured",
-     "method": "MODIS monthly composite (Blue Marble Next Generation)",
-     "citation": "blue-marble-ng"
+     "method": "Blue Marble Next Generation monthly composite world.200407 (docs/DATA_MANIFEST.md)",
+     "citation": "known-sky-pipeline"
     },
     {
-     "label": "Earth elevation spacing",
+     "label": "Earth elevation spacing in the game",
      "value": 7.4,
      "unit": "km",
-     "provenance": "measured",
-     "method": "ETOPO 2022, 4 arc-minute sampling at the equator",
-     "citation": "etopo2022"
+     "provenance": "inferred",
+     "method": "4 arc-minutes at the equator: 2π × 6,371 km / 5,400",
+     "citation": "known-sky-pipeline"
     },
     {
-     "label": "Moon elevation spacing",
+     "label": "Moon elevation spacing in the game",
      "value": 3.8,
      "unit": "km",
-     "provenance": "measured",
-     "method": "LOLA via the CGI Moon Kit, averaged to 8 px/deg",
-     "citation": "svs-cgi-moon-kit"
+     "provenance": "inferred",
+     "method": "1/8 degree at the equator: 2π × 1,737.4 km / 2,880",
+     "citation": "known-sky-pipeline"
     },
     {
      "label": "Pluto source mosaic resolution",
@@ -5575,6 +5791,13 @@
      "provenance": "measured",
      "method": "USGS product (downsampled in the game)",
      "citation": "usgs-pluto-mosaic"
+    },
+    {
+     "label": "Moon and dwarf-planet maps from USGS mosaics",
+     "value": 10,
+     "provenance": "measured",
+     "method": "Pluto, Charon, Io, Europa, Ganymede, Callisto, Enceladus, Titan, Triton and Phobos (tools/pipeline/textures.py; public/data/imagery.json)",
+     "citation": "known-sky-pipeline"
     },
     {
      "label": "Exoplanet surfaces",
@@ -5592,9 +5815,9 @@
      "citation": "svs-cgi-moon-kit"
     },
     {
-     "claim": "Solar System Scope fills unmapped gaps with fictional terrain.",
-     "method": "Statement by the texture makers",
-     "provenance": "generated",
+     "claim": "Solar System Scope states that it fills unmapped gaps in its planet maps with fictional terrain.",
+     "method": "Statement on the texture makers' site",
+     "provenance": "measured",
      "citation": "solar-system-scope"
     },
     {
@@ -5604,10 +5827,28 @@
      "citation": "smith2001mola"
     },
     {
-     "claim": "Blue Marble deep oceans are a uniform colour, not observed.",
-     "method": "NASA Earth Observatory notes",
-     "provenance": "generated",
+     "claim": "NASA notes that the Blue Marble's deep oceans are a uniform blue, not observed colour.",
+     "method": "NASA Earth Observatory notes on the dataset",
+     "provenance": "measured",
      "citation": "blue-marble-ng"
+    },
+    {
+     "claim": "Titan's haze colour follows its measured visible albedo spectrum.",
+     "method": "Spectrophotometry of Titan at 300-1,000 nm",
+     "provenance": "inferred",
+     "citation": "karkoschka1994"
+    },
+    {
+     "claim": "The Deimos map's source images are not documented.",
+     "method": "NASA 3D Resources repository",
+     "provenance": "inferred",
+     "citation": "nasa-3d-resources"
+    },
+    {
+     "claim": "The USGS mosaics leave unimaged areas blank; the game fills them.",
+     "method": "No-data fractions measured by tools/pipeline/textures.py (public/data/imagery.json)",
+     "provenance": "generated",
+     "citation": "known-sky-pipeline"
     }
    ],
    "related": [
@@ -5615,7 +5856,9 @@
     "earth",
     "moon",
     "pluto",
-    "titan"
+    "titan",
+    "triton",
+    "deimos"
    ]
   },
   {
@@ -5713,7 +5956,7 @@
     "The game takes each star's absolute magnitude from the HYG catalogue and its distance from your ship, and recomputes its apparent brightness every frame. Fly towards a star and it brightens according to the inverse-square law; brightness ratios between stars are preserved.",
     "The overall level is an artistic choice. Your eyes adapt to the dark far more than a camera exposed for sunlit planets, so the game turns up all stars and the Milky Way together and draws stars down to about magnitude 7.5. That exaggeration is **Generated**.",
     "Star colours come from each star's catalogue colour index, converted to a temperature with a black-body formula, so they are **Inferred**.",
-    "When you travel to a star, the game also estimates its size from its visual magnitude and colour with a simple formula. This works reasonably for Sun-like stars but makes very red stars far too small, because the formula counts only visible light: for Proxima Centauri it gives about 0.02 solar radii, against a measured 0.14. Detailed models make Betelgeuse about three times larger than the game's estimate."
+    "When you travel to a star, the game also estimates its size from its visual magnitude and colour, with a correction for light outside the visible band. This works reasonably for Sun-like stars, but the colour index saturates for the coolest stars, so their temperatures come out too high and their sizes too small: for Proxima Centauri the game gives about 0.07 solar radii, about half the measured 0.14. For Betelgeuse it gives about 510 solar radii, about two thirds of what detailed models suggest."
    ],
    "facts": [
     {
@@ -5757,11 +6000,11 @@
     },
     {
      "label": "Game's size estimate for Proxima Centauri",
-     "value": 0.02,
+     "value": 0.075,
      "unit": "R☉",
      "provenance": "inferred",
-     "method": "Visual luminosity and colour temperature only (no bolometric correction)",
-     "citation": "known-sky-source"
+     "method": "HYG absolute magnitude and B-V colour, with a bolometric correction (src/world/starCatalog.ts, inferStar)",
+     "citation": "known-sky-pipeline"
     },
     {
      "label": "Measured radius of Proxima Centauri",
@@ -5770,12 +6013,29 @@
      "provenance": "measured",
      "method": "Published stellar radius",
      "citation": "anglada2016"
+    },
+    {
+     "label": "Game's size estimate for Betelgeuse",
+     "value": 507,
+     "unit": "R☉",
+     "provenance": "inferred",
+     "method": "HYG absolute magnitude and B-V colour, with a bolometric correction (src/world/starCatalog.ts, inferStar)",
+     "citation": "known-sky-pipeline"
+    },
+    {
+     "label": "Model radius of Betelgeuse",
+     "value": 764,
+     "unit": "R☉",
+     "uncertainty": "+116/-62",
+     "provenance": "inferred",
+     "method": "Evolutionary, seismic and hydrodynamic models (MESA)",
+     "citation": "joyce2020"
     }
    ],
    "howWeKnow": [
     {
      "claim": "Magnitudes are logarithmic in flux.",
-     "method": "IAU 2015 Resolution B2 definitions",
+     "method": "Definition: IAU 2015 Resolution B2",
      "provenance": "measured",
      "citation": "mamajek2015"
     },
