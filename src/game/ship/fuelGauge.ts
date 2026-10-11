@@ -149,6 +149,17 @@ const CSS = `
 @keyframes ks-fuel-flow { to { background-position: 1rem 0; } }
 @keyframes ks-fuel-flow-fill { to { background-position: 0.75rem 0, 0 0; } }
 @keyframes ks-fuel-throb { from { opacity: 1; } to { opacity: 0.55; } }
+/* Short screens: tighter spacing so the HUD's centred side panels keep clear of the gauge. */
+@media (max-height: 36rem) {
+  .ks-fuel { padding: 0.4rem 0.6rem 0.45rem; }
+  .ks-fuel--hud { top: 0.75rem; }
+  .ks-fuel-head { margin-bottom: 0.2rem; }
+  .ks-fuel-row + .ks-fuel-row { margin-top: 0.3rem; }
+  .ks-fuel-bar { margin-top: 0.22rem; height: 0.42rem; }
+  .ks-fuel-sub { margin-top: 0.2rem; }
+  .ks-fuel-v { font-size: 0.78rem; }
+  .ks-fuel-scoop { margin-top: 0.35rem; padding: 0.08rem 0.4rem; }
+}
 @media (prefers-reduced-motion: reduce) {
   .ks-fuel, .ks-fuel *, .ks-fuel *::before { animation: none !important; transition: none !important; }
 }
