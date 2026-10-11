@@ -7,7 +7,7 @@ import { SPEED_OF_LIGHT_M_PER_S } from '../../core/constants';
 import type { Provenance } from '../../core/provenance';
 import type { Vec3d } from '../../core/vec3d';
 import { formatDistance, formatDuration, formatSpeed } from '../format';
-import { t } from '../i18n';
+import { formatNumber, t } from '../i18n';
 import type { FlightMode } from '../ship/ship';
 
 export interface HudTarget {
@@ -140,12 +140,14 @@ export class Hud {
     // Top: mode, speed, throttle.
     const modeName = t(`hud.mode.${s.mode}`);
     const speedC = s.speed / SPEED_OF_LIGHT_M_PER_S;
-    const cNote = speedC > 0.001 ? ` · ${t('hud.fractionC', { v: speedC >= 1 ? speedC.toFixed(speedC < 10 ? 1 : 0) : speedC.toFixed(3) })}` : '';
+    // Below 0.001c the speed reads in m/s or km/s; add the fraction of c from 0.0001c so cruise speeds have context.
+    // From 0.001c the speed itself is shown in c, so no note.
+    const cNote = speedC >= 1e-4 && speedC < 1e-3 ? ` · ${t('hud.fractionC', { v: formatNumber(speedC, 4) })}` : '';
     this.top.innerHTML =
       `<div class="ks-mode">${modeName}${s.flightAssist ? '' : ` · ${t('hud.faOff')}`}${s.landed ? ` · ${t('hud.landed')}` : ''}</div>` +
       `<div class="ks-speed">${formatSpeed(s.speed)}<span class="ks-sub">${t(`hud.speedRef.${s.speedLabel}`)}${cNote}</span></div>` +
       `<div class="ks-throttle" aria-label="${t('hud.throttle')}"><div class="ks-throttle-fill" style="width:${Math.round(Math.abs(s.throttle) * 100)}%;${s.throttle < 0 ? 'background:var(--ks-warn,#ffb347)' : ''}"></div></div>` +
-      (s.mode !== 'thrusters' ? `<div class="ks-sub">${t('hud.governor', { v: formatSpeed(s.governorSpeed) })}</div>` : '');
+      (s.mode === 'impulse' || s.mode === 'cruise' ? `<div class="ks-sub">${t('hud.governor', { v: formatSpeed(s.governorSpeed) })}</div>` : '');
     // Left: altitude.
     this.left.innerHTML =
       `<div class="k">${t('hud.near')}</div><div class="v">${s.nearName}</div>` +

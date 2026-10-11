@@ -80,6 +80,40 @@ test('boots, shows the HUD and renders lit views', async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
+test('the catalogue starfield renders (regression: mirrored sprite quads were back-face culled)', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  // Milky Way off and no cockpit, so only catalogue stars can light the sky.
+  await page.goto('/?msaa=0&bloom=0&cockpit=0&mwGain=0');
+  await page.waitForFunction(() => (window as unknown as { __ks?: unknown }).__ks !== undefined, null, { timeout: 180_000 });
+  await page.evaluate(() => {
+    const ks = (window as unknown as { __ks: KS }).__ks;
+    // Deep space, far from any planet.
+    ks.app.controller.ship.pos.offset.x = 3e12;
+    ks.app.controller.ship.pos.offset.y = 1e12;
+  });
+  await page.waitForTimeout(1500);
+  // Count lit pixels at full resolution (stars are 1-3 px; a downsample would average them away).
+  const lit = await page.evaluate(async () => {
+    const ks = (window as unknown as { __ks: KS }).__ks;
+    const img = new Image();
+    img.src = ks.capture();
+    await img.decode();
+    const c = document.createElement('canvas');
+    c.width = img.width;
+    c.height = img.height;
+    const g = c.getContext('2d')!;
+    g.drawImage(img, 0, 0);
+    const d = g.getImageData(0, 0, c.width, c.height).data;
+    let n = 0;
+    for (let i = 0; i < d.length; i += 4) if (0.2126 * d[i]! + 0.7152 * d[i + 1]! + 0.0722 * d[i + 2]! > 30) n++;
+    return n;
+  });
+  // A broken starfield leaves this sky black (0); a working one shows hundreds of stars.
+  expect(lit).toBeGreaterThan(200);
+  expect(errors).toEqual([]);
+});
+
 test('map lists destinations and sets the target', async ({ page }) => {
   const errors: string[] = [];
   await boot(page, errors);

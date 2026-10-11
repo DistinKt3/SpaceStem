@@ -319,6 +319,9 @@ export class App {
   }
 
   private exposureState = -1;
+  /** Display gains for stars and the Milky Way after eye adaptation (artistic; see the Codex entry on star brightness). */
+  starGain = Number(this.params.get('starGain') ?? 0.6);
+  milkyWayGain = Number(this.params.get('mwGain') ?? 0.6);
   private skyVisibility = 1;
 
   /**
@@ -344,8 +347,8 @@ export class App {
     v *= 1 - 0.5 * cover;
     this.skyVisibility += (v - this.skyVisibility) * 0.1;
     const inv = 1 / Math.max(this.frame.exposure.value, 1e-3);
-    this.stars.gain.value = this.skyVisibility * inv * 0.6;
-    this.stars.skyGain.value = this.skyVisibility * inv * 0.6;
+    this.stars.gain.value = this.skyVisibility * inv * this.starGain;
+    this.stars.skyGain.value = this.skyVisibility * inv * this.milkyWayGain;
     this.stars.viewport.value.set(this.renderer.domElement.width, this.renderer.domElement.height);
     this.stars.setPlanets(this.sys.pointSources());
   }

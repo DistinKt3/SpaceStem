@@ -181,7 +181,7 @@ export class Starfield {
     }
     // Intensity: 10^(-0.4 (m - 4)), soft cut at the magnitude limit; HDR above m~4 so bright stars bloom.
     const flux = pow(float(10), appMag.sub(4).mul(-0.4));
-    const visible = smoothstep(this.magLimit, this.magLimit.sub(1.5), appMag);
+    const visible = float(1).sub(smoothstep(this.magLimit.sub(1.5), this.magLimit, appMag));
     const intensity = min(flux, float(direct ? 40 : 12)).mul(visible).mul(this.gain);
     const sizePx = clamp(pow(float(10), appMag.sub(2).mul(-0.12)).mul(2.4), 1.6, direct ? 9 : 12);
 
@@ -200,11 +200,12 @@ export class Starfield {
       const away = ndc.sub(vpNdc).mul(this.viewport).mul(0.5); // px
       const awayLen = max(length(away), 1e-3);
       const along = away.div(awayLen);
-      const across = vec2(along.y.negate(), along.x);
+      // (along, across) must keep the quad's winding (determinant +1), or the sprite is back-face culled.
+      const across = vec2(along.y, along.x.negate());
       const streakPx = this.streak.mul(awayLen).mul(0.35).mul(select(vpClip.w.greaterThan(0), float(1), float(0)));
       const corner = positionGeometry.xy;
       const lenPx = sizePx.add(streakPx);
-      const offPx = along.mul(corner.y.mul(lenPx).sub(streakPx.mul(0.5))).add(across.mul(corner.x.mul(sizePx)));
+      const offPx = across.mul(corner.x.mul(sizePx)).add(along.mul(corner.y.mul(lenPx).sub(streakPx.mul(0.5))));
       const offset = offPx.mul(2).div(this.viewport).mul(clip.w);
       return vec4(clip.xy.add(offset.mul(s)), clip.z, clip.w);
     })();
