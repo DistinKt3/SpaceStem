@@ -1,0 +1,466 @@
+/*
+ * Share and screenshot UI: the screenshot-mode overlay, the toast, and what screenshot mode hides.
+ * Colours come from the shared tokens (styles.css, ui.css), so colour-blind and high-contrast palettes apply. Sizes
+ * are in rem so the text-size setting scales everything. Motion is removed under reduced motion by ui.css's global
+ * rule (html[data-reduced-motion]), by the OS preference below, and by the .is-still class set from the Settings.
+ */
+
+/* --- What screenshot mode hides ---------------------------------------------------------------------------------- */
+/* The ship HUD, the debug HUD, and any element another module marks with data-ks-hide-in-screenshot. The cockpit
+ * model is a 3D scene: the integrator turns it off (FrameRenderer.cockpitEnabled) while the mode is active. */
+
+body.ks-screenshot .ks-hud,
+body.ks-screenshot #hud,
+body.ks-screenshot [data-ks-hide-in-screenshot] {
+  display: none !important;
+}
+
+/* Captions leave the picture but stay in the accessibility tree (screen readers still hear sound cues). */
+body.ks-screenshot .ks-captions {
+  opacity: 0 !important;
+}
+
+/* --- Overlay ----------------------------------------------------------------------------------------------------- */
+
+.ks-shot {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  pointer-events: none;
+  color: var(--ks-fg);
+  font-family: var(--ks-font);
+  -webkit-font-smoothing: antialiased;
+}
+
+.ks-shot[hidden] {
+  display: none;
+}
+
+.ks-shot-preview {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.ks-shot-preview[hidden] {
+  display: none;
+}
+
+/* Viewfinder corners. */
+.ks-shot-frame i {
+  position: absolute;
+  width: 2.4rem;
+  height: 2.4rem;
+  border: 0 solid color-mix(in srgb, var(--ks-accent) 75%, transparent);
+  opacity: 0.75;
+  filter: drop-shadow(0 0 0.35rem color-mix(in srgb, var(--ks-accent) var(--ks-glow, 35%), transparent));
+  transition: opacity 0.4s ease;
+}
+
+.ks-shot-frame i:nth-child(1) {
+  top: 1.1rem;
+  left: 1.1rem;
+  border-top-width: 2px;
+  border-left-width: 2px;
+  border-top-left-radius: 0.35rem;
+}
+
+.ks-shot-frame i:nth-child(2) {
+  top: 1.1rem;
+  right: 1.1rem;
+  border-top-width: 2px;
+  border-right-width: 2px;
+  border-top-right-radius: 0.35rem;
+}
+
+.ks-shot-frame i:nth-child(3) {
+  bottom: 1.1rem;
+  left: 1.1rem;
+  border-bottom-width: 2px;
+  border-left-width: 2px;
+  border-bottom-left-radius: 0.35rem;
+}
+
+.ks-shot-frame i:nth-child(4) {
+  bottom: 1.1rem;
+  right: 1.1rem;
+  border-bottom-width: 2px;
+  border-right-width: 2px;
+  border-bottom-right-radius: 0.35rem;
+}
+
+.ks-shot-bar {
+  position: absolute;
+  top: 1.1rem;
+  left: 50%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  box-sizing: border-box;
+  max-width: calc(100vw - 2rem);
+  padding: 0.4rem 0.45rem 0.4rem 0.95rem;
+  border: var(--ks-border-w, 1px) solid var(--ks-border);
+  border-radius: 1.6rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0) 60%),
+    var(--ks-surface, rgba(7, 15, 30, 0.9));
+  box-shadow:
+    0 0.9rem 2.6rem rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(12px) saturate(1.2);
+  transform: translateX(-50%);
+  pointer-events: auto;
+  transition:
+    opacity 0.4s ease,
+    transform 0.4s ease;
+}
+
+.ks-shot.is-idle .ks-shot-bar {
+  opacity: 0;
+  transform: translate(-50%, -0.6rem);
+}
+
+.ks-shot.is-idle .ks-shot-frame i {
+  opacity: 0;
+}
+
+.ks-shot-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-right: 0.35rem;
+  color: var(--ks-accent);
+  font: 600 0.68rem/1 var(--ks-mono);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.ks-shot-rec {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--ks-danger);
+  box-shadow: 0 0 0.5rem color-mix(in srgb, var(--ks-danger) 70%, transparent);
+  animation: ks-shot-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes ks-shot-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.ks-shot-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  box-sizing: border-box;
+  min-height: 2.5rem;
+  padding: 0.35rem 0.95rem;
+  border: var(--ks-border-w, 1px) solid var(--ks-border);
+  border-radius: 1.3rem;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ks-fg);
+  font: 500 0.9rem/1.1 var(--ks-font);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background-color 0.15s;
+}
+
+.ks-shot-btn:hover {
+  border-color: var(--ks-accent);
+  background: color-mix(in srgb, var(--ks-accent) 12%, transparent);
+}
+
+.ks-shot-btn:focus-visible {
+  outline: 2px solid var(--ks-focus, var(--ks-accent));
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--ks-focus, var(--ks-accent)) 22%, transparent);
+}
+
+.ks-shot-btn:disabled {
+  cursor: progress;
+  opacity: 0.75;
+}
+
+.ks-shot-capture {
+  border-color: color-mix(in srgb, var(--ks-accent) 80%, transparent);
+  background: color-mix(in srgb, var(--ks-accent) 20%, transparent);
+  font-weight: 600;
+}
+
+.ks-shot-capture:hover {
+  background: color-mix(in srgb, var(--ks-accent) 30%, transparent);
+}
+
+.ks-shot-btn .ks-ico {
+  width: 1.2rem;
+  height: 1.2rem;
+  flex: none;
+}
+
+.ks-shot-btn .ks-kbd {
+  min-width: 1.5rem;
+  height: 1.5rem;
+  padding: 0 0.4rem;
+  font-size: 0.72rem;
+}
+
+.ks-shot-btn .ks-kbd[hidden] {
+  display: none;
+}
+
+.ks-shot-exit {
+  border-color: transparent;
+  background: transparent;
+  color: var(--ks-dim);
+}
+
+.ks-shot-exit:hover {
+  color: var(--ks-fg);
+}
+
+/* Caption switch (a button with role=switch; the state is shown by position, fill and a check mark). */
+.ks-shot-track {
+  position: relative;
+  box-sizing: border-box;
+  width: 2.3rem;
+  height: 1.3rem;
+  border: var(--ks-border-w, 1px) solid var(--ks-border);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.08);
+  transition:
+    background-color 0.18s,
+    border-color 0.18s;
+}
+
+.ks-shot-thumb {
+  position: absolute;
+  top: 50%;
+  left: 0.16rem;
+  width: 0.86rem;
+  height: 0.86rem;
+  border-radius: 50%;
+  background: var(--ks-dim);
+  transform: translateY(-50%);
+  transition:
+    transform 0.18s cubic-bezier(0.3, 0.7, 0.3, 1),
+    background-color 0.18s;
+}
+
+.ks-shot-thumb::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 45%;
+  width: 0.18rem;
+  height: 0.36rem;
+  border: solid #02060c;
+  border-width: 0 2px 2px 0;
+  opacity: 0;
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.ks-shot-switch[aria-checked='true'] .ks-shot-track {
+  border-color: var(--ks-accent);
+  background: color-mix(in srgb, var(--ks-accent) 32%, transparent);
+}
+
+.ks-shot-switch[aria-checked='true'] .ks-shot-thumb {
+  background: var(--ks-fg);
+  transform: translate(0.98rem, -50%);
+}
+
+.ks-shot-switch[aria-checked='true'] .ks-shot-thumb::after {
+  opacity: 1;
+}
+
+.ks-shot-sep {
+  width: 1px;
+  height: 1.4rem;
+  margin: 0 0.1rem;
+  background: var(--ks-hairline, rgba(255, 255, 255, 0.1));
+}
+
+.ks-shot-flash {
+  position: absolute;
+  inset: 0;
+  background: #ffffff;
+  opacity: 0;
+}
+
+.ks-shot-flash.is-on {
+  animation: ks-shot-flash 0.34s ease-out;
+}
+
+@keyframes ks-shot-flash {
+  from {
+    opacity: 0.32;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@media (max-width: 36rem) {
+  .ks-shot-badge {
+    display: none;
+  }
+  .ks-shot-bar {
+    padding-left: 0.45rem;
+  }
+}
+
+/* --- Toast ------------------------------------------------------------------------------------------------------- */
+
+.ks-toasts {
+  position: fixed;
+  top: 1.1rem;
+  right: 1.1rem;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+  max-width: min(25rem, calc(100vw - 2.2rem));
+  pointer-events: none;
+}
+
+.ks-toast {
+  --ks-toast-tone: var(--ks-accent);
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  box-sizing: border-box;
+  padding: 0.75rem 1.05rem 0.78rem 0.85rem;
+  border: var(--ks-border-w, 1px) solid var(--ks-border);
+  border-left: 3px solid var(--ks-toast-tone);
+  border-radius: 0.8rem;
+  background:
+    radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--ks-toast-tone) 12%, transparent), transparent 60%),
+    var(--ks-surface, rgba(7, 15, 30, 0.9));
+  box-shadow: 0 0.8rem 2.2rem rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(12px) saturate(1.15);
+  color: var(--ks-fg);
+  font: 500 0.92rem/1.35 var(--ks-font);
+  pointer-events: auto;
+  opacity: 0;
+  transform: translateY(-0.5rem);
+  transition:
+    opacity 0.24s ease,
+    transform 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.ks-toast[data-kind='ok'] {
+  --ks-toast-tone: var(--ks-ok);
+}
+
+.ks-toast[data-kind='warn'] {
+  --ks-toast-tone: var(--ks-warn);
+}
+
+.ks-toast[data-kind='error'] {
+  --ks-toast-tone: var(--ks-danger);
+}
+
+.ks-toast.is-in {
+  opacity: 1;
+  transform: none;
+}
+
+.ks-toast.is-out {
+  opacity: 0;
+  transform: translateY(-0.3rem);
+}
+
+.ks-toast.is-still,
+.ks-toast.is-still.is-out {
+  transform: none;
+  transition: none;
+}
+
+.ks-toast-icon {
+  flex: none;
+  width: 1.3rem;
+  height: 1.3rem;
+  margin-top: 0.02rem;
+  color: var(--ks-toast-tone);
+}
+
+.ks-toast-icon .ks-ico {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.ks-toast-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.ks-toast-msg {
+  font-weight: 600;
+}
+
+.ks-toast-detail {
+  color: var(--ks-dim);
+  font-size: 0.8rem;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+
+/* In screenshot mode the toolbar takes the top edge; toasts sit below it. */
+body.ks-screenshot .ks-toasts {
+  top: 5.6rem;
+}
+
+/* --- Reduced motion and high contrast ---------------------------------------------------------------------------- */
+
+.ks-shot.is-still *,
+.ks-shot.is-still {
+  transition: none !important;
+  animation: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ks-shot *,
+  .ks-toast {
+    transition: none !important;
+    animation: none !important;
+  }
+  .ks-toast {
+    transform: none !important;
+  }
+  .ks-shot.is-idle .ks-shot-bar {
+    transform: translateX(-50%);
+  }
+}
+
+:root[data-reduced-motion='true'] .ks-shot.is-idle .ks-shot-bar {
+  transform: translateX(-50%);
+}
+
+:root[data-colorblind='high-contrast'] .ks-shot-bar,
+:root[data-colorblind='high-contrast'] .ks-toast {
+  background: #000000;
+  backdrop-filter: none;
+  box-shadow: none;
+}
+
+:root[data-colorblind='high-contrast'] .ks-shot-btn {
+  border-color: #ffffff;
+}
+
+:root[data-colorblind='high-contrast'] .ks-shot-capture {
+  background: #000000;
+  border-color: var(--ks-accent);
+  color: var(--ks-accent);
+}
