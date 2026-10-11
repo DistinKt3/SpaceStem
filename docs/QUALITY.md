@@ -126,7 +126,14 @@ While it runs, the driver owns the frame loop (App's own loop keeps running, but
 
 **The results panel** (`BenchPanel`): a modal native `<dialog>` with a focus trap (as the settings dialog), the overall verdict (icon + word + colour), median, p95 and suggested preset, a table with a p95 meter per view (hairline ticks at the two budgets; the numbers are in the text), Copy JSON (clipboard API with an `execCommand` fallback and a polite status message), Download JSON, and the raw JSON in a disclosure. A progress card with a polite live region names each view as it starts. Text scales with the text-size setting (container queries turn rows into labelled cards when the dialog is narrow; explicit ARIA table roles keep the semantics), colourblind palettes apply through the shared tokens, and reduced motion removes every animation.
 
-## 5. Limits and open questions
+## 5. Verification (2026-10-11, this container: Chromium 141, SwiftShader)
+
+- `tests/unit/quality.test.ts`: levels, cost model, percentiles, the controller on the traces above, `applyQuality`, benchmark statistics, the runner (order, warm-up exclusion, progress, abort) and the panel's messages.
+- `tests/e2e/bench.spec.ts`: on `bench.html` the dialog (name, description, focus on open, focus trap, one row per view with the report's numbers, sample-data label), Copy JSON (clipboard content equals the report), Download JSON, the raw JSON, Escape and Run again, the progress card's live region and progress bar, and 2x text with high contrast inside an 800x450 viewport; in the game, one run of `createAppBenchDriver` (frames timed to GPU completion, `App.tick` handed back, camera restored, input off until the dialog closes, Escape does not open the pause menu).
+- The integration code proposed for `FrameRenderer`, `App` and `main.ts` was applied temporarily (not committed): it type-checks and lints; `?bench=1&benchViews=sun&benchFrames=3` produced a report measured at `high` and restored the `auto` preset; with `?quality=auto` the live loop stepped from `high` to `low` (reason `severe`) after about a minute of 2-4 s SwiftShader frames, and the frame still rendered correctly; `tests/e2e/app.spec.ts` passed (3/3) with the controller active.
+- Screenshots of the panel (1280x800, 800x450, 2x text, high contrast, tritanopia) were reviewed by eye.
+
+## 6. Limits and open questions
 
 - **Real frame rates cannot be measured here** (SwiftShader renders on the CPU: about 2-3.5 s per frame in the e2e run). The controller is verified on synthetic traces, the benchmark's plumbing on both backends; tuning the levels needs the owner's `?bench=1` reports from real laptops.
 - The cost model constants (MSAA 1.3, bloom 1.1, 1.2% per atmosphere sample) are assumptions to be replaced by measurements from those reports (run the benchmark at two presets and compare).

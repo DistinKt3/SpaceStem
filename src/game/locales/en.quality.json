@@ -8,7 +8,7 @@
   "quality.bench.device": "{backend} · {adapter} · {width} × {height} px at {dpr}×",
   "quality.bench.measuredAt": "Measured at {level} quality",
   "quality.bench.levelUnknown": "Quality level not recorded",
-  "quality.bench.run": "{frames} frames per view after {warmup} warm-up frames · {duration}",
+  "quality.bench.run": "Frames per view: {frames} (after {warmup} warm-up) · {duration}",
   "quality.bench.backend.webgpu": "WebGPU",
   "quality.bench.backend.webgl2": "WebGL 2",
   "quality.bench.synthetic": "Sample data",
