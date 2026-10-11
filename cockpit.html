@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Known Sky: cockpit demo</title>
+    <link rel="icon" href="data:," />
+    <style>
+      #cockpit-ui {
+        position: fixed; right: 1rem; top: 1rem; width: 17rem; max-height: calc(100vh - 2rem); overflow: auto;
+        padding: 0.8rem 0.9rem; border-radius: 0.7rem; background: var(--ks-panel); border: 1px solid var(--ks-border);
+        backdrop-filter: blur(8px); font: 0.78rem/1.35 var(--ks-font); color: var(--ks-fg); z-index: 5;
+      }
+      #cockpit-ui.collapsed > :not(.head) { display: none; }
+      #cockpit-ui .head { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem; }
+      #cockpit-ui h1 { font-size: 0.8rem; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; margin: 0; color: var(--ks-accent); }
+      #cockpit-ui label { display: grid; grid-template-columns: 1fr 3.2rem; align-items: center; gap: 0.3rem 0.5rem; margin: 0.35rem 0; color: var(--ks-dim); }
+      #cockpit-ui label input[type='range'] { grid-column: 1 / -1; width: 100%; accent-color: var(--ks-accent); }
+      #cockpit-ui label output { text-align: right; font-family: var(--ks-mono); color: var(--ks-fg); }
+      #cockpit-ui label.check { grid-template-columns: auto 1fr; }
+      #cockpit-ui select, #cockpit-ui button {
+        font: inherit; color: var(--ks-fg); background: rgba(127, 212, 255, 0.08); border: 1px solid var(--ks-border);
+        border-radius: 0.4rem; padding: 0.25rem 0.5rem; cursor: pointer;
+      }
+      #cockpit-ui button:hover, #cockpit-ui button:focus-visible { background: rgba(127, 212, 255, 0.2); outline: none; }
+      #cockpit-ui .presets { display: grid; grid-template-columns: 1fr 1fr; gap: 0.35rem; margin: 0.3rem 0 0.6rem; }
+      #cockpit-ui .section { margin-top: 0.6rem; font-size: 0.68rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ks-dim); }
+      #cockpit-ui .note { margin-top: 0.6rem; font-size: 0.7rem; color: var(--ks-dim); border-left: 2px dashed var(--ks-generated); padding-left: 0.5rem; }
+      #cockpit-stats { position: fixed; left: 1rem; top: 1rem; font: 0.72rem/1.4 var(--ks-mono); color: var(--ks-dim); z-index: 5; }
+    </style>
+  </head>
+  <body>
+    <canvas id="c" aria-label="Cockpit demo 3D view"></canvas>
+    <div id="cockpit-stats" role="status" aria-live="off"></div>
+    <div id="cockpit-ui"></div>
+    <script type="module" src="/src/spike/cockpitDemo.ts"></script>
+  </body>
+</html>
