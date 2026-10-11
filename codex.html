@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Known Sky: Codex lab</title>
+    <style>
+      html, body { overflow: hidden; }
+      #sky { position: fixed; inset: 0; width: 100vw; height: 100vh; }
+      .lab {
+        position: fixed; box-sizing: border-box; padding: 0.9rem 1rem; color: var(--ks-fg);
+        background: var(--ks-panel); border: var(--ks-border-w, 1px) solid var(--ks-border); border-radius: 0.8rem;
+        backdrop-filter: blur(8px); box-shadow: 0 0.8rem 2.4rem rgba(0, 0, 0, 0.35); font-size: 0.86rem;
+      }
+      .lab-intro { left: 1.2rem; top: 1.2rem; width: min(25rem, calc(100vw - 2.4rem)); max-height: calc(100vh - 2.4rem); overflow-y: auto; }
+      .lab-intro h1 { margin: 0; font-size: 1.1rem; font-weight: 300; letter-spacing: 0.16em; text-transform: uppercase; }
+      .lab-intro p { margin: 0.45rem 0 0.8rem; color: var(--ks-dim); line-height: 1.45; }
+      .lab-actions { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-bottom: 0.8rem; }
+      .lab-row { display: grid; grid-template-columns: 7.5rem minmax(0, 1fr); align-items: center; gap: 0.6rem; margin: 0.35rem 0; color: var(--ks-dim); }
+      .lab-row select, .lab-row input[type='range'] { width: 100%; font: inherit; color: var(--ks-fg); background: rgba(0, 0, 0, 0.3); border: 1px solid var(--ks-border); border-radius: 0.4rem; padding: 0.2rem; }
+      .lab-src { margin-top: 0.7rem; font: 0.72rem/1.4 var(--ks-mono); color: var(--ks-dim); }
+      .lab-target { right: 1.2rem; top: 50%; transform: translateY(-50%); width: 14rem; font-family: var(--ks-mono); }
+      .lab-target .k { color: var(--ks-dim); text-transform: uppercase; letter-spacing: 0.1em; font-size: 0.62rem; }
+      .lab-target .n { color: var(--ks-accent); font-weight: 600; margin: 0.15rem 0 0.4rem; }
+      .lab-target .hint { margin-top: 0.5rem; font-size: 0.66rem; color: var(--ks-dim); }
+      .lab-badges { left: 1.2rem; bottom: 1.2rem; display: flex; flex-wrap: wrap; gap: 0.45rem; align-items: center; }
+      @media (max-width: 760px), (max-height: 520px) { .lab-target, .lab-badges { display: none; } }
+
+      /* Stand-in for the settings module's palettes (src/game/ui/ui.css on the settings branch), so this page can
+         show the Codex under each [data-colorblind] mode on its own. */
+      :root[data-colorblind='deuteranopia'], :root[data-colorblind='protanopia'] {
+        --ks-measured: #56b4e9; --ks-inferred: #f0e442; --ks-generated: #00a87a; --ks-accent: #56b4e9; --ks-warn: #f5c400;
+      }
+      :root[data-colorblind='tritanopia'] { --ks-measured: #4fc3f7; --ks-inferred: #f0e442; --ks-generated: #f2559a; --ks-accent: #4fc3f7; }
+      :root[data-colorblind='high-contrast'] {
+        --ks-bg: #000000; --ks-fg: #ffffff; --ks-dim: #e6e6e6; --ks-panel: rgba(0, 0, 0, 0.92); --ks-border: #ffffff;
+        --ks-border-w: 2px; --ks-accent: #ffe600; --ks-focus: #ffe600; --ks-measured: #66b8ff; --ks-inferred: #ffb000;
+        --ks-generated: #ffffff; --ks-warn: #ffe600; --ks-surface: rgba(0, 0, 0, 0.96); --ks-surface-2: #000000;
+        --ks-hairline: rgba(255, 255, 255, 0.55); --ks-glow: 0%;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="sky" aria-hidden="true"></canvas>
+    <main id="lab"></main>
+    <script type="module" src="/src/spike/codexDemo.ts"></script>
+  </body>
+</html>
