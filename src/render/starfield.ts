@@ -17,6 +17,7 @@ import {
   dot,
   exp,
   float,
+  instanceIndex,
   instancedBufferAttribute,
   length,
   log2,
@@ -52,8 +53,15 @@ const GAL_ROWS: [number, number, number][] = [
 
 export class Starfield {
   readonly group = new THREE.Group();
-  /** Camera position relative to the Sun in parsecs (ICRS axes). */
+  /**
+   * Camera position relative to the Sun in parsecs (ICRS axes), split in two float32 parts (set with setCameraPc):
+   * `camPc` = the float32-rounded position, `camPcLo` = the remainder. Near a star, star - camPc is then exact in
+   * float32 and the remainder is applied after, so catalogue stars close to the camera keep their true direction.
+   */
   readonly camPc = uniform(new THREE.Vector3());
+  readonly camPcLo = uniform(new THREE.Vector3());
+  /** Catalogue index of a star not to draw (-1: none); a visited star is drawn as a lit body instead. */
+  readonly hiddenIndex = uniform(-1);
   /** Faintest apparent magnitude drawn. */
   readonly magLimit = uniform(7.5);
   /** Overall star/sky brightness multiplier (already divided by exposure by the caller). */
@@ -116,6 +124,15 @@ export class Starfield {
     this.group.add(this.planetMesh);
   }
 
+  /** Set the camera position (heliocentric parsecs, float64) as a float32 hi/lo pair; see camPc. */
+  setCameraPc(x: number, y: number, z: number): void {
+    const hx = Math.fround(x);
+    const hy = Math.fround(y);
+    const hz = Math.fround(z);
+    this.camPc.value.set(hx, hy, hz);
+    this.camPcLo.value.set(x - hx, y - hy, z - hz);
+  }
+
   /** Load the Gaia Milky Way map (8k); call after the first frame so startup is not blocked. */
   async loadMilkyWay(): Promise<void> {
     const tex = await new THREE.TextureLoader().loadAsync(dataUrl('tex/milky_way_gaia.webp'));
@@ -169,11 +186,14 @@ export class Starfield {
 
     let dir: N;
     let appMag: N;
+    let keep: N = float(1);
     if (direct) {
       dir = normalize(p);
       appMag = absMag;
     } else {
-      const rel = p.sub(this.camPc);
+      // Two float32 steps (see camPc): the first is exact for stars near the camera.
+      const rel = p.sub(this.camPc).sub(this.camPcLo);
+      keep = select(float(instanceIndex).equal(this.hiddenIndex), float(0), float(1));
       const d = max(length(rel), 1e-9);
       dir = rel.div(d);
       // m = M + 5 log10(d / 10 pc)
@@ -182,7 +202,7 @@ export class Starfield {
     // Intensity: 10^(-0.4 (m - 4)), soft cut at the magnitude limit; HDR above m~4 so bright stars bloom.
     const flux = pow(float(10), appMag.sub(4).mul(-0.4));
     const visible = float(1).sub(smoothstep(this.magLimit.sub(1.5), this.magLimit, appMag));
-    const intensity = min(flux, float(direct ? 40 : 12)).mul(visible).mul(this.gain);
+    const intensity: N = min(flux, float(direct ? 40 : 12)).mul(visible).mul(this.gain).mul(keep);
     const sizePx = clamp(pow(float(10), appMag.sub(2).mul(-0.12)).mul(2.4), 1.6, direct ? 9 : 12);
 
     const vIntensity: N = varying(intensity);
@@ -198,8 +218,11 @@ export class Starfield {
       const ndc = clip.xy.div(clip.w);
       const vpNdc = vpClip.xy.div(max(vpClip.w, 1e-6));
       const away = ndc.sub(vpNdc).mul(this.viewport).mul(0.5); // px
-      const awayLen = max(length(away), 1e-3);
-      const along = away.div(awayLen);
+      const awayPx = length(away);
+      const awayLen = max(awayPx, 1e-3);
+      // Dead ahead (at the vanishing point) the direction is undefined: use any unit vector, or the quad collapses
+      // and the star the ship is aligned to disappears.
+      const along = select(awayPx.greaterThan(1e-3), away.div(awayLen), vec2(0, 1));
       // (along, across) must keep the quad's winding (determinant +1), or the sprite is back-face culled.
       const across = vec2(along.y, along.x.negate());
       const streakPx = this.streak.mul(awayLen).mul(0.35).mul(select(vpClip.w.greaterThan(0), float(1), float(0)));

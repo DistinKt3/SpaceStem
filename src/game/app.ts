@@ -25,7 +25,7 @@ import { PARSEC_M } from '../core/constants';
 import { loadBodies } from '../world/catalog';
 import { Ephemeris } from '../world/ephemeris';
 import { ChunkWorkerPool } from '../world/planet/workerPool';
-import { SolarSystem, type SystemPos } from '../world/solarSystem';
+import { SolarSystem, type BodyView, type SystemPos } from '../world/solarSystem';
 import { formatDistance, formatDuration, formatSpeed } from './format';
 import { bodyLabel, t } from './i18n';
 import { above, facing, subSolar, type Placement } from './views';
@@ -49,6 +49,14 @@ export interface Controller {
 
 /** Fixed seed for the generative score, so every player hears the same piece (see docs/DECISIONS.md D-033). */
 const SCORE_SEED = 7;
+/** Eye adaptation time constant (s). */
+const EXPOSURE_TAU_S = 0.6;
+/** Sky dimming time constant (s): the former 10% per frame at 60 fps. */
+const SKY_TAU_S = 0.16;
+/** A catalogue star matches an exoplanet host within this angle (proper motion between catalogue epochs)... */
+const TWIN_MAX_SEP_RAD = (5 / 60) * (Math.PI / 180);
+/** ...and this fractional distance difference (parallax differences between catalogues). */
+const TWIN_MAX_DIST_FRAC = 0.25;
 
 export class App {
   readonly params = new URLSearchParams(location.search);
@@ -151,7 +159,8 @@ export class App {
     this.depthMode = effectiveDepthMode(requested, this.info);
     this.frame = new FrameRenderer(this.renderer, { depthMode: this.depthMode, msaaSamples: this.params.get('msaa') === '0' ? 0 : 4 });
     this.frame.bloomStrength.value = Number(this.params.get('bloom') ?? 0.5);
-    if (this.params.get('cockpit') !== '0') {
+    // The free camera (?free=1, also used for screenshots) never drives the cockpit, so it gets none.
+    if (this.params.get('cockpit') !== '0' && this.params.get('free') !== '1') {
       this.cockpit = new Cockpit({ quality: this.settings.data.quality === 'low' ? 'low' : 'high' });
       this.frame.cockpitScene.add(this.cockpit.group);
     }
@@ -162,19 +171,26 @@ export class App {
     resize();
 
     this.progress(t('boot.loading', { item: 'ephemeris' }));
-    const [eph, bodies] = await Promise.all([Ephemeris.load(), loadBodies()]);
-    const tParam = this.params.get('t');
-    const startMs = tParam ? Date.parse(tParam) : Date.now();
-    this.simTime = eph.clampTime(unixMsToTdbSecondsSinceJ2000(startMs));
-    this.progress(t('boot.loading', { item: 'stars' }));
-    await this.stars.load();
-    this.frame.backgroundScene.add(this.stars.group);
-    this.catalog = new StarCatalog(this.stars.positions, this.stars.absMags);
-    await this.catalog.load();
+    // Independent downloads overlap: the ephemeris and body list (then every body's assets), the star catalogue and
+    // the exoplanet systems. Nothing depends on the order in which they arrive.
     this.pool = new ChunkWorkerPool();
-    this.sys = await SolarSystem.create(eph, bodies, this.pool, this.frame, (name) => this.progress(t('boot.loading', { item: name })));
-    const catalog = this.catalog;
-    this.exo = await loadExoSystems();
+    const solar = Promise.all([Ephemeris.load(), loadBodies()]).then(([ephemeris, bodies]) => {
+      const tParam = this.params.get('t');
+      const startMs = tParam ? Date.parse(tParam) : Date.now();
+      this.simTime = ephemeris.clampTime(unixMsToTdbSecondsSinceJ2000(startMs));
+      return SolarSystem.create(ephemeris, bodies, this.pool, this.frame, (name) => this.progress(t('boot.loading', { item: name })));
+    });
+    const starCatalog = this.stars.load().then(async () => {
+      this.frame.backgroundScene.add(this.stars.group);
+      const c = new StarCatalog(this.stars.positions, this.stars.absMags);
+      await c.load();
+      return c;
+    });
+    const [sys, catalog, exo] = await Promise.all([solar, starCatalog, loadExoSystems()]);
+    this.sys = sys;
+    this.catalog = catalog;
+    this.exo = exo;
+    const eph = sys.ephemeris;
     this.sys.externalAnchor = (anchor, time, out) => {
       if (anchor === 'ism') return out.set(0, 0, 0);
       if (anchor.startsWith('*') && catalog) {
@@ -281,12 +297,14 @@ export class App {
     }
     const paused = this.paused || this.panel.isOpen;
     if (!paused) this.simTime = this.sys.ephemeris.clampTime(this.simTime + dt * this.timeScale);
+    // Orient the bodies for this frame's time before anything samples them (ship physics, landing, terrain height).
+    this.sys.updateRotations(this.simTime);
     if (this.map?.isOpen) {
       this.map.render();
       return;
     }
     if (!paused) this.controller?.update(dt, this);
-    this.renderFrame();
+    this.renderFrame(dt);
     if (this.settings.data.showFps && this.controller?.updateHud) {
       this.hudTimer -= dt;
       if (this.hudTimer <= 0) {
@@ -304,7 +322,8 @@ export class App {
     }
   }
 
-  renderFrame(): void {
+  /** Place the world around the camera and draw it. `dt` (s) drives eye adaptation; tests may omit it. */
+  renderFrame(dt = 1 / 60): void {
     // Keep the anchor on the dominant body so offsets stay small where precision matters.
     if (!this.controller?.managesAnchor) {
       const dom = this.sys.dominantBody(this.cam.pos, this.simTime);
@@ -313,8 +332,8 @@ export class App {
     this.sys.update(this.cam.pos, this.simTime, this.pxPerRadian());
     this.frame.camera.quaternion.copy(this.cam.quat);
     this.frame.camera.position.set(0, 0, 0);
-    this.updateExposure();
-    this.updateSky();
+    this.updateExposure(dt);
+    this.updateSky(dt);
     this.frame.render();
   }
 
@@ -323,15 +342,17 @@ export class App {
   starGain = Number(this.params.get('starGain') ?? 0.6);
   milkyWayGain = Number(this.params.get('mwGain') ?? 0.6);
   private skyVisibility = 1;
+  /** Catalogue index of each exoplanet host star, by system id (-1 when the catalogue does not list it). */
+  private readonly catalogTwins = new Map<string, number>();
 
   /**
    * Stars and the Milky Way keep a constant apparent brightness through eye adaptation (gain / exposure), dimmed when
-   * the camera is inside a sunlit atmosphere (daytime sky) or when a bright body fills the view.
+   * the camera is inside a sunlit atmosphere (daytime sky) or when a bright body fills the view. `dt` in seconds.
    */
-  private updateSky(): void {
+  private updateSky(dt: number): void {
     const camSsb = this.sys.toSsb(this.cam.pos, this.simTime, new Vec3d());
     const sunSsb = this.sys.ephemeris.ssb('10', this.simTime, new Vec3d());
-    this.stars.camPc.value.set((camSsb.x - sunSsb.x) / PARSEC_M, (camSsb.y - sunSsb.y) / PARSEC_M, (camSsb.z - sunSsb.z) / PARSEC_M);
+    this.stars.setCameraPc((camSsb.x - sunSsb.x) / PARSEC_M, (camSsb.y - sunSsb.y) / PARSEC_M, (camSsb.z - sunSsb.z) / PARSEC_M);
     let v = 1;
     const [near, alt] = this.sys.nearest(this.cam.pos, this.simTime);
     const atm = near.def.atmosphere;
@@ -345,19 +366,75 @@ export class App {
     }
     const cover = Math.min(1, near.angularRadiusPx / (this.renderer.domElement.height * 0.5));
     v *= 1 - 0.5 * cover;
-    this.skyVisibility += (v - this.skyVisibility) * 0.1;
+    this.skyVisibility += (v - this.skyVisibility) * (1 - Math.exp(-dt / SKY_TAU_S));
     const inv = 1 / Math.max(this.frame.exposure.value, 1e-3);
     this.stars.gain.value = this.skyVisibility * inv * this.starGain;
     this.stars.skyGain.value = this.skyVisibility * inv * this.milkyWayGain;
     this.stars.viewport.value.set(this.renderer.domElement.width, this.renderer.domElement.height);
-    this.stars.setPlanets(this.sys.pointSources());
+    const points = this.sys.pointSources();
+    // A catalogue star that is now a lit body is drawn by that body, never by its float32 starfield sprite; when it
+    // is too small to resolve it becomes a point at its float64 direction with its catalogue magnitude and colour.
+    const lit = this.catalogStarBody();
+    this.stars.hiddenIndex.value = lit ? lit.index : -1;
+    const d = lit ? lit.view.rel.length() : 0;
+    if (lit && this.catalog && lit.view.angularRadiusPx <= 1.5 && d > 1) {
+      const i = lit.index;
+      const c = this.stars.colors;
+      const rel = lit.view.rel;
+      points.push({
+        dir: [rel.x / d, rel.y / d, rel.z / d],
+        mag: this.catalog.absMags[i]! + 5 * Math.log10(d / PARSEC_M) - 5,
+        color: [c[i * 4]!, c[i * 4 + 1]!, c[i * 4 + 2]!],
+      });
+    }
+    this.stars.setPlanets(points);
+  }
+
+  /** The catalogue star currently drawn as a lit body (a visited star, or an exoplanet host the catalogue lists). */
+  private catalogStarBody(): { index: number; view: BodyView } | null {
+    for (const v of this.sys.views) {
+      if (v.def.kind !== 'star') continue;
+      const id = v.def.id;
+      const index = id.startsWith('*') ? Number(id.slice(1)) : this.catalogTwin(id);
+      if (index >= 0) return { index, view: v };
+    }
+    return null;
+  }
+
+  /** Catalogue index of an exoplanet system's host star, matched by position (cached); -1 for anything else. */
+  private catalogTwin(id: string): number {
+    const cached = this.catalogTwins.get(id);
+    if (cached !== undefined) return cached;
+    let found = -1;
+    const system = this.exo.find((s) => s.spec.id === id);
+    if (system) {
+      const want = system.helio.clone().scale(1 / PARSEC_M);
+      const dist = want.length();
+      const P = this.stars.positions;
+      const minCos = Math.cos(TWIN_MAX_SEP_RAD);
+      let best = Infinity;
+      for (let k = 0; k < this.stars.count; k++) {
+        const x = P[k * 3]!;
+        const y = P[k * 3 + 1]!;
+        const z = P[k * 3 + 2]!;
+        const r = Math.hypot(x, y, z);
+        if (Math.abs(r - dist) > TWIN_MAX_DIST_FRAC * dist || (x * want.x + y * want.y + z * want.z) / (r * dist) < minCos) continue;
+        const sep = Math.hypot(x - want.x, y - want.y, z - want.z);
+        if (sep < best) {
+          best = sep;
+          found = k;
+        }
+      }
+    }
+    this.catalogTwins.set(id, found);
+    return found;
   }
 
   /**
    * Eye adaptation: compensate most of the inverse-square fall-off of sunlight, then adapt toward the reflectance of
    * a body that fills the view (a camera exposes the Moon's dark regolith brighter than Earth's clouds). Smoothed.
    */
-  private updateExposure(dt = 1 / 60): void {
+  private updateExposure(dt: number): void {
     const sun = this.sys.primaryStar(this.cam.pos, this.simTime);
     const irr = ((sun.def.luminositySun ?? 1) * 1.495978707e11 ** 2) / Math.max(sun.rel.length(), 1e6) ** 2;
     let target = Math.pow(irr, -0.8);
@@ -370,8 +447,7 @@ export class App {
       target *= 1 + (k - 1) * cover;
     }
     target = Math.min(80, Math.max(0.002, target)) * 1.15;
-    const tau = 0.6;
-    this.exposureState = this.exposureState < 0 ? target : this.exposureState + (target - this.exposureState) * (1 - Math.exp(-dt / tau));
+    this.exposureState = this.exposureState < 0 ? target : this.exposureState + (target - this.exposureState) * (1 - Math.exp(-dt / EXPOSURE_TAU_S));
     this.frame.exposure.value = this.exposureState;
   }
 

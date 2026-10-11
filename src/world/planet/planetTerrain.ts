@@ -253,5 +253,9 @@ export class PlanetTerrain {
   dispose(): void {
     for (const c of this.chunks.values()) if (c.mesh) this.disposeMesh(c.mesh);
     this.chunks.clear();
+    // Cancel this body's queued builds and drop its height config from the workers.
+    const key = this.config.key;
+    this.pool.clearQueue((_, k) => k === key);
+    this.pool.unregister(key);
   }
 }

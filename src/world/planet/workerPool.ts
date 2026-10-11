@@ -41,6 +41,12 @@ export class ChunkWorkerPool {
     for (const w of this.workers) w.postMessage(msg);
   }
 
+  /** Forget a height config (its body was removed). Builds already posted for it run first: messages are FIFO. */
+  unregister(key: string): void {
+    const msg: WorkerIn = { type: 'unregister', key };
+    for (const w of this.workers) w.postMessage(msg);
+  }
+
   build(key: string, req: ChunkRequest, priority: number): Promise<ChunkData> {
     return new Promise((resolve, reject) => {
       this.queue.push({ id: this.nextId++, key, req, priority, resolve, reject });
