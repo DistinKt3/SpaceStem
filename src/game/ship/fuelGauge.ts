@@ -28,6 +28,11 @@ export interface FuelGaugeState {
   nextJumpCost: number | null;
   /** Optional: seconds until the tank is full while scooping. */
   secondsToFull?: number | null;
+  /**
+   * Optional: the FuelSystem's heat state. Pass it so the gauge and the ship agree exactly; without it the gauge
+   * derives the state from `heat` with the same thresholds and hysteresis.
+   */
+  heatState?: HeatState;
 }
 
 export interface FuelGaugeOptions {
@@ -40,7 +45,7 @@ const STYLE_ID = 'ks-fuel-gauge-style';
 const CSS = `
 .ks-fuel {
   --ks-fuel-v: 0; --ks-fuel-h: 0; --ks-fuel-a: 0; --ks-fuel-w: 0; --ks-fuel-m: 0;
-  position: relative; box-sizing: border-box; width: 14.5rem; max-width: calc(100vw - 2rem);
+  position: relative; box-sizing: border-box; width: 14.5rem; max-width: 100%;
   padding: 0.55rem 0.75rem 0.65rem; color: var(--ks-fg); font: 400 0.72rem/1.3 var(--ks-mono);
   background: linear-gradient(180deg, rgba(14, 30, 54, 0.55), var(--ks-panel));
   border: var(--ks-border-w, 1px) solid var(--ks-border); border-radius: 0.6rem;
@@ -53,15 +58,15 @@ const CSS = `
   content: ''; position: absolute; left: 12%; right: 12%; top: 0; height: 1px;
   background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--ks-accent) 70%, transparent), transparent);
 }
-.ks-fuel--hud { position: absolute; top: 1rem; right: 1.2rem; }
-.ks-fuel-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.4rem; }
+.ks-fuel--hud { position: absolute; top: 1rem; right: 1.2rem; max-width: calc(100% - 2.4rem); }
+.ks-fuel-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.2rem 0.5rem; margin-bottom: 0.4rem; }
 .ks-fuel-title { font-size: 0.64rem; font-weight: 600; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ks-accent); }
 .ks-fuel-tag {
   font-size: 0.54rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ks-dim); white-space: nowrap;
   border: 1px dotted currentColor; border-radius: 1rem; padding: 0.02rem 0.4rem;
 }
 .ks-fuel-row + .ks-fuel-row { margin-top: 0.5rem; }
-.ks-fuel-line { display: flex; align-items: baseline; justify-content: space-between; gap: 0.4rem; }
+.ks-fuel-line { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.1rem 0.4rem; }
 .ks-fuel-k { font-size: 0.6rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ks-dim); }
 .ks-fuel-vals { display: inline-flex; align-items: baseline; gap: 0.35rem; }
 .ks-fuel-v { font-size: 0.84rem; font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -302,7 +307,7 @@ export class FuelGauge {
     const fuel = finite01(state.hyperFuel);
     const heat = finite01(state.heat);
     const cost = state.nextJumpCost !== null && Number.isFinite(state.nextJumpCost) ? Math.max(0, state.nextJumpCost) : null;
-    this.heatState = heatStateFor(this.heatState, heat);
+    this.heatState = state.heatState ?? heatStateFor(this.heatState, heat);
     this.low = fuelLowFor(this.low, fuel);
     const jump: Snapshot['jump'] = cost === null ? 'none' : fuel + 1e-9 >= cost ? 'ok' : 'short';
     const r = this.root;
