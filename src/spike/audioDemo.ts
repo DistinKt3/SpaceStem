@@ -687,6 +687,27 @@ function drawSpectrogram(mono: Float32Array, sampleRate: number): void {
   g.textAlign = 'left';
 }
 
+function drawSpectroHint(): void {
+  const g = fit(spectroCanvas);
+  const w = spectroCanvas.clientWidth;
+  const h = spectroCanvas.clientHeight;
+  g.clearRect(0, 0, w, h);
+  g.strokeStyle = 'rgba(127,212,255,0.08)';
+  for (let i = 1; i < 6; i++) {
+    const x = Math.round((i / 6) * w) + 0.5;
+    g.beginPath();
+    g.moveTo(x, 0);
+    g.lineTo(x, h);
+    g.stroke();
+  }
+  g.fillStyle = 'rgba(138,160,192,0.75)';
+  g.font = '12px system-ui, sans-serif';
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillText(t('audio.demo.spectroHint'), w / 2, h / 2);
+  g.textAlign = 'left';
+}
+
 function statChip(labelKey: string, value: string, ok: boolean | null): HTMLElement {
   return el('span', { cls: `stat${ok === null ? '' : ok ? ' ok' : ' bad'}` }, t(labelKey), el('b', {}, value));
 }
@@ -733,6 +754,7 @@ function frame(now: number): void {
 syncUi();
 updateStatus();
 layoutScore();
+drawSpectroHint();
 requestAnimationFrame(frame);
 
 // Hooks for tests/e2e/audio.spec.ts and tools.

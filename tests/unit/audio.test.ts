@@ -282,6 +282,9 @@ describe('audio captions', () => {
     expect(run([[30, { thrust: 0.5 }], [60, { thrust: 0 }]])).toEqual(['engineStart', 'engineStop']);
     expect(run([[30, { thrust: 0.5 }], [30, { thrust: 0.95 }], [30, { thrust: 0.5 }]])).toEqual(['engineStart', 'engineSurge']);
     expect(run([[10, { thrust: 1 }]])).toEqual(['engineSurge']);
+    // Mode changes shift the drive tone only while the engine runs (hyperspeed has its own captions).
+    expect(run([[10, { thrust: 0.5 }], [10, { thrust: 0.5, mode: 'cruise' }], [10, { thrust: 0.5, mode: 'hyperspeed' }]])).toEqual(['engineStart', 'engineShift']);
+    expect(run([[10, {}], [10, { mode: 'cruise' }]])).toEqual([]);
   });
 
   it('wind rises, roars and dies away only where there is air', () => {

@@ -123,6 +123,12 @@ export class MixGraph {
     set(this.mute, muted ? 0 : 1);
   }
 
+  /** Quick fade of the whole output (before a teardown). */
+  fadeOut(now: number): void {
+    this.mute.gain.cancelScheduledValues(now);
+    this.mute.gain.setTargetAtTime(0, now, 0.01);
+  }
+
   /** Analyser tapped after the limiter (created on first use). */
   analyser(): AnalyserNode {
     if (!this.analyserNode) {

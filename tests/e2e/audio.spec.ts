@@ -171,4 +171,13 @@ test('Audio Lab: Start audio unlocks a real AudioContext; cues play and caption'
   expect(s.contextState).toBe('running');
   expect(s.musicTime!).toBeGreaterThan(t0);
   expect(s.lastError).toBeNull();
+
+  // A new seed disposes the engine and builds a new one with a different score; audio keeps running.
+  const keyBefore = await page.locator('.score-meta b').innerText();
+  await page.fill('#seed', '3');
+  await page.dispatchEvent('#seed', 'change');
+  await page.waitForFunction(() => (window as unknown as { __ksAudio: Hooks }).__ksAudio.engine.unlocked, null, { timeout: 30_000 });
+  await expect(page.locator('.score-meta b')).not.toHaveText(keyBefore);
+  await page.click('.cue-btn[data-cue="codex-unlock"]');
+  await expect(page.locator('.caption', { hasText: '[Codex chime]' })).toBeVisible();
 });

@@ -263,32 +263,52 @@ export class AudioEngine {
     };
   }
 
+  /**
+   * Stop everything, disconnect every node and close the context this engine created. With a live context the output
+   * first fades over ~40 ms so the stop does not click. Every method is a no-op afterwards.
+   */
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
     if (this.timer !== null) clearInterval(this.timer);
     this.timer = null;
     const ctx = this.ctx;
-    const now = ctx?.currentTime ?? 0;
-    try {
-      for (const l of this.layers) l.dispose(now);
-      this.player?.dispose(now);
-      for (const g of [...this.liveCues, ...this.liveBlips]) g.kill(now);
-      this.graph?.dispose();
-    } catch {
-      // Best effort: the context may already be closed.
-    }
+    const graph = this.graph;
+    const layers = this.layers;
+    const player = this.player;
+    const groups = [...this.liveCues, ...this.liveBlips];
+    const owns = this.ownsContext;
     this.layers = [];
     this.liveCues.clear();
     this.liveBlips.clear();
     this.player = null;
     this.graph = null;
     this.kit = null;
-    if (ctx && this.ownsContext) {
-      const close = (ctx as Partial<AudioContext>).close;
-      if (typeof close === 'function') close.call(ctx).catch(() => undefined);
-    }
     this.ctx = null;
+    const teardown = (): void => {
+      try {
+        const now = ctx?.currentTime ?? 0;
+        ctx?.removeEventListener('statechange', this.onStateChange);
+        for (const l of layers) l.dispose(now);
+        player?.dispose(now);
+        for (const g of groups) g.kill(now);
+        graph?.dispose();
+      } catch {
+        // Best effort: the context may already be closed.
+      }
+      if (ctx && owns) {
+        const close = (ctx as Partial<AudioContext>).close;
+        if (typeof close === 'function') close.call(ctx).catch(() => undefined);
+      }
+    };
+    if (ctx && graph && !this.offline && ctx.state === 'running') {
+      try {
+        graph.fadeOut(ctx.currentTime);
+      } catch {
+        // Ignore: tear down immediately below.
+      }
+      setTimeout(teardown, 60);
+    } else teardown();
   }
 
   // --- internals -------------------------------------------------------------------------------------------------
@@ -320,7 +340,13 @@ export class AudioEngine {
       new HyperLayer(kit, graph.sfx),
     ];
     this.player = new ScorePlayer(kit, graph.music, graph.musicWet, this.score);
+    // A context may start later than resume() promised (browser policy); go live whenever it does.
+    ctx.addEventListener('statechange', this.onStateChange);
   }
+
+  private readonly onStateChange = (): void => {
+    if (this.unlocked) this.goLive();
+  };
 
   /** First time the context is running: start the score, the cabin and the scheduler. */
   private goLive(): void {

@@ -36,6 +36,7 @@ export const STATE_CAPTIONS = {
   engineStart: c('engineStart', 3),
   engineSurge: c('engineSurge', 3),
   engineStop: c('engineStop', 2.5),
+  engineShift: c('engineShift', 2.5),
   rcs: c('rcs', 2),
   windRising: c('windRising', 3),
   windStrong: c('windStrong', 3),
@@ -64,6 +65,7 @@ export class StateCaptioner {
   private hyper: 'idle' | 'spool' | 'engaged' | 'down' = 'idle';
   private heat = false;
   private rcsCooldown = 0;
+  private mode: AudioState['mode'] | null = null;
 
   update(dt: number, s: AudioState): CaptionDef[] {
     const out: CaptionDef[] = [];
@@ -86,6 +88,9 @@ export class StateCaptioner {
         }
       } else this.engineOffFor = 0;
     }
+    // The drive's tone changes with the mode while the engine runs.
+    if (this.mode !== null && s.mode !== this.mode && this.engineOn && s.mode !== 'hyperspeed') out.push(STATE_CAPTIONS.engineShift);
+    this.mode = s.mode;
     if (this.engineOn && !this.engineSurge && s.thrust > 0.85) {
       this.engineSurge = true;
       out.push(STATE_CAPTIONS.engineSurge);
