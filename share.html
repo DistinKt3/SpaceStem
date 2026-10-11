@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Known Sky: share and screenshot lab</title>
+    <style>
+      .lab-panel {
+        position: fixed; box-sizing: border-box; padding: 1rem 1.05rem 1.1rem; color: var(--ks-fg); z-index: 5;
+        background: var(--ks-surface, rgba(7, 15, 30, 0.9)); border: var(--ks-border-w, 1px) solid var(--ks-border);
+        border-radius: 0.9rem; backdrop-filter: blur(10px); box-shadow: 0 0.8rem 2.4rem rgba(0, 0, 0, 0.35);
+      }
+      .lab-intro {
+        left: 1.1rem; top: 1.1rem; width: min(21.5rem, calc(100vw - 2.2rem)); max-height: calc(100vh - 2.2rem);
+        overflow: auto; font-size: 0.86rem;
+      }
+      .lab-intro h1 { margin: 0; font-size: 1.02rem; font-weight: 300; letter-spacing: 0.16em; text-transform: uppercase; }
+      .lab-intro p { margin: 0.45rem 0 0.75rem; color: var(--ks-dim); line-height: 1.45; }
+      .lab-h { margin: 0.9rem 0 0.45rem; font: 600 0.64rem/1 var(--ks-mono); letter-spacing: 0.2em; text-transform: uppercase; color: var(--ks-accent); }
+      .lab-places { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+      .lab-places .ks-btn { padding: 0.36rem 0.65rem; font-size: 0.8rem; }
+      .lab-places .ks-btn[aria-pressed='true'] { border-color: var(--ks-accent); background: color-mix(in srgb, var(--ks-accent) 18%, transparent); }
+      .lab-actions { display: flex; flex-direction: column; gap: 0.4rem; }
+      .lab-actions .ks-btn { justify-content: space-between; }
+      .lab-actions .ks-kbd { height: 1.45rem; min-width: 1.45rem; font-size: 0.72rem; }
+      .lab-link { display: flex; gap: 0.35rem; }
+      .lab-link input {
+        flex: 1; min-width: 0; box-sizing: border-box; padding: 0.42rem 0.55rem; border-radius: 0.5rem;
+        border: var(--ks-border-w, 1px) solid var(--ks-border); background: rgba(0, 0, 0, 0.35); color: var(--ks-fg);
+        font: 0.72rem/1.2 var(--ks-mono);
+      }
+      .lab-link .ks-btn { padding: 0.36rem 0.65rem; font-size: 0.8rem; }
+      .lab-state { display: grid; grid-template-columns: auto 1fr; gap: 0.15rem 0.7rem; margin: 0; font: 0.72rem/1.45 var(--ks-mono); }
+      .lab-state dt { color: var(--ks-dim); }
+      .lab-state dd { margin: 0; color: var(--ks-fg); overflow-wrap: anywhere; }
+      .lab-note { margin-top: 0.75rem !important; font-size: 0.74rem; }
+      :focus-visible { outline: 2px solid var(--ks-focus, var(--ks-accent)); outline-offset: 2px; }
+    </style>
+  </head>
+  <body>
+    <canvas id="c"></canvas>
+    <div id="hud" role="status" aria-live="off"></div>
+    <div id="boot" class="hidden"><div><h1></h1><p id="boot-tagline"></p><p id="boot-status"></p></div></div>
+    <main id="lab"></main>
+    <script type="module" src="/src/spike/shareDemo.ts"></script>
+  </body>
+</html>
