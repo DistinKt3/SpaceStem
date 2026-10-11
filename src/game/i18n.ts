@@ -44,3 +44,9 @@ export function formatNumber(v: number, maxFrac = 0, minFrac = 0): string {
 export function keySources(): { key: string; file: string }[] {
   return Object.entries(modules).flatMap(([file, d]) => Object.keys(d).map((key) => ({ key, file })));
 }
+
+/** Display name of a body: the localised name for Solar System bodies, the catalogue name for stars and exoplanets. */
+export function bodyLabel(def: { key: string; name: string }): string {
+  const k = `body.${def.key}`;
+  return hasKey(k) ? t(k) : def.name;
+}

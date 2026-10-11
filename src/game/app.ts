@@ -17,13 +17,15 @@ import { SettingsPanel } from './ui/settingsPanel';
 import { Captions } from './ui/captions';
 import { AudioEngine } from './audio/audioEngine';
 import { Cockpit } from '../render/cockpit/cockpit';
+import type { ExoSystem } from '../world/exo/exoSystem';
+import { loadExoSystems } from '../world/exo/systemLoader';
 import { PARSEC_M } from '../core/constants';
 import { loadBodies } from '../world/catalog';
 import { Ephemeris } from '../world/ephemeris';
 import { ChunkWorkerPool } from '../world/planet/workerPool';
 import { SolarSystem, type SystemPos } from '../world/solarSystem';
 import { formatDistance, formatDuration, formatSpeed } from './format';
-import { t } from './i18n';
+import { bodyLabel, t } from './i18n';
 import { above, facing, subSolar, type Placement } from './views';
 
 export interface CameraState {
@@ -77,6 +79,13 @@ export class App {
   readonly captions: Captions;
   readonly audio: AudioEngine;
   cockpit: Cockpit | null = null;
+  /** Real exoplanet systems that can be visited (M4). */
+  exo: ExoSystem[] = [];
+
+  /** The exoplanet system that owns an anchor id (its star or a planet), if any. */
+  exoOf(anchor: string): ExoSystem | undefined {
+    return this.exo.find((s) => s.owns(anchor));
+  }
 
   constructor(readonly canvas: HTMLCanvasElement) {
     this.hud = document.getElementById('hud')!;
@@ -157,12 +166,24 @@ export class App {
     this.pool = new ChunkWorkerPool();
     this.sys = await SolarSystem.create(eph, bodies, this.pool, this.frame, (name) => this.progress(t('boot.loading', { item: name })));
     const catalog = this.catalog;
+    this.exo = await loadExoSystems();
     this.sys.externalAnchor = (anchor, time, out) => {
       if (anchor === 'ism') return out.set(0, 0, 0);
       if (anchor.startsWith('*') && catalog) {
         return catalog.positionM(Number(anchor.slice(1)), out).add(eph.ssb('10', time, new Vec3d()));
       }
+      const ex = this.exoOf(anchor);
+      if (ex) return ex.ssb(anchor, time, eph.ssb('10', time, new Vec3d()), out);
       return null;
+    };
+    // Exoplanet positions relative to their own star stay in the system's local frame (float64 precision).
+    this.sys.externalRelative = (a, b, time, out) => {
+      const ex = this.exoOf(a);
+      return ex?.owns(b) ? ex.relative(a, b, time, out) : null;
+    };
+    this.sys.externalVelocity = (a, b, time, out) => {
+      const ex = this.exoOf(a);
+      return ex?.owns(b) ? ex.relativeVelocity(a, b, time, out) : null;
     };
     // One update so lighting/rotation are known before placing the camera.
     this.sys.update(this.cam.pos, this.simTime, this.pxPerRadian());
@@ -349,7 +370,7 @@ export class App {
     const utc = new Date(tdbSecondsSinceJ2000ToUnixMs(this.simTime)).toISOString().replace('T', ' ').slice(0, 19);
     const surf = this.sys.surfaceHeightBelow(near, this.cam.pos, this.simTime);
     const rows: [string, string][] = [
-      [t('hud.near'), t(`body.${near.def.key}`)],
+      [t('hud.near'), bodyLabel(near.def)],
       [t('hud.altitude'), formatDistance(alt - surf)],
       [t('hud.speed'), formatSpeed(this.cam.speed)],
       [t('hud.sunDistance'), `${formatDistance(dSun)} · ${t('hud.lightTime')} ${formatDuration(dSun / SPEED_OF_LIGHT_M_PER_S)}`],

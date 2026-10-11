@@ -6,7 +6,7 @@ import * as THREE from 'three/webgpu';
 import { Vec3d } from '../../core/vec3d';
 import type { App, Controller } from '../app';
 import { Hud, type HudLabel, type HudState } from '../hud/hud';
-import { t } from '../i18n';
+import { bodyLabel, t } from '../i18n';
 import { tdbSecondsSinceJ2000ToUnixMs } from '../../core/time';
 import { FLIGHT, Ship, type ShipControls } from './ship';
 import { SPEED_OF_LIGHT_M_PER_S } from '../../core/constants';
@@ -14,7 +14,7 @@ import type { AudioState } from '../audio/audioEngine';
 import type { CockpitState } from '../../render/cockpit/cockpit';
 import { POINT_COLORS } from '../../world/solarSystem';
 import { Hyperspeed } from './hyperspeed';
-import { AU_M, PARSEC_M } from '../../core/constants';
+import { AU_M, PARSEC_M, SUN_RADIUS_M } from '../../core/constants';
 import type { Provenance } from '../../core/provenance';
 import { inferStar } from '../../world/starCatalog';
 import { MapView } from '../map/mapView';
@@ -59,9 +59,20 @@ export class ShipController implements Controller {
     map.getSelected = () => this.targetId;
     app.map = map;
     this.hyper.onArrive = (anchor) => {
-      // The destination star becomes a real, lit body; other visited stars are released.
-      for (const v of [...app.sys.views]) if (v.def.id.startsWith('*') && v.def.id !== anchor) app.sys.removeBody(v.def.id, app.frame);
+      // The destination becomes real, lit bodies (a catalogue star, or an exoplanet system's star and planets);
+      // bodies of previously visited stars and systems are released. Solar System bodies always stay.
+      const system = app.exoOf(anchor);
+      for (const v of [...app.sys.views]) {
+        const id = v.def.id;
+        const visited = id.startsWith('*') || app.exoOf(id) !== undefined;
+        if (visited && id !== anchor && !(system && system.owns(id))) app.sys.removeBody(id, app.frame);
+      }
       if (anchor.startsWith('*') && app.catalog) void app.sys.addBody(app.catalog.bodyDef(Number(anchor.slice(1))), app.pool, app.frame);
+      if (system) {
+        void (async () => {
+          for (const def of system.bodyDefs()) await app.sys.addBody(def, app.pool, app.frame);
+        })();
+      }
     };
   }
 
@@ -82,7 +93,14 @@ export class ShipController implements Controller {
   targetInfo(id: string): { name: string; rel: Vec3d; radius: number; provenance: Provenance; kind: string } | null {
     const app = this.app;
     const v = app.sys.byId.get(id);
-    if (v) return { name: v.def.kind === 'star' && v.def.id !== '10' ? v.def.name : t(`body.${v.def.key}`), rel: v.rel, radius: v.def.radiusM, provenance: v.def.provenance, kind: v.def.kind };
+    if (v) return { name: bodyLabel(v.def), rel: v.rel, radius: v.def.radiusM, provenance: v.def.provenance, kind: v.def.kind };
+    const system = app.exo.find((s) => s.spec.id === id);
+    if (system) {
+      // An exoplanet system not yet visited: its star at the measured position.
+      const camSsb = app.sys.toSsb(this.ship.pos, app.simTime, new Vec3d());
+      const rel = system.helio.clone().add(app.sys.ephemeris.ssb('10', app.simTime, new Vec3d())).sub(camSsb);
+      return { name: system.spec.name, rel, radius: system.spec.star.radiusSun * SUN_RADIUS_M, provenance: 'measured', kind: 'star' };
+    }
     if (id.startsWith('*') && app.catalog) {
       const i = Number(id.slice(1));
       const camSsb = app.sys.toSsb(this.ship.pos, app.simTime, new Vec3d());
@@ -102,6 +120,9 @@ export class ShipController implements Controller {
       const sun = app.sys.ephemeris.ssb('10', app.simTime, new Vec3d());
       const pc = camSsb.sub(sun).scale(1 / PARSEC_M);
       for (const i of app.catalog.destinations(pc, 31, 40)) ids.push(`*${i}`);
+      for (const sys of app.exo) {
+        if (!app.sys.byId.has(sys.spec.id) && sys.helio.clone().scale(1 / PARSEC_M).distanceTo(pc) < 31) ids.push(sys.spec.id);
+      }
     }
     return ids
       .map((id) => {
@@ -113,11 +134,10 @@ export class ShipController implements Controller {
       .sort((a, b) => a.angle - b.angle);
   }
 
-  /** Display name for a body key (catalog stars use their catalogue name). */
+  /** Display name for a body key (catalogue stars and exoplanets use their catalogue name). */
   private bodyName(key: string): string {
     const v = this.app.sys.views.find((x) => x.def.key === key);
-    if (v && v.def.id.startsWith('*')) return v.def.name;
-    return t(`body.${key}`);
+    return v ? bodyLabel(v.def) : t(`body.${key}`);
   }
 
   private flash(key: string, seconds = 3): void {
@@ -129,13 +149,19 @@ export class ShipController implements Controller {
     const app = this.app;
     const id = this.targetId;
     if (!id) return this.flash('hyper.error.noTarget');
-    const isStar = id.startsWith('*') || id === '10';
+    const system = app.exo.find((s) => s.spec.id === id);
+    const isStar = id.startsWith('*') || id === '10' || system !== undefined;
     if (!isStar) return this.flash('hyper.error.notStar');
     const info = this.targetInfo(id);
     if (!info) return;
     const camSsb = app.sys.toSsb(this.ship.pos, app.simTime, new Vec3d());
     const targetSsb = camSsb.clone().add(info.rel);
-    const lum = id === '10' ? 1 : inferStar(app.catalog!.absMags[Number(id.slice(1))] ?? 5, app.catalog!.info(Number(id.slice(1)))?.bv ?? 0.65).luminositySun;
+    const lum =
+      id === '10'
+        ? 1
+        : system
+          ? system.spec.star.luminositySun
+          : inferStar(app.catalog!.absMags[Number(id.slice(1))] ?? 5, app.catalog!.info(Number(id.slice(1)))?.bv ?? 0.65).luminositySun;
     const arrival = Math.max(1.6 * Math.sqrt(lum) * AU_M, info.radius * 120);
     const err = this.hyper.engage(app.sys, this.ship, app.simTime, id, info.name, targetSsb, arrival);
     if (err) this.flash(err);
@@ -297,7 +323,7 @@ export class ShipController implements Controller {
     if (vRel.length() > 0.5) velDir = vRel.normalize();
     const labels: HudLabel[] = sys.views
       .filter((v) => v.def.id !== this.targetId && v.angularRadiusPx < 400)
-      .map((v) => ({ id: v.def.id, name: t(`body.${v.def.key}`), rel: v.rel, radius: v.def.radiusM }))
+      .map((v) => ({ id: v.def.id, name: bodyLabel(v.def), rel: v.rel, radius: v.def.radiusM }))
       .sort((a, b) => a.rel.length() - b.rel.length())
       .slice(0, 7);
     const warnings: string[] = [];

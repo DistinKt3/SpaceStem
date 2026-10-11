@@ -15,7 +15,7 @@ import { Vec3d } from '../../core/vec3d';
 import { keplerOrbit } from '../../world/kepler';
 import type { App } from '../app';
 import { formatDistance } from '../format';
-import { t } from '../i18n';
+import { bodyLabel, t } from '../i18n';
 
 export type MapMode = 'system' | 'stars';
 
@@ -260,7 +260,7 @@ export class MapView {
       const pos = toMap(r);
       this.addDot(pos, new THREE.Color(0.75, 0.9, 1), 14);
       const shipD = sys.anchorRelative(v.def.id, app.cam.pos.anchor, tNow, new Vec3d()).sub(app.cam.pos.offset).length();
-      this.items.push({ id: v.def.id, name: t(`body.${v.def.key}`), pos, detail: formatDistance(shipD), color: new THREE.Color(0.8, 0.9, 1), size: 12, rank: 2 });
+      this.items.push({ id: v.def.id, name: bodyLabel(v.def), pos, detail: formatDistance(shipD), color: new THREE.Color(0.8, 0.9, 1), size: 12, rank: 2 });
     }
     // The ship. Near a planet (inside its sphere of influence) the two would overlap at this scale: one merged label.
     const shipPos = toMap(sys.toSsb(app.cam.pos, tNow, new Vec3d()).sub(starPos));
