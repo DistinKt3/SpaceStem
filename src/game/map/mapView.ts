@@ -199,8 +199,8 @@ export class MapView {
     }
     this.title.innerHTML =
       this.mode === 'system'
-        ? `<strong>${t('map.systemTitle')}</strong><span>${t('map.systemScale')}</span><span>${t('map.help')}</span>`
-        : `<strong>${t('map.starsTitle')}</strong><span>${t('map.starsScale')}</span><span>${t('map.help')}</span>`;
+        ? `<strong>${t('map.systemTitle')}</strong><span>${t('map.systemScale')}</span><span>${t('map.help', { map: this.app.keyFor('toggleMap'), close: this.app.keyFor('pause') })}</span>`
+        : `<strong>${t('map.starsTitle')}</strong><span>${t('map.starsScale')}</span><span>${t('map.help', { map: this.app.keyFor('toggleMap'), close: this.app.keyFor('pause') })}</span>`;
   }
 
   private select(id: string): void {

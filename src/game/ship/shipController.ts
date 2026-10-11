@@ -37,7 +37,7 @@ export class ShipController implements Controller {
   readonly hyper = new Hyperspeed();
   readonly managesAnchor = true;
   /** Transient message (i18n key) shown in the HUD warning area. */
-  private message: { key: string; until: number } | null = null;
+  private message: { key: string; until: number; params?: Record<string, string> } | null = null;
   /** Head-look rotation relative to the ship (cockpit view). */
   readonly headLook = new THREE.Quaternion();
   private headYaw = 0;
@@ -140,15 +140,15 @@ export class ShipController implements Controller {
     return v ? bodyLabel(v.def) : t(`body.${key}`);
   }
 
-  private flash(key: string, seconds = 3): void {
-    this.message = { key, until: performance.now() + seconds * 1000 };
+  private flash(key: string, seconds = 3, params?: Record<string, string>): void {
+    this.message = { key, until: performance.now() + seconds * 1000, ...(params ? { params } : {}) };
   }
 
   /** Engage hyperspeed toward the current target star (or the Sun when far from it). */
   engageHyperspeed(): void {
     const app = this.app;
     const id = this.targetId;
-    if (!id) return this.flash('hyper.error.noTarget');
+    if (!id) return this.flash('hyper.error.noTarget', 3, { key: app.keyFor('targetNext') });
     const system = app.exo.find((s) => s.spec.id === id);
     const isStar = id.startsWith('*') || id === '10' || system !== undefined;
     if (!isStar) return this.flash('hyper.error.notStar');
@@ -331,7 +331,7 @@ export class ShipController implements Controller {
     this.alert = warnings.length > 0 ? 1 : 0;
     if (tel.droppedOut) this.dropMsgUntil = performance.now() + 3000;
     if (performance.now() < this.dropMsgUntil) warnings.push(t('hud.warn.droppedOut'));
-    if (this.message && performance.now() < this.message.until) warnings.push(t(this.message.key));
+    if (this.message && performance.now() < this.message.until) warnings.push(t(this.message.key, this.message.params));
     if (this.hyper.phase === 'spool') warnings.push(t('hyper.spooling', { name: this.hyper.targetName }));
     const state: HudState = {
       mode: ship.mode,
@@ -351,6 +351,7 @@ export class ShipController implements Controller {
       utc: new Date(tdbSecondsSinceJ2000ToUnixMs(app.simTime)).toISOString().replace('T', ' ').slice(0, 19) + ' UTC',
       sunDistance: sun.rel.length(),
       sunName: this.bodyName(sun.def.key),
+      howWeKnowKey: app.keyFor('howWeKnow'),
       warnings,
       footer: this.hyper.phase === 'jump' ? t('hyper.eta', { s: Math.ceil(this.hyper.etaSeconds) }) : '',
     };

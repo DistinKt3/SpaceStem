@@ -13,6 +13,8 @@ import { StarCatalog } from '../world/starCatalog';
 import { MapView } from './map/mapView';
 import { Settings, type SettingsData } from './settings/settings';
 import { InputManager } from './input/inputManager';
+import type { ActionId } from './input/actions';
+import { bindingLabel } from './input/labels';
 import { SettingsPanel } from './ui/settingsPanel';
 import { Captions } from './ui/captions';
 import { AudioEngine } from './audio/audioEngine';
@@ -109,6 +111,12 @@ export class App {
       if (!this.map?.isOpen && !this.panel.isOpen && this.params.get('lock') !== '0') this.input.requestPointerLock();
     });
     this.settings.onChange((_, changed) => this.applySettings(changed));
+  }
+
+  /** Label of the input currently bound to an action (for hints; follows rebinding and the active device). */
+  keyFor(action: ActionId): string {
+    const ctx = this.input.activeDevice === 'pad' ? 'pad' : 'kbm';
+    return bindingLabel(this.input.binding(action, 0, ctx) ?? this.input.binding(action, 1, ctx));
   }
 
   /** Show or hide the cockpit model (the HUD layout adapts via a body class). */

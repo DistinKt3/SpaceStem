@@ -49,6 +49,8 @@ export interface HudState {
   sunDistance: number;
   /** Name of the system's star (the Sun, or the star the ship is visiting). */
   sunName: string;
+  /** Current binding label of the "How do we know this?" action (follows rebinding and the active device). */
+  howWeKnowKey: string;
   warnings: string[];
   footer: string;
 }
@@ -161,7 +163,7 @@ export class Hud {
         `<div class="k">${t('hud.distance')}</div><div class="v">${formatDistance(surf)}</div>` +
         `<div class="k">${t('hud.lightTime')}</div><div class="v">${formatDuration(d / SPEED_OF_LIGHT_M_PER_S)}</div>` +
         `<div class="k">${t('hud.eta')}</div><div class="v">${Number.isFinite(eta) ? formatDuration(eta) : '—'}</div>` +
-        `<div class="ks-hint">${t('hud.howWeKnowHint')}</div>`;
+        `<div class="ks-hint">${t('hud.howWeKnowHint', { key: s.howWeKnowKey })}</div>`;
     } else {
       this.right.style.display = 'none';
     }
