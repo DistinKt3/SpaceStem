@@ -99,7 +99,11 @@ body:not(.ks-cockpit-on) .ks-onb {
 body.ks-map-open .ks-onb {
   top: auto;
   bottom: 1.2rem;
-  max-height: calc(100cqh - 9rem);
+  /*
+   * The map title (top left) is up to 8 rem tall with its margin at 200 % text: stay below it, but always keep room
+   * for the goal (in tiny windows at large text the map's own panels collide too).
+   */
+  max-height: max(8rem, calc(100cqh - 10rem));
 }
 
 /* More content below the visible part of the card: a soft fade at the bottom edge. */
