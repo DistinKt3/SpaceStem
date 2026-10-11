@@ -207,7 +207,7 @@ function checkSourced(
   if (typeof v['source'] !== 'string' || v['source'] === '') out.push(`${path}.source is empty`);
   const c = v['citation'];
   if (typeof c !== 'string' || c === '') out.push(`${path}.citation is empty`);
-  else if (!(c in citations)) out.push(`${path}.citation '${c}' is not in citations`);
+  else if (!Object.hasOwn(citations, c)) out.push(`${path}.citation '${c}' is not in citations`);
   if (v['note'] !== undefined && typeof v['note'] !== 'string') out.push(`${path}.note must be a string`);
   checkUncertainty(v['uncertainty'], path, out);
 }
@@ -311,7 +311,7 @@ export function validateSystem(data: unknown): string[] {
     const atm = isObj(inf['atmosphere']) ? inf['atmosphere']['value'] : undefined;
     if (!(ATMOSPHERES as readonly unknown[]).includes(atm)) out.push(`${at}.inferred.atmosphere has an unknown class`);
     if (g['provenance'] !== 'generated') out.push(`${at}.generated.provenance must be 'generated'`);
-    if (typeof g['citation'] !== 'string' || !(g['citation'] in citations)) out.push(`${at}.generated.citation does not resolve`);
+    if (typeof g['citation'] !== 'string' || !Object.hasOwn(citations, g['citation'])) out.push(`${at}.generated.citation does not resolve`);
     if (typeof g['seed'] !== 'number' || !Number.isInteger(g['seed']) || g['seed'] < 0 || g['seed'] > 0xffff_ffff) {
       out.push(`${at}.generated.seed must be a uint32`);
     }
