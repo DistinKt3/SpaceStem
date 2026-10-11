@@ -126,8 +126,13 @@ export class ShipFuel {
     };
   }
 
+  /**
+   * The climb needs the ship's own drive: not in hyperspeed (the jump carries the ship away anyway). A ship resting on a
+   * star's photosphere (it can sink there in thrusters mode, whose thrust cannot hold against a star's gravity) lifts off
+   * and climbs; on a planet or moon the flux is far too low for the hull to reach its limit.
+   */
   private canClimb(): boolean {
-    return !this.ship.landed && !this.hyper.active;
+    return !this.hyper.active;
   }
 
   /** Advance scoop and hull heat by `dt` (after the flight step); react to events; track the paid jump; save. */
@@ -183,7 +188,10 @@ export class ShipFuel {
     c.pitch = 0;
     c.yaw = 0;
     c.roll = 0;
-    c.throttleRate = 0;
+    // Resting on the star: the lift-off input (the flight model's own take-off rule); otherwise no throttle input.
+    c.throttleRate = ship.landed ? 1 : 0;
+    c.strafeY = ship.landed ? 1 : 0;
+    c.strafeX = 0;
     c.zeroThrottle = false;
     c.modeNext = false;
     c.modePrev = false;

@@ -19,11 +19,13 @@ interface Controller {
   update(dt: number, app: unknown): void;
   updateHud(app: unknown): void;
   hyper: { phase: string; spoolTime: number };
-  ship: { pos: { anchor: string; offset: Vec }; vel: Vec; mode: string; throttle: number };
+  ship: { pos: { anchor: string; offset: Vec }; vel: Vec; mode: string; throttle: number; landed: boolean; land(sys: unknown, view: unknown, t: number): void };
   fuel: { system: { hyperFuel: number; heat: number; heatState: string; refuel(a?: number): void }; climbing: boolean };
 }
 interface KsApp {
   paused: boolean;
+  simTime: number;
+  sys: { byId: Map<string, unknown> };
   catalog: { destinations(p: { x: number; y: number; z: number }, maxPc: number, limit: number): number[]; name(i: number): string };
   controller: Controller;
 }
@@ -139,6 +141,27 @@ test('fuel loop in the game: refusal, a paid jump, the refund on abort and the e
   expect(end.state).not.toMatch(/critical|emergency/);
   expect(end).toMatchObject({ throttle: 0, mode: 'cruise' });
   await expect(warn).not.toContainText('Emergency climb');
+
+  // A ship resting on the photosphere (thrusters cannot hold against a star's gravity) lifts off and climbs too.
+  const lifted = await page.evaluate(() => {
+    const app = (window as unknown as { __ks: KS }).__ks.app;
+    const c = app.controller;
+    const ship = c.ship;
+    ship.mode = 'thrusters';
+    ship.pos = { anchor: '10', offset: ship.pos.offset.clone().set(6.957e8 + 2.5, 0, 0) };
+    ship.vel.set(0, 0, 0);
+    ship.land(app.sys, app.sys.byId.get('10'), app.simTime);
+    c.fuel.system.heat = 0.99;
+    app.paused = true;
+    const before = ship.landed;
+    for (let i = 0; i < 40; i++) c.update(0.1, app);
+    const mid = { landed: ship.landed, climbing: c.fuel.climbing };
+    for (let i = 0; i < 900 && c.fuel.climbing; i++) c.update(0.1, app);
+    app.paused = false;
+    return { before, ...mid, end: ship.pos.anchor === '10' ? ship.pos.offset.length() / 6.957e8 : Infinity };
+  });
+  expect(lifted).toMatchObject({ before: true, landed: false, climbing: true });
+  expect(lifted.end).toBeGreaterThan(3);
 
   // ?fuel= is a test override: the player's saved tank is left alone.
   expect(await page.evaluate(() => localStorage.getItem('knownsky.fuel'))).toBeNull();
