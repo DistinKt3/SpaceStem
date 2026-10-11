@@ -7,7 +7,10 @@
 import { test, expect, type Page } from '@playwright/test';
 import type { AudioCue } from '../../src/game/audio/audioEngine';
 import { CUE_CAPTIONS } from '../../src/game/audio/captions';
+import { EXIT_GLIDE_AT, EXIT_STAGGER } from '../../src/game/audio/cues';
 import type { Measurement, Scenario } from '../../src/game/audio/offlineRender';
+import { composeScore } from '../../src/game/audio/score';
+import { exitShimmerNotes, inKey } from '../../src/game/audio/tuning';
 
 const executablePath = process.env['CI'] ? undefined : '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 test.use({
@@ -29,7 +32,11 @@ test.use({
 interface Hooks {
   measure(sc: Scenario, base?: Scenario): Promise<Measurement>;
   cues: AudioCue[];
-  engine: { unlocked: boolean; score: { loopSeconds: number }; stats(): { contextState: string; musicTime: number | null; lastError: string | null } };
+  engine: {
+    unlocked: boolean;
+    score: { loopSeconds: number };
+    stats(): { contextState: string; musicTime: number | null; suspended: boolean; activeLayers: number; lastError: string | null };
+  };
 }
 
 async function open(page: Page): Promise<void> {
@@ -106,15 +113,74 @@ test.describe('procedural audio (offline renders)', () => {
     const drone = await measure(page, { ...base, state: { hyperspeed: 1, mode: 'hyperspeed' } }, base);
     expect(drone.diff!.rms).toBeGreaterThan(0.02);
     expect(drone.diff!.centroidHz).toBeLessThan(400);
+    expect(drone.diff!.hfFraction).toBeLessThan(0.01);
+  });
+
+  test('hull sounds stay dark but reach small speakers: 150-600 Hz within 10 dB of the music', async ({ page }) => {
+    for (const seed of [SEED, 3]) {
+      const music = await measure(page, { seconds: 8, seed, volumes: { sfx: 0 } });
+      const musicDb = 20 * Math.log10(music.midBandLate);
+      const base: Scenario = { seconds: 6, seed, volumes: { music: 0 } };
+      const states: Scenario['state'][] = [
+        { hyperspeed: 1, mode: 'hyperspeed' },
+        { thrust: 0.4, mode: 'thrusters' },
+        { thrust: 0.4, mode: 'impulse' },
+        { thrust: 0.4, mode: 'cruise', speedFraction: 0.5 },
+      ];
+      for (const state of states) {
+        const m = await measure(page, { ...base, ...(state ? { state } : {}) }, base);
+        const label = `seed ${seed} ${JSON.stringify(state)}`;
+        expect(20 * Math.log10(m.diff!.midBandLate), label).toBeGreaterThan(musicDb - 10);
+        expect(m.diff!.centroidHz, label).toBeLessThan(400); // still felt through the hull, not heard as a hiss
+        expect(m.diff!.hfFraction, label).toBeLessThan(0.01);
+      }
+    }
+  });
+
+  test('the hyperspeed exit shimmer is the tonic triad in the score key, six distinct pitches', async ({ page }) => {
+    for (const seed of [SEED, 1, 3]) {
+      const score = composeScore(seed);
+      const key = { tonic: score.tonic, steps: score.mode.steps };
+      const base: Scenario = { seconds: 4, seed, volumes: { music: 0 } };
+      // Every note has entered and none has started to glide yet: look at the onset pitches.
+      const t0 = 0.4 + 0.01; // the cue starts 10 ms after play()
+      const m = await measure(page, { ...base, steps: [{ at: 0.4, cue: 'hyperspeed-exit' }], peaksWindow: [t0 + 5 * EXIT_STAGGER + 0.04, t0 + EXIT_GLIDE_AT] }, base);
+      const midi = m.diff!.peaksHz.slice(0, 6).map((hz) => 69 + 12 * Math.log2(hz / 440));
+      expect(midi, `seed ${seed}`).toHaveLength(6);
+      for (const x of midi) {
+        expect(Math.abs(x - Math.round(x)), `seed ${seed} peak ${x.toFixed(2)} is a tempered pitch`).toBeLessThan(0.15);
+        expect(inKey(key, Math.round(x)), `seed ${seed} peak ${x.toFixed(2)} in key`).toBe(true);
+        expect(440 * Math.pow(2, (x - 69) / 12)).toBeLessThan(7000);
+      }
+      expect(new Set(midi.map(Math.round)), `seed ${seed}`).toEqual(new Set(exitShimmerNotes(key)));
+    }
+  });
+
+  test('a warning is heard and captioned even when every cue voice is busy', async ({ page }) => {
+    const busy: AudioCue[] = ['ui-hover', 'hyperspeed-engage', 'hyperspeed-exit', 'codex-unlock', 'hyperspeed-spool', 'landing-contact', 'target-lock', 'mode-change', 'ui-select', 'ui-back', 'scoop-warning', 'heat-critical'];
+    const storm: Scenario = { seconds: 3, seed: SEED, volumes: { music: 0 }, steps: busy.map((cue, i) => ({ at: 0.3 + i * 0.004, cue })) };
+    const withAlert = await measure(page, { ...storm, steps: [...storm.steps!, { at: 0.4, cue: 'alert' }] }, storm);
+    expect(withAlert.diff!.rms).toBeGreaterThan(5e-4); // before priorities the 13th cue was dropped (diff 0)
+    expect(keys(withAlert)).toContain('audio.caption.alert');
+    expect(withAlert.peak).toBeLessThan(0.98);
+    expect(withAlert.lastError).toBeNull();
   });
 
   test('mute, zero volume, NaN state and dispose are silent, finite and error-free', async ({ page }) => {
     const muted = await measure(page, { seconds: 2, seed: SEED, muted: true, state: { thrust: 1 }, steps: [{ at: 0.5, cue: 'alert' }] });
     expect(muted.rms).toBeLessThan(1e-6);
-    expect(muted.captions).toEqual([]); // nothing audible, nothing captioned
+    // Silent, but still captioned: captions are for players who cannot hear the game.
+    expect(keys(muted)).toEqual(expect.arrayContaining(['audio.caption.engineSurge', 'audio.caption.alert', 'audio.caption.cabin', 'audio.caption.music']));
 
-    const zero = await measure(page, { seconds: 2, seed: SEED, volumes: { master: 0 }, state: { thrust: 1 } });
+    const zero = await measure(page, { seconds: 2, seed: SEED, volumes: { master: 0 }, state: { thrust: 1 }, steps: [{ at: 0.5, cue: 'fuel-low' }] });
     expect(zero.rms).toBeLessThan(1e-6);
+    expect(keys(zero)).toEqual(expect.arrayContaining(['audio.caption.engineSurge', 'audio.caption.fuelLow']));
+
+    // Unmuting brings back what is running (the layers rebuild and fade in).
+    const unmute = await measure(page, { seconds: 4, seed: SEED, muted: true, volumes: { music: 0 }, state: { thrust: 0.6 }, steps: [{ at: 1.5, muted: false }] });
+    expect(unmute.windowRms[1]!).toBeLessThan(1e-6);
+    expect(unmute.windowRms[7]!).toBeGreaterThan(0.02);
+    expect(unmute.click).toBeLessThan(9);
 
     const nan = await measure(page, {
       seconds: 2,
@@ -165,12 +231,29 @@ test('Audio Lab: Start audio unlocks a real AudioContext; cues play and caption'
   await expect(page.locator('.caption', { hasText: '[Soft chime]' })).toBeVisible();
   await page.click('.cue-btn[data-cue="landing-contact"]');
   await expect(page.locator('.caption', { hasText: '[Landing gear thud]' })).toBeVisible();
-  const t0 = await page.evaluate(() => (window as unknown as { __ksAudio: Hooks }).__ksAudio.engine.stats().musicTime ?? 0);
+  const stats = (): Promise<ReturnType<Hooks['engine']['stats']>> => page.evaluate(() => (window as unknown as { __ksAudio: Hooks }).__ksAudio.engine.stats());
+  const t0 = (await stats()).musicTime ?? 0;
   await page.waitForTimeout(600);
-  const s = await page.evaluate(() => (window as unknown as { __ksAudio: Hooks }).__ksAudio.engine.stats());
+  const s = await stats();
   expect(s.contextState).toBe('running');
   expect(s.musicTime!).toBeGreaterThan(t0);
   expect(s.lastError).toBeNull();
+
+  // Muted, the engine suspends its own context (no audio CPU) but stays unlocked and keeps captioning.
+  await page.click('.toggle:has-text("Mute")');
+  await page.waitForFunction(() => (window as unknown as { __ksAudio: Hooks }).__ksAudio.engine.stats().contextState === 'suspended', null, { timeout: 10_000 });
+  expect((await stats()).suspended).toBe(true);
+  await expect(page.locator('.pill')).toHaveText('Audio idle (muted)');
+  await page.click('.cue-btn[data-cue="fuel-low"]');
+  await expect(page.locator('.caption', { hasText: '[Low fuel tone]' })).toBeVisible();
+  const frozen = (await stats()).musicTime!;
+  await page.waitForTimeout(400);
+  expect((await stats()).musicTime).toBeCloseTo(frozen, 3); // the score pauses in place
+  await page.click('.toggle:has-text("Mute")');
+  await page.waitForFunction(() => (window as unknown as { __ksAudio: Hooks }).__ksAudio.engine.stats().contextState === 'running', null, { timeout: 10_000 });
+  await expect(page.locator('.pill')).toHaveText('Audio running');
+  expect((await stats()).suspended).toBe(false);
+  expect((await stats()).lastError).toBeNull();
 
   // A new seed disposes the engine and builds a new one with a different score; audio keeps running.
   const keyBefore = await page.locator('.score-meta b').innerText();

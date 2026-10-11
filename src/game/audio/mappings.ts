@@ -71,9 +71,12 @@ export interface EngineMix {
   /** Sub-bass hull rumble oscillator. */
   rumbleGain: number;
   rumbleHz: number;
-  /** Low-passed brown-noise roar. */
+  /** Low-passed pink-noise roar. */
   noiseGain: number;
   noiseCutoff: number;
+  /** Hull-panel resonance: a band-passed slice of the roar in the range small speakers can play. */
+  resoGain: number;
+  resoHz: number;
   /** Tonal drive hum (stronger in impulse and cruise). */
   toneGain: number;
   toneHz: number;
@@ -95,6 +98,9 @@ const CHARACTER: Record<AudioState['mode'], ModeCharacter> = {
   hyperspeed: { rumbleHz: [44, 64], noise: 0.25, tone: 0.6, toneHz: [92, 132], cutoff: [150, 380] },
 };
 
+/** Hull resonance level per unit engine level (the band is narrow, so this is much quieter than it looks). */
+const RESO_GAIN = 0.32;
+
 export function engineMix(s: AudioState): EngineMix {
   const c = CHARACTER[s.mode];
   const t = s.thrust;
@@ -107,6 +113,9 @@ export function engineMix(s: AudioState): EngineMix {
     rumbleHz: c.rumbleHz[0] + (c.rumbleHz[1] - c.rumbleHz[0]) * t,
     noiseGain: 0.26 * c.noise * level,
     noiseCutoff: c.cutoff[0] + (c.cutoff[1] - c.cutoff[0]) * t,
+    // Strongest at low and partial thrust; at full thrust the roar itself opens up into this band.
+    resoGain: RESO_GAIN * level * (1 - 0.6 * t),
+    resoHz: 190 + 150 * t,
     toneGain: 0.045 * c.tone * level,
     toneHz: (c.toneHz[0] + (c.toneHz[1] - c.toneHz[0]) * t) * speedLift,
     hullCutoff: 380 + 420 * t,

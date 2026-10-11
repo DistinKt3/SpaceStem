@@ -4,11 +4,12 @@
  *
  * Shape of the music:
  * - A slow loop of eight pad chords in one calm mode (lydian, ionian, dorian, mixolydian or aeolian), two or three
- *   bars each at roughly 45-55 bpm, so one loop lasts about 80-130 s. Chords never use a diminished triad.
+ *   bars each at 46-54 bpm, so one loop lasts about 75-120 s. Chords never use a diminished triad.
  * - Four upper pad voices move by the smallest steps between chords (voice leading), including across the loop seam,
  *   so the loop joins without a jump. A soft bass note doubles each chord root.
  * - Sparse bell motifs (2-4 notes) over about a third of the chords. Bells vary per loop cycle (hash of seed, cycle and
- *   chord) while the harmony repeats, so the score evolves without ever drifting off its key.
+ *   chord) while the harmony repeats, so the score evolves without ever drifting off its key. A bell never sits a
+ *   semitone above a pad tone it does not belong to (a minor ninth), also when its motif runs into the next chord.
  * - Per-chord "brightness" drives the pad filter for slow timbral motion.
  */
 import { Rng, hashInts, toUnit } from '../../core/rng';
@@ -248,6 +249,19 @@ export function composeScore(seed: number): Score {
   return { seed: s, tonic, mode, barSeconds, loopSeconds: t, chords };
 }
 
+/**
+ * Pitch classes that would sound a minor ninth (a semitone) above one of the chord's tones without being chord tones
+ * themselves. Calm music avoids them over a sustained pad.
+ */
+export function avoidPitchClasses(chordPcs: readonly number[]): Set<number> {
+  const out = new Set<number>();
+  for (const q of chordPcs) {
+    const p = pc(q + 1);
+    if (!chordPcs.includes(p)) out.add(p);
+  }
+  return out;
+}
+
 /** Bell motifs for one cycle of the loop (cycle 0, 1, 2, ...). Pure and deterministic. */
 export function bellsForCycle(score: Score, cycle: number): ScoreBell[] {
   const out: ScoreBell[] = [];
@@ -255,10 +269,13 @@ export function bellsForCycle(score: Score, cycle: number): ScoreBell[] {
   const beat = score.barSeconds / 4;
   score.chords.forEach((c, i) => {
     const r = new Rng(hashInts(score.seed, 0xbe11, cycle, i));
-    // About a third of chords carry a motif; never two loud ones back to back on the first chord of the loop.
+    // About a third of chords carry a motif.
     if (r.next() > 0.38) return;
-    // Pool: chord tones plus the mode's 2nd and 6th degree, in the bell register (consonant, pentatonic-leaning).
-    const allowed = new Set<number>([...c.pcs, pc(tonicPc + stepOf(score.mode, 1)), pc(tonicPc + stepOf(score.mode, 5))]);
+    // Pool: chord tones plus the mode's 2nd and 6th degree in the bell register (consonant, pentatonic-leaning), minus
+    // any colour tone a semitone above a chord tone (in aeolian the minor 6th would clash with the fifth of i).
+    const avoid = avoidPitchClasses(c.pcs);
+    const colour = [pc(tonicPc + stepOf(score.mode, 1)), pc(tonicPc + stepOf(score.mode, 5))].filter((p) => !avoid.has(p));
+    const allowed = new Set<number>([...c.pcs, ...colour]);
     const pool: number[] = [];
     for (let m = BELL_LOW; m <= BELL_HIGH; m++) if (allowed.has(pc(m))) pool.push(m);
     if (pool.length === 0) return;
@@ -268,7 +285,11 @@ export function bellsForCycle(score: Score, cycle: number): ScoreBell[] {
     const pan0 = r.range(-0.55, 0.55);
     for (let k = 0; k < count; k++) {
       if (tt >= score.loopSeconds - 0.25) break;
-      out.push({ t: tt, midi: pool[idx]!, vel: r.range(0.4, 0.75) * (k === 0 ? 1 : 0.82), pan: Math.max(-0.8, Math.min(0.8, pan0 + r.range(-0.2, 0.2))) });
+      const midi = pool[idx]!;
+      // A motif may run into the next chord: end it before a note that would clash with that chord.
+      const sounding = score.chords[chordIndexAt(score, tt)]!;
+      if (sounding !== c && !sounding.pcs.includes(pc(midi)) && avoidPitchClasses(sounding.pcs).has(pc(midi))) break;
+      out.push({ t: tt, midi, vel: r.range(0.4, 0.75) * (k === 0 ? 1 : 0.82), pan: Math.max(-0.8, Math.min(0.8, pan0 + r.range(-0.2, 0.2))) });
       const steps = [-2, -1, 1, 2, 1, -1];
       idx = Math.max(0, Math.min(pool.length - 1, idx + steps[r.int(0, steps.length)]!));
       tt += beat * [1, 1.5, 2, 3][r.int(0, 4)]!;
@@ -326,8 +347,12 @@ export interface Blip {
   readonly pan: number;
 }
 
-/** Sparse avionics blips (instrument tones) in [t0, t1): one 1.6 s slot in four on average. Pure. */
-export function instrumentBlips(seed: number, t0: number, t1: number): Blip[] {
+/** Default avionics pitches (Hz, C major pentatonic around 2 kHz). The engine passes key-aware ones (tuning.ts). */
+export const DEFAULT_BLIP_TONES: readonly number[] = [1568, 1760, 2093, 2349, 2637];
+
+/** Sparse avionics blips (instrument tones) in [t0, t1): one 1.6 s slot in four on average, pitched from `tones`. Pure. */
+export function instrumentBlips(seed: number, t0: number, t1: number, tones: readonly number[] = DEFAULT_BLIP_TONES): Blip[] {
+  const palette = tones.length > 0 ? tones : DEFAULT_BLIP_TONES;
   const SLOT = 1.6;
   const out: Blip[] = [];
   if (!(t1 > t0) || !Number.isFinite(t0) || !Number.isFinite(t1)) return out;
@@ -336,10 +361,9 @@ export function instrumentBlips(seed: number, t0: number, t1: number): Blip[] {
     if (toUnit(h) > 0.24) continue;
     const at = k * SLOT + toUnit(hashInts(h, 1)) * SLOT * 0.8;
     if (at < t0 || at >= t1) continue;
-    const tones = [1568, 1760, 2093, 2349, 2637];
     out.push({
       at,
-      hz: tones[hashInts(h, 2) % tones.length]!,
+      hz: palette[hashInts(h, 2) % palette.length]!,
       count: toUnit(hashInts(h, 3)) < 0.35 ? 2 : 1,
       vel: 0.5 + 0.5 * toUnit(hashInts(h, 4)),
       pan: toUnit(hashInts(h, 5)) * 1.2 - 0.6,

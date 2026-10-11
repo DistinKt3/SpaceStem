@@ -18,7 +18,10 @@ const WARN_CUES = new Set<AudioCue>(['scoop-warning', 'heat-critical', 'alert', 
 const MODES: readonly Mode[] = ['thrusters', 'impulse', 'cruise', 'hyperspeed'];
 
 const pct = (v: number): string => t('audio.demo.percent', { v: Math.round(v * 100) });
-const db = (v: number): string => (v > 0 ? t('audio.demo.db', { v: formatNumber(20 * Math.log10(v), 1, 1) }) : '-∞');
+const db = (v: number): string => (v > 0 ? t('audio.demo.db', { v: formatNumber(20 * Math.log10(v), 1, 1) }) : t('audio.demo.dbSilent'));
+/** Frequency axis label: "100 Hz", "1 kHz", "10 kHz". */
+const hzLabel = (f: number): string => (f >= 1000 ? t('audio.demo.khz', { v: formatNumber(f / 1000, 1) }) : t('audio.demo.hz', { v: formatNumber(f) }));
+const AXIS_HZ = [100, 1000, 10000] as const;
 
 const SLIDERS: { key: NumericKey; label: string; max: number; step: number; fmt: (v: number) => string }[] = [
   { key: 'thrust', label: 'audio.demo.thrust', max: 1, step: 0.01, fmt: pct },
@@ -118,7 +121,12 @@ app.append(
   el(
     'header',
     { cls: 'lab-head' },
-    el('div', { cls: 'lab-title' }, mark, el('div', {}, el('h1', {}, 'Known Sky ', el('span', { cls: 'accent' }, t('audio.demo.title'))), el('p', {}, t('audio.demo.subtitle')))),
+    el(
+      'div',
+      { cls: 'lab-title' },
+      mark,
+      el('div', {}, el('h1', {}, el('span', {}, t('audio.demo.brand')), el('span', { cls: 'accent' }, t('audio.demo.title'))), el('p', {}, t('audio.demo.subtitle'))),
+    ),
     el('div', { cls: 'lab-actions' }, statusPill, startBtn),
   ),
 );
@@ -171,9 +179,10 @@ scopeCanvas.setAttribute('aria-hidden', 'true');
 const captionsBox = el('div', { cls: 'captions' });
 captionsBox.setAttribute('aria-live', 'polite');
 captionsBox.setAttribute('aria-label', t('audio.demo.captionsLabel'));
-const hint = el('div', { cls: 'caption hint' }, t('audio.demo.captionsEmpty'));
-captionsBox.append(hint);
-const scopePanel = panel('audio.demo.section.scope', el('div', { cls: 'scope-wrap' }, scopeCanvas, captionsBox));
+// The placeholder lives outside the live region (and is hidden from screen readers), so it is never announced.
+const hint = el('div', { cls: 'captions captions-hint' }, el('div', { cls: 'caption hint' }, t('audio.demo.captionsEmpty')));
+hint.setAttribute('aria-hidden', 'true');
+const scopePanel = panel('audio.demo.section.scope', el('div', { cls: 'scope-wrap' }, scopeCanvas, hint, captionsBox));
 
 // Score.
 const scoreCanvas = el('canvas');
@@ -189,8 +198,15 @@ for (const c of AUDIO_CUES) cueSelect.append(el('option', { value: c }, t(`audio
 const renderBtn = el('button', { cls: 'chip-btn', type: 'button' }, t('audio.demo.render'));
 const spectroCanvas = el('canvas');
 spectroCanvas.setAttribute('aria-hidden', 'true');
+// HTML, not canvas text, so it wraps at any width.
+const spectroHint = el('p', { cls: 'spectro-hint' }, t('audio.demo.spectroHint'));
 const statsBox = el('div', { cls: 'stats' });
-const offlinePanel = panel('audio.demo.section.offline', el('div', { cls: 'offline-bar' }, renderBtn, cueSelect), el('div', { cls: 'spectro-wrap' }, spectroCanvas), statsBox);
+const offlinePanel = panel(
+  'audio.demo.section.offline',
+  el('div', { cls: 'offline-bar' }, renderBtn, cueSelect),
+  el('div', { cls: 'spectro-wrap' }, spectroCanvas, spectroHint),
+  statsBox,
+);
 
 // Cues.
 const cueButtons = new Map<AudioCue, HTMLButtonElement>();
@@ -257,10 +273,21 @@ function syncUi(): void {
   landedToggle.set(state.landed);
 }
 
+let lastStatus = '';
+/** Called every frame, but only touches the DOM (a live region) when the status actually changes. */
 function updateStatus(): void {
   const on = engine.unlocked;
+  const key = on
+    ? engine.stats().suspended
+      ? 'audio.demo.status.idle'
+      : 'audio.demo.status.running'
+    : typeof AudioContext === 'undefined'
+      ? 'audio.demo.status.unavailable'
+      : 'audio.demo.status.locked';
+  if (key === lastStatus) return;
+  lastStatus = key;
   statusPill.classList.toggle('on', on);
-  statusPill.textContent = on ? t('audio.demo.status.running') : typeof AudioContext === 'undefined' ? t('audio.demo.status.unavailable') : t('audio.demo.status.locked');
+  statusPill.textContent = t(key);
   startBtn.hidden = on;
 }
 
@@ -284,7 +311,7 @@ startBtn.addEventListener('click', () => void startAudio());
 
 const captionTimers: number[] = [];
 function showCaption(text: string, durationS: number): void {
-  hint.remove();
+  hint.hidden = true;
   const c = el('div', { cls: 'caption' }, text);
   captionsBox.append(c);
   while (captionsBox.children.length > 3) captionsBox.firstElementChild?.remove();
@@ -293,7 +320,7 @@ function showCaption(text: string, durationS: number): void {
       c.classList.add('out');
       window.setTimeout(() => {
         c.remove();
-        if (captionsBox.children.length === 0) captionsBox.append(hint);
+        hint.hidden = captionsBox.children.length > 0;
       }, 480);
     }, durationS * 1000),
   );
@@ -395,22 +422,33 @@ const F_LO = 30;
 const F_HI = 16000;
 const xOfHz = (f: number, w: number): number => (Math.log(f / F_LO) / Math.log(F_HI / F_LO)) * w;
 
-function freqGrid(g: CanvasRenderingContext2D, w: number, h: number): void {
+/**
+ * Axis label on a small dark plate, so it stays readable over bright plots, kept inside the canvas: `x` is the anchor
+ * and the label sits to its right unless it would run past the edge. `y` is the text's vertical centre.
+ */
+function axisLabel(g: CanvasRenderingContext2D, text: string, x: number, y: number, w: number, colour: string, centred = false): void {
   g.font = '9px ui-monospace, Menlo, monospace';
-  g.textBaseline = 'bottom';
-  for (const [f, label] of [
-    [100, '100'],
-    [1000, '1k'],
-    [10000, '10k'],
-  ] as const) {
+  g.textBaseline = 'middle';
+  g.textAlign = 'left';
+  const tw = g.measureText(text).width;
+  let left = centred ? x - tw / 2 : x + 3;
+  if (left + tw > w - 3) left = centred ? w - 3 - tw : x - 3 - tw;
+  left = Math.max(3, left);
+  g.fillStyle = 'rgba(0,6,14,0.62)';
+  g.fillRect(Math.round(left - 2), Math.round(y - 6), Math.ceil(tw + 4), 12);
+  g.fillStyle = colour;
+  g.fillText(text, left, y);
+}
+
+function freqGrid(g: CanvasRenderingContext2D, w: number, h: number): void {
+  for (const f of AXIS_HZ) {
     const x = xOfHz(f, w);
     g.strokeStyle = 'rgba(127,212,255,0.10)';
     g.beginPath();
     g.moveTo(x + 0.5, 0);
     g.lineTo(x + 0.5, h);
     g.stroke();
-    g.fillStyle = 'rgba(138,160,192,0.7)';
-    g.fillText(label, x + 3, h - 3);
+    axisLabel(g, hzLabel(f), x, h - 8, w, 'rgba(138,160,192,0.85)');
   }
 }
 
@@ -668,25 +706,18 @@ function drawSpectrogram(mono: Float32Array, sampleRate: number): void {
   g.clearRect(0, 0, w, h);
   g.drawImage(tmp, 0, 0, w, h);
   // Axes.
-  g.font = '9px ui-monospace, Menlo, monospace';
-  g.fillStyle = 'rgba(216,230,255,0.8)';
-  for (const [f, label] of [
-    [100, '100 Hz'],
-    [1000, '1 kHz'],
-    [10000, '10 kHz'],
-  ] as const) {
+  for (const f of AXIS_HZ) {
     const y = (1 - Math.log(f / fLo) / Math.log(20000 / fLo)) * h;
     g.fillStyle = 'rgba(255,255,255,0.18)';
     g.fillRect(0, Math.round(y), w, 1);
-    g.fillStyle = 'rgba(216,230,255,0.85)';
-    g.fillText(label, 4, y - 3);
+    axisLabel(g, hzLabel(f), 1, y - 8, w, 'rgba(216,230,255,0.92)');
   }
   const secs = mono.length / sampleRate;
-  g.textAlign = 'center';
-  for (let s = 1; s < secs; s++) g.fillText(`${s}`, (s / secs) * w, h - 3);
-  g.textAlign = 'left';
+  for (let s = 1; s < secs; s++) axisLabel(g, t('audio.demo.seconds', { v: s }), (s / secs) * w, h - 8, w, 'rgba(216,230,255,0.92)', true);
+  spectroHint.hidden = true;
 }
 
+/** Empty spectrogram: a faint grid (the explanation is the HTML overlay, which wraps on narrow screens). */
 function drawSpectroHint(): void {
   const g = fit(spectroCanvas);
   const w = spectroCanvas.clientWidth;
@@ -700,12 +731,6 @@ function drawSpectroHint(): void {
     g.lineTo(x, h);
     g.stroke();
   }
-  g.fillStyle = 'rgba(138,160,192,0.75)';
-  g.font = '12px system-ui, sans-serif';
-  g.textAlign = 'center';
-  g.textBaseline = 'middle';
-  g.fillText(t('audio.demo.spectroHint'), w / 2, h / 2);
-  g.textAlign = 'left';
 }
 
 function statChip(labelKey: string, value: string, ok: boolean | null): HTMLElement {

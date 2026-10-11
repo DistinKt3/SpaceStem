@@ -67,11 +67,13 @@
   "audio.note.11": "B",
 
   "audio.demo.pageTitle": "Known Sky: Audio Lab",
+  "audio.demo.brand": "Known Sky",
   "audio.demo.title": "Audio Lab",
   "audio.demo.subtitle": "Procedural ship sound and a generative score. No audio files: every sound is synthesized in the browser.",
   "audio.demo.start": "Start audio",
   "audio.demo.status.locked": "Audio locked",
   "audio.demo.status.running": "Audio running",
+  "audio.demo.status.idle": "Audio idle (muted)",
   "audio.demo.status.unavailable": "Web Audio unavailable",
   "audio.demo.section.state": "Ship state",
   "audio.demo.section.cues": "Cues",
@@ -113,7 +115,10 @@
   "audio.demo.stat.click": "Click crest",
   "audio.demo.stat.centroid": "Centroid",
   "audio.demo.db": "{v} dBFS",
+  "audio.demo.dbSilent": "−∞ dBFS",
   "audio.demo.hz": "{v} Hz",
+  "audio.demo.khz": "{v} kHz",
+  "audio.demo.seconds": "{v} s",
   "audio.demo.captionsEmpty": "Captions appear here",
   "audio.demo.captionsLabel": "Captions"
 }

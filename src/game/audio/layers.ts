@@ -1,7 +1,11 @@
 /**
  * Continuous sound layers driven by ship state. Each layer builds its nodes only while it is audible and tears them
- * down after a few seconds of silence, so CPU is spent only on what can be heard (in deep space: just the cabin).
- * All level changes are parameter glides, never jumps, so nothing clicks.
+ * down after a few seconds of silence, so CPU is spent only on what can be heard (in deep space: just the cabin; when
+ * the effects are muted: nothing). All level changes are parameter glides, never jumps, so nothing clicks.
+ *
+ * Hull-borne sounds (engine, hyperspeed drone) are dark on purpose, but laptop and phone speakers reproduce almost
+ * nothing below 150 Hz. Each therefore also has a quieter component in the 150-600 Hz band (an octave "body" with
+ * harmonics, a hull-panel resonance), so the ear hears the low fundamental even where the speaker cannot play it.
  */
 import type { AudioState } from './audioEngine';
 import { cabinMix, engineMix, heatMix, hyperMix, rcsMix, windMix } from './mappings';
@@ -9,6 +13,15 @@ import { NodeGroup, Target, kRate, type Kit } from './nodes';
 
 const SILENT = 1e-4;
 const TEARDOWN_AFTER_S = 5;
+/** Level of the hyperspeed drone's octave body relative to its sub. */
+const DRONE_BODY = 0.65;
+
+/** Key-aware fundamentals (tuning.ts), so the cabin hum and the drone sit in the score's key. */
+export interface LayerTuning {
+  readonly humHz: number;
+  readonly droneHz: number;
+}
+export const DEFAULT_TUNING: LayerTuning = { humHz: 55, droneHz: 36.71 };
 
 export abstract class Layer {
   protected group: NodeGroup | null = null;
@@ -19,6 +32,7 @@ export abstract class Layer {
   constructor(
     protected readonly kit: Kit,
     dest: AudioNode,
+    protected readonly tuning: LayerTuning = DEFAULT_TUNING,
   ) {
     this.out = kit.ctx.createGain();
     this.out.gain.value = 1;
@@ -34,11 +48,15 @@ export abstract class Layer {
     return this.group !== null;
   }
 
-  /** Apply the state at audio time `now` (the layer measures elapsed time on the audio clock). */
-  update(s: AudioState, now: number): void {
+  /**
+   * Apply the state at audio time `now` (the layer measures elapsed time on the audio clock). With `audible` false
+   * (effects muted or at zero volume) the layer counts as silent and is torn down after a few seconds; it is rebuilt,
+   * fading in, when sound returns.
+   */
+  update(s: AudioState, now: number, audible = true): void {
     const dt = Number.isFinite(this.lastNow) ? Math.max(0, now - this.lastNow) : 0;
     this.lastNow = now;
-    const lvl = this.level(s);
+    const lvl = audible ? this.level(s) : 0;
     if (lvl > SILENT) {
       this.quietFor = 0;
       if (!this.group) {
@@ -57,7 +75,7 @@ export abstract class Layer {
         return;
       }
     }
-    if (this.group) this.apply(s, now);
+    if (this.group && audible) this.apply(s, now);
   }
 
   dispose(now: number): void {
@@ -84,13 +102,15 @@ export class CabinLayer extends Layer {
   protected build(g: NodeGroup, _now: number): void {
     const { kit } = this;
     const humBus = g.gain(0);
-    // Slightly inharmonic partials beat slowly against each other, like a real transformer hum.
+    // Slightly inharmonic partials beat slowly against each other, like a real transformer hum. The fundamental is a
+    // scale tone of the score (tuning.ts), between about 46 and 65 Hz.
+    const f = this.tuning.humHz;
     [
-      [55, 1],
-      [110.35, 0.42],
-      [164.8, 0.16],
-      [221.1, 0.05],
-    ].forEach(([hz, a]) => g.osc(kit.warm, hz!).connect(g.gain(a)).connect(humBus));
+      [1, 1],
+      [2.0064, 0.42],
+      [2.9964, 0.16],
+      [4.02, 0.05],
+    ].forEach(([r, a]) => g.osc(kit.warm, f * r!).connect(g.gain(a)).connect(humBus));
     const wobble = g.osc('sine', 0.21);
     const wobbleDepth = g.gain(0.006);
     wobble.connect(wobbleDepth);
@@ -131,10 +151,12 @@ export class EngineLayer extends Layer {
   private toneHz2!: Target;
   private hullCut!: Target;
   private flutter!: Target;
+  private resoGain!: Target;
+  private resoHz!: Target;
 
   protected level(s: AudioState): number {
     const m = engineMix(s);
-    return m.rumbleGain + m.noiseGain + m.toneGain;
+    return m.rumbleGain + m.noiseGain + m.toneGain + m.resoGain;
   }
 
   protected build(g: NodeGroup, _now: number): void {
@@ -148,22 +170,27 @@ export class EngineLayer extends Layer {
 
     const noiseCut = g.filter('lowpass', 150, 0.9);
     const noiseGain = g.gain(0);
-    g.noise(kit.pink, this.offset()).connect(noiseCut).connect(noiseGain).connect(hull);
+    const roar = g.noise(kit.pink, this.offset());
+    roar.connect(noiseCut).connect(noiseGain).connect(hull);
     // Combustion flutter: a little fast amplitude modulation on the roar.
     const flutterLfo = g.osc('sine', 5.3);
     const flutter = g.gain(0);
     flutterLfo.connect(flutter);
     g.link(flutter, noiseGain.gain);
+    // Hull-panel resonance: a band of the same roar a little higher up, so small speakers carry the engine too.
+    const reso = g.filter('bandpass', 220, 1.4);
+    const resoGain = g.gain(0);
+    roar.connect(reso).connect(resoGain).connect(hull);
 
     const toneGain = g.gain(0);
-    const toneLp = g.filter('lowpass', 520, 0.7);
+    const toneLp = g.filter('lowpass', 720, 0.7);
     const t1 = g.osc(kit.pad, 90);
     const t2 = g.osc(kit.pad, 90);
     t1.connect(toneLp);
     t2.connect(toneLp);
     toneLp.connect(toneGain).connect(hull);
 
-    kRate(rumble.frequency, noiseCut.frequency, t1.frequency, t2.frequency, hull.frequency);
+    kRate(rumble.frequency, noiseCut.frequency, t1.frequency, t2.frequency, hull.frequency, reso.frequency);
     this.rumbleGain = new Target(rumbleGain.gain, 0.12);
     this.rumbleHz = new Target(rumble.frequency, 0.25);
     this.noiseGain = new Target(noiseGain.gain, 0.12);
@@ -173,6 +200,8 @@ export class EngineLayer extends Layer {
     this.toneHz2 = new Target(t2.frequency, 0.3);
     this.hullCut = new Target(hull.frequency, 0.2);
     this.flutter = new Target(flutter.gain, 0.2);
+    this.resoGain = new Target(resoGain.gain, 0.12);
+    this.resoHz = new Target(reso.frequency, 0.25);
   }
 
   protected apply(s: AudioState, now: number): void {
@@ -184,6 +213,8 @@ export class EngineLayer extends Layer {
     this.toneGain.set(m.toneGain, now);
     this.toneHz.set(m.toneHz, now);
     this.toneHz2.set(m.toneHz * 1.004, now); // slow beating between the two drive tones
+    this.resoGain.set(m.resoGain, now);
+    this.resoHz.set(m.resoHz, now);
     this.hullCut.set(m.hullCutoff, now);
     this.flutter.set(m.noiseGain * (s.mode === 'thrusters' ? 0.22 : 0.08), now);
   }
@@ -345,10 +376,19 @@ export class HyperLayer extends Layer {
     spoolLp.connect(spoolGain).connect(hull);
 
     const droneGain = g.gain(0);
-    const droneLp = g.filter('lowpass', 260, 0.8);
-    g.osc(kit.warm, 36.7).connect(droneLp);
-    g.osc(kit.warm, 36.95).connect(droneLp);
-    g.noise(kit.pink, this.offset()).connect(g.gain(0.7)).connect(droneLp);
+    const droneLp = g.filter('lowpass', 640, 0.7);
+    // Sub: the score's tonic deep in the bass (tuning.ts) and a slowly beating twin.
+    const f = this.tuning.droneHz;
+    g.osc(kit.warm, f).connect(droneLp);
+    g.osc(kit.warm, f * 1.0068).connect(droneLp);
+    // Body: the same note an octave up with its overtones to about 600 Hz, well under the sub. Where a speaker cannot
+    // play the sub, the ear still hears the drone at its true pitch (the missing-fundamental effect).
+    const body = g.gain(DRONE_BODY);
+    g.osc(kit.buzz, 2 * f, 5).connect(body);
+    g.osc(kit.buzz, 2 * f, -5).connect(body);
+    body.connect(droneLp);
+    // Rushing texture, kept dark.
+    g.noise(kit.pink, this.offset()).connect(g.gain(0.7)).connect(g.filter('lowpass', 280, 0.7)).connect(droneGain);
     droneLp.connect(droneGain).connect(hull);
     const swellLfo = g.osc('sine', 0.08);
     const swell = g.gain(0);
