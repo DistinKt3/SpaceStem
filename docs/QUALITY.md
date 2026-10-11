@@ -67,9 +67,9 @@ Three mechanisms, all exercised by the unit tests:
 
 | Event | Rule |
 |---|---|
-| single frame > 250 ms | ignored as a hitch (compile, upload, GC) |
-| 3 or more such frames in a row | counted: that is the frame rate, not a hitch |
-| frame > 1 s, or a clock gap > 1 s between samples | a pause (tab switch, hidden window, a menu that stopped sampling): evidence is discarded and the controller settles again; a probe's probation restarts |
+| one or two frames > 250 ms in a row | ignored as hitches (compile, upload, GC) |
+| one or two frames > 1 s in a row, or a clock gap > 1 s between samples | a pause (tab switch, hidden window, a menu that stopped sampling): evidence is discarded and the controller settles again; a probe's probation restarts |
+| 3 or more frames > 250 ms in a row (pause-length ones included) | counted: that is the frame rate, so even a machine at under 1 fps degrades |
 | boot | first 2 s (and 5 frames) after the first sample ignored |
 | non-finite or non-positive sample | ignored |
 
@@ -92,6 +92,7 @@ Traces use GPU-bound loads scaled by `relativeCost`, quantised to a 60 Hz displa
 | tab switch / clock gap | no change; a later degrade needs fresh evidence after the pause |
 | load alternating every 4, 10 or 20 s | 90%+ of the time at the level that holds the heavy phase; probes after the first 90 s are at least 2 min apart |
 | 2 min heavy / 2 min light cycles | each phase ends at a suitable level with at most two changes in between |
+| under 1 fps (1.5 s frames at high) | severe drop to `low`; isolated 3 s frames between normal ones remain pauses |
 | CPU-bound (25 ms at every level) | medium, low, then undone back to `high` (3 changes), then stable |
 | 50 Hz display | same as CPU-bound: undone, stays at `high` |
 | load drops after 30 s | back to `high` 27 s after the drop (test bound: 40 s), then `ultra` |

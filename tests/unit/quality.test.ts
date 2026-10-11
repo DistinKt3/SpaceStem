@@ -337,6 +337,15 @@ describe('quality controller', () => {
     expect(r.ctrl.level.name).toBe('low');
   });
 
+  it('recognises a frame rate under 1 fps (repeated pause-length frames are not pauses)', () => {
+    const r = sim({}, gpu(1_500), 3 * MIN);
+    expect(r.changes[0]).toMatchObject({ reason: 'severe', to: 'low' });
+    expect(r.ctrl.level.name).toBe('low');
+    // ...while a single long frame between normal ones is still a pause.
+    const tab = sim({}, () => 5, MIN, { inject: (f) => (f === 200 || f === 400 ? 3_000 : null) });
+    expect(tab.changes.filter((c) => c.reason !== 'probe')).toEqual([]);
+  });
+
   it('never goes below minLevel', () => {
     const r = sim({ minLevel: 'medium' }, gpu(80), 5 * MIN);
     expect(r.changes[0]).toMatchObject({ to: 'medium' });

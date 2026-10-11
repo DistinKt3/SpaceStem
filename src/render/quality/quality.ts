@@ -118,9 +118,9 @@ export const QUALITY_TUNING = {
   withinFactor: 1.1,
   /** Single frames longer than this are hitches (compiles, uploads, GC) and ignored... */
   hitchMs: 250,
-  /** ...unless this many arrive in a row: then they are the frame rate and count as samples. */
+  /** ...unless this many arrive in a row (pause-length ones included): then they are the frame rate and count. */
   sustainedHitches: 3,
-  /** A frame (or a clock gap between samples) longer than this is a pause (tab switch): evidence is discarded. */
+  /** An isolated frame (or a clock gap between samples) longer than this is a pause (tab switch): evidence is reset. */
   pauseMs: 1000,
   /** Samples are ignored for this long after a reset, a preset change or a level change (from the next sample)... */
   settleMs: 1000,
@@ -229,12 +229,14 @@ export class QualityController {
   private settleMsNext: number = QUALITY_TUNING.startSettleMs;
   private settleFramesLeft = 0;
   private lastSampleAt: number | null = null;
-  private hitchRun = 0;
   private overRun = 0;
   private severeRun = 0;
   private withinRun = 0;
   /** Bucket p90s of the current over-budget run (the "before" value of a degrade). */
   private overP90s: number[] = [];
+
+  /** Consecutive frames longer than hitchMs (kept across resets, so a pause-length frame rate is still recognised). */
+  private longRun = 0;
 
   // Memory (kept across resets; cleared by setPreset() and sceneChanged()).
   /** Per level: exponent of the quiet time needed before probing it (raised by every degrade from it). */
@@ -314,7 +316,6 @@ export class QualityController {
     this.severeRun = 0;
     this.withinRun = 0;
     this.overP90s = [];
-    this.hitchRun = 0;
     this.lastSampleAt = null;
     this.settleUntil = null;
     this.settleMsNext = this.T.settleMs;
@@ -339,9 +340,13 @@ export class QualityController {
     if (!Number.isFinite(frameMs) || frameMs <= 0) return null;
     const T = this.T;
     const now = this.now();
+    // Long frames are hitches (> hitchMs) or pauses (> pauseMs, a tab switch) when isolated, but the frame rate when
+    // they keep coming: from the sustainedHitches-th in a row they count as samples (a machine at 1 fps degrades too).
+    this.longRun = frameMs > T.hitchMs ? this.longRun + 1 : 0;
+    const sustained = this.longRun >= T.sustainedHitches;
     // Pauses: a huge frame, or a gap in the clock (samples were not fed, e.g. while a menu was open).
     const gap = this.lastSampleAt === null ? 0 : now - this.lastSampleAt;
-    if (frameMs > T.pauseMs || gap > T.pauseMs + frameMs) {
+    if ((frameMs > T.pauseMs && !sustained) || gap > T.pauseMs + frameMs) {
       this.reset();
       this.lastSampleAt = now;
       // A probe is judged on frames the player saw: restart its probation after the pause.
@@ -349,14 +354,10 @@ export class QualityController {
       return null;
     }
     this.lastSampleAt = now;
-    // Hitches are ignored unless they keep coming (then they are the frame rate).
-    if (frameMs > T.hitchMs) {
-      this.hitchRun++;
-      if (this.hitchRun < T.sustainedHitches) {
-        this.ignoredHitches++;
-        return null;
-      }
-    } else this.hitchRun = 0;
+    if (frameMs > T.hitchMs && !sustained) {
+      this.ignoredHitches++;
+      return null;
+    }
     // Settling after boot, a reset or a change: compiles and resizes make the first frames unrepresentative.
     this.settleUntil ??= now + this.settleMsNext;
     if (this.settleFramesLeft > 0 || now < this.settleUntil) {

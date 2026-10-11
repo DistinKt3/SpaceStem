@@ -145,8 +145,9 @@ export class BenchPanel {
       this.progressView.textContent = view;
     }
     this.progressPhase.textContent = t(`quality.bench.phase.${p.phase}`);
-    // Each view is an equal share; within a view, loading 10%, warm-up 10%, measuring 80%.
-    const within = p.phase === 'loading' ? 0 : p.phase === 'warmup' ? 0.1 * (p.frames ? p.frame / p.frames : 1) : 0.2 + 0.8 * (p.frames ? p.frame / p.frames : 1);
+    // Each view is an equal share; within a view, loading takes the first 10%, warm-up the next 10%, measuring 80%.
+    const done = p.frames ? p.frame / p.frames : 1;
+    const within = p.phase === 'loading' ? 0 : p.phase === 'warmup' ? 0.1 + 0.1 * done : 0.2 + 0.8 * done;
     const pct = Math.round(((p.index + within) / Math.max(1, p.total)) * 100);
     this.progressBar.setAttribute('aria-valuenow', String(pct));
     this.progressFill.style.width = `${pct}%`;
