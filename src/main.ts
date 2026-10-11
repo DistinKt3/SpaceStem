@@ -23,6 +23,8 @@ app
       pending: () => app.pool.pending,
     };
     app.start();
+    // Owner benchmark (?bench=1, docs/QUALITY.md), loaded only when asked for.
+    if (app.params.get('bench') === '1') void import('./game/bench/appBench').then((m) => m.runBenchFromUrl(app));
   })
   .catch((err: unknown) => {
     const msg = err instanceof Error ? err.message : String(err);

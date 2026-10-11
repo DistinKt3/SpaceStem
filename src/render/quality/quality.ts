@@ -9,7 +9,10 @@
  *   - upgrade after ~8 s of buckets within budget, as a probe that must survive a probation period; every degrade
  *     from a level doubles the quiet time needed to probe it again, and repeated failed probes lock it for a while,
  *   - a degrade that does not make frames faster (CPU-bound, or capped by the display) is undone, and the controller
- *     stops degrading there, so it never cycles between two levels.
+ *     stops degrading there, so it never cycles between two levels,
+ *   - frames that cannot get faster (a 50 Hz panel, a 30 fps power-saving cap, a CPU limit) set the budget: once a
+ *     degrade has proved useless, or a probe from the lowest level has shown that the next level costs nothing, the
+ *     frame time found is the "limit" and budgets are judged against it, so such machines still climb back up.
  *
  * Hitches (single frames over 250 ms: shader compiles, chunk uploads, GC), pauses (tab switches, hidden windows) and
  * the first frames after boot or a level change are not evidence and are ignored. See docs/QUALITY.md for the design
@@ -152,6 +155,12 @@ export const QUALITY_TUNING = {
   floorRelease: 1.25,
   /** Window for stats() (p50/p90 of recent counted samples). */
   statsWindowMs: 2000,
+  /**
+   * sceneChanged() forgets backoffs and locks at most this often (it always discards evidence). Teleports and arrivals
+   * are rare, but a burst of them must not bring back the probe/fail cycling that backoff and locks prevent: when the
+   * first probe after a forgetting fails anyway, the interval doubles (up to maxLockMs); a probe that holds resets it.
+   */
+  sceneForgetMs: 60_000,
 } as const;
 
 export type QualityChangeReason = 'degrade' | 'severe' | 'probe' | 'probe-failed' | 'ineffective' | 'preset';
@@ -177,6 +186,11 @@ export interface QualityStats {
   floor: QualityName;
   /** Levels auto will not probe until their lock expires (or sceneChanged()). */
   locked: QualityName[];
+  /**
+   * Frame time (ms) that frames were found unable to beat (the display's refresh, a frame-rate cap, the CPU), or null.
+   * Budgets are judged against max(target, limit).
+   */
+  limitMs: number | null;
   /** Frames ignored as hitches since construction. */
   ignoredHitches: number;
   lastChange: QualityChange | null;
@@ -234,6 +248,10 @@ export class QualityController {
   private withinRun = 0;
   /** Bucket p90s of the current over-budget run (the "before" value of a degrade). */
   private overP90s: number[] = [];
+  /** Consecutive buckets over the fail threshold of the current probe. */
+  private failRun = 0;
+  /** Bucket p90s of the current run clearly faster than the limit (evidence that the limit no longer holds). */
+  private fastP90s: number[] = [];
 
   /** Consecutive frames longer than hitchMs (kept across resets, so a pause-length frame rate is still recognised). */
   private longRun = 0;
@@ -247,7 +265,11 @@ export class QualityController {
   /** Times each level has been locked (lock length doubles), and until when it is locked. */
   private readonly locks = new Map<QualityName, number>();
   private readonly lockedUntil = new Map<QualityName, number>();
-  private probation: { level: QualityName; until: number } | null = null;
+  /**
+   * The current probe: the level, the end of its probation, and the p90 before it when it was made from the floor
+   * while over budget (a "does the next level cost anything?" probe, judged against that p90), with the p90s so far.
+   */
+  private probation: { level: QualityName; until: number; pre: number | null; p90s: number[] } | null = null;
   /**
    * The current degrade episode: the level it started from, the p90 there, the backoffs before it (restored if it is
    * undone), and the bucket p90s at the current level.
@@ -255,6 +277,13 @@ export class QualityController {
   private episode: { start: QualityName; before: number; backoff: Map<QualityName, number>; p90s: number[] } | null = null;
   /** No degrades below this index (set by an ineffective degrade). */
   private floor: { index: number; p90: number; run: number } | null = null;
+  /** Frame time frames could not beat (QualityStats.limitMs). Kept across sceneChanged(): it describes the machine. */
+  private limit: number | null = null;
+  /** Controller time of the last forgetting by sceneChanged(), the interval required before the next one, and whether
+   *  the first probe since has yet to show whether forgetting was right. */
+  private lastForget = -Infinity;
+  private forgetGap: number = QUALITY_TUNING.sceneForgetMs;
+  private forgetOnTrial = false;
 
   // Stats.
   private readonly recent = new Float64Array(STATS_CAP);
@@ -300,6 +329,10 @@ export class QualityController {
     this.presetValue = p;
     this.current = p === 'auto' ? QUALITY_LEVELS[Math.min(this.maxIndex, Math.max(this.minIndex, levelIndex(from)))]! : qualityLevel(p);
     this.forget();
+    this.floor = null;
+    this.limit = null;
+    this.forgetGap = this.T.sceneForgetMs;
+    this.forgetOnTrial = false;
     this.heldSince = this.now();
     if (from !== this.current.name) this.last = { from, to: this.current.name, reason: 'preset', at: this.now(), p90: 0 };
     this.reset();
@@ -316,6 +349,8 @@ export class QualityController {
     this.severeRun = 0;
     this.withinRun = 0;
     this.overP90s = [];
+    this.failRun = 0;
+    this.fastP90s = [];
     this.lastSampleAt = null;
     this.settleUntil = null;
     this.settleMsNext = this.T.settleMs;
@@ -324,11 +359,22 @@ export class QualityController {
   }
 
   /**
-   * The scene's load changed in a way frame times cannot reveal under vsync (a teleport, a hyperspeed arrival, the
-   * camera's body changed): forget backoffs, locks and floors so higher levels may be probed again, and reset evidence.
+   * The scene's load changed in a way frame times cannot reveal under vsync (a teleport, an arrival in another star
+   * system): forget backoffs and locks so higher levels may be probed again soon (at most once per sceneForgetMs), and
+   * reset evidence. The floor and the limit stay: they describe the machine (a 50 Hz display is still 50 Hz), and each
+   * has its own release rule for when frames get clearly worse or clearly better.
    */
   sceneChanged(): void {
-    this.forget();
+    const now = this.now();
+    if (now - this.lastForget >= this.forgetGap) {
+      this.lastForget = now;
+      this.forget();
+      this.forgetOnTrial = true;
+    } else {
+      // A degrade cannot be judged across scenes, and a probe is judged on frames of the new scene.
+      this.episode = null;
+      if (this.probation) this.probation.until = now + this.T.probationMs;
+    }
     this.reset();
   }
 
@@ -377,21 +423,51 @@ export class QualityController {
   /** One decision per closed bucket. */
   private decide(p90: number, now: number): QualityLevel | null {
     const T = this.T;
-    const target = this.targetFrameMs;
-    const over = p90 > target * T.overFactor;
+    const idx = levelIndex(this.current.name);
+    const floorIndex = (): number => Math.max(this.minIndex, this.floor?.index ?? this.minIndex);
+
+    // 1. A probe that lasted its probation is no longer judged as a probe. A probe made from the floor while over
+    //    budget that held shows that the next level costs nothing: frames are limited by something quality does not
+    //    control (the display's refresh rate, a frame-rate cap, the CPU), and their frame time becomes the limit.
+    const pr = this.probation;
+    if (pr && now >= pr.until) {
+      this.probation = null;
+      if (pr.pre !== null) this.setLimit(Math.max(pr.pre, percentile(pr.p90s.length ? pr.p90s : [p90], 0.5)));
+      if (this.forgetOnTrial) {
+        this.forgetOnTrial = false;
+        this.forgetGap = T.sceneForgetMs;
+      }
+    } else if (pr) pr.p90s.push(p90);
+
+    // 2. Frames clearly faster than the limit for a while: it was not a hard limit (the CPU load dropped), so lower it,
+    //    and release the floor, which rested on the same evidence (lower levels did not make frames faster).
+    if (this.limit !== null) {
+      if (p90 < this.limit / (1 + T.minImprovement)) this.fastP90s.push(p90);
+      else this.fastP90s = [];
+      if (this.fastP90s.length >= T.degradeBuckets) {
+        this.setLimit(Math.max(...this.fastP90s));
+        this.floor = null;
+      }
+    }
+
+    const budget = Math.max(this.targetFrameMs, this.limit ?? 0);
+    const over = p90 > budget * T.overFactor;
     this.overRun = over ? this.overRun + 1 : 0;
-    this.severeRun = p90 > target * T.severeFactor ? this.severeRun + 1 : 0;
-    this.withinRun = p90 <= target * T.withinFactor ? this.withinRun + 1 : 0;
+    this.severeRun = p90 > budget * T.severeFactor ? this.severeRun + 1 : 0;
+    this.withinRun = p90 <= budget * T.withinFactor ? this.withinRun + 1 : 0;
     if (over) {
       this.overP90s.push(p90);
       if (this.overP90s.length > T.degradeBuckets * 2) this.overP90s.shift();
     } else this.overP90s = [];
-    const idx = levelIndex(this.current.name);
+    // A probe fails when over budget or, for a probe from the floor, when clearly slower than before it.
+    const probe = this.probation;
+    const failing = probe !== null && p90 > Math.max(budget * T.overFactor, (probe.pre ?? 0) * (1 + T.minImprovement));
+    this.failRun = failing ? this.failRun + 1 : 0;
 
-    // 1. Judge the current degrade episode once the new level has been measured: if frames got measurably faster it is
+    // 3. Judge the current degrade episode once the new level has been measured: if frames got measurably faster it is
     //    over; if not and there is nowhere lower to go, lower quality buys nothing (CPU-bound or refresh-bound), so it
-    //    is undone and the controller stops degrading there. Otherwise the normal rule may step down again.
-    const floorIndex = (): number => Math.max(this.minIndex, this.floor?.index ?? this.minIndex);
+    //    is undone, the controller stops degrading there and that frame time becomes the limit. Otherwise the normal
+    //    rule may step down again.
     const ep = this.episode;
     if (ep) {
       ep.p90s.push(p90);
@@ -404,20 +480,20 @@ export class QualityController {
         this.backoff.clear();
         for (const [k, v] of ep.backoff) this.backoff.set(k, v);
         this.floor = { index: levelIndex(ep.start), p90: ep.before, run: 0 };
+        this.setLimit(Math.max(ep.before, after));
         return this.change(ep.start, 'ineffective', after, now);
       }
     }
 
-    // 2. A floor is released when frames stay clearly worse than when it was set (a different kind of load).
+    // 4. A floor is released when frames stay clearly worse than when it was set (a different kind of load).
     if (this.floor) {
       this.floor.run = p90 > this.floor.p90 * T.floorRelease ? this.floor.run + 1 : 0;
       if (this.floor.run >= T.degradeBuckets) this.floor = null;
     }
 
-    // 3. A probe that lasted its probation is no longer judged as a probe. Its backoff stays: only holding a level for a
-    //    long time earns that back, one step per forgiveMs, so a level that keeps being abandoned is probed ever more
-    //    rarely (this is what rules out cycles under periodic load).
-    if (this.probation && now >= this.probation.until) this.probation = null;
+    // 5. A probe's backoff stays after its probation: only holding a level for a long time earns that back, one step
+    //    per forgiveMs, so a level that keeps being abandoned is probed ever more rarely (this is what rules out cycles
+    //    under periodic load).
     if (now - this.heldSince >= T.forgiveMs) {
       this.heldSince = now;
       const name = this.current.name;
@@ -426,11 +502,11 @@ export class QualityController {
       this.probeFailures.delete(name);
     }
 
-    // 4. Degrade fast.
+    // 6. Degrade fast (a failing probe after only probationDegradeBuckets).
     const inProbation = this.probation !== null;
-    const needed = inProbation ? T.probationDegradeBuckets : T.degradeBuckets;
-    if (this.overRun >= needed && idx > floorIndex()) {
-      const steps = !inProbation && this.severeRun >= needed ? 2 : 1;
+    const due = inProbation ? this.failRun >= T.probationDegradeBuckets : this.overRun >= T.degradeBuckets;
+    if (due && idx > floorIndex()) {
+      const steps = !inProbation && this.severeRun >= T.degradeBuckets ? 2 : 1;
       const toIndex = Math.max(floorIndex(), idx - steps);
       const from = this.current.name;
       if (inProbation) {
@@ -444,6 +520,11 @@ export class QualityController {
           this.probeFailures.delete(from);
         }
         this.probation = null;
+        // The scene change that lifted this level's memory did not make it affordable: forget less often.
+        if (this.forgetOnTrial) {
+          this.forgetOnTrial = false;
+          this.forgetGap = Math.min(T.maxLockMs, this.forgetGap * 2);
+        }
       } else {
         this.episode ??= { start: from, before: percentile(this.overP90s, 0.5), backoff: new Map(this.backoff), p90s: [] };
       }
@@ -456,7 +537,8 @@ export class QualityController {
       return this.change(QUALITY_NAMES[toIndex]!, reason, p90, now);
     }
 
-    // 5. Upgrade slowly, as a probe (never during a degrade episode).
+    // 7. Upgrade slowly, as a probe (never during a degrade episode): after a quiet period within budget or, at the
+    //    floor and still over budget (nothing lower to try), to find out whether the next level costs anything at all.
     if (idx < this.maxIndex && !inProbation && !this.episode) {
       const next = QUALITY_NAMES[idx + 1]!;
       const until = this.lockedUntil.get(next);
@@ -466,14 +548,29 @@ export class QualityController {
         this.probeFailures.set(next, T.maxProbeFailures - 1);
       }
       const quiet = T.upgradeBuckets * 2 ** (this.backoff.get(next) ?? 0);
-      if (!this.lockedUntil.has(next) && this.withinRun >= quiet) {
-        this.probation = { level: next, until: now + T.probationMs };
+      const within = this.withinRun >= quiet;
+      const stuck = idx <= floorIndex() && this.overRun >= quiet;
+      if (!this.lockedUntil.has(next) && (within || stuck)) {
+        this.probation = { level: next, until: now + T.probationMs, pre: within ? null : percentile(this.overP90s, 0.5), p90s: [] };
         return this.change(next, 'probe', p90, now);
       }
     }
     return null;
   }
 
+  /** Sets the limit (null when within the target budget anyway); runs judged against the old budget start over. */
+  private setLimit(ms: number): void {
+    const v = Number.isFinite(ms) && ms > this.targetFrameMs * this.T.withinFactor ? ms : null;
+    if (v === this.limit) return;
+    this.limit = v;
+    this.fastP90s = [];
+    this.overRun = 0;
+    this.severeRun = 0;
+    this.withinRun = 0;
+    this.overP90s = [];
+  }
+
+  /** Forgets backoffs, failed probes and locks, and any probe or degrade episode in progress. */
   private forget(): void {
     this.backoff.clear();
     this.probeFailures.clear();
@@ -481,7 +578,6 @@ export class QualityController {
     this.lockedUntil.clear();
     this.probation = null;
     this.episode = null;
-    this.floor = null;
   }
 
   private change(to: QualityName, reason: QualityChangeReason, p90: number, now: number): QualityLevel {
@@ -516,6 +612,7 @@ export class QualityController {
       p90Ms: percentileSorted(sorted, 0.9),
       floor: QUALITY_NAMES[Math.max(this.minIndex, this.floor?.index ?? this.minIndex)]!,
       locked: QUALITY_NAMES.filter((n) => (this.lockedUntil.get(n) ?? -Infinity) > now),
+      limitMs: this.limit,
       ignoredHitches: this.ignoredHitches,
       lastChange: this.last,
     };

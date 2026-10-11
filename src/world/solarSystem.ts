@@ -117,6 +117,8 @@ export class SolarSystem {
   }
   /** Textures, materials and geometries each body owns (released by removeBody). */
   private readonly owned = new Map<string, Disposable[]>();
+  /** Atmosphere ray-march samples of the sky shells (surfaces use 2/3); compiled into materials as bodies are built. */
+  viewSamples = 12;
 
   private constructor(
     readonly ephemeris: Ephemeris,
@@ -129,8 +131,10 @@ export class SolarSystem {
     pool: ChunkWorkerPool,
     frame: FrameRenderer,
     onProgress?: (msg: string) => void,
+    opts: { viewSamples?: number } = {},
   ): Promise<SolarSystem> {
     const sys = new SolarSystem(ephemeris, bodies);
+    if (opts.viewSamples !== undefined) sys.viewSamples = Math.max(1, Math.round(opts.viewSamples));
     // Bodies load concurrently (their assets are independent); they are added in catalogue order.
     const built = await Promise.all(
       bodies.map(async (def) => {
@@ -253,6 +257,7 @@ export class SolarSystem {
       ...(night ? { night } : {}),
       ocean: s.seaLevel !== undefined,
       albedoScale: def.albedoScale,
+      viewSamples: Math.max(4, Math.round((this.viewSamples * 2) / 3)),
       ...(s.haze ? { haze: { color: s.haze.color, opacity: s.haze.opacity } } : {}),
       ...(s.type === 'terrain' && new URLSearchParams(location.search).get('detail') !== '0' ? { detailFaceEdgeM: (R * Math.PI) / 2 } : {}),
     } as const;
@@ -284,7 +289,7 @@ export class SolarSystem {
 
     let envelope = maxRelief;
     if (atmosphere) {
-      const sky = new THREE.Mesh(new THREE.SphereGeometry(atmosphere.Rt * 1000, 96, 48), createSkyMaterial(R, atmosphere, uniforms, clouds));
+      const sky = new THREE.Mesh(new THREE.SphereGeometry(atmosphere.Rt * 1000, 96, 48), createSkyMaterial(R, atmosphere, uniforms, clouds, this.viewSamples));
       owned.push(sky.geometry, sky.material);
       sky.renderOrder = 10;
       sky.frustumCulled = false;

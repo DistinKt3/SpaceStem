@@ -21,8 +21,12 @@ import {
 import { applyQuality, type QualityTarget } from '../../src/render/quality/applyQuality';
 import {
   BENCH_FORMAT,
+  BENCH_FRAMES,
   BENCH_VERSION,
+  BENCH_WARMUP,
   DEFAULT_BENCH_VIEWS,
+  clampCount,
+  resolveBenchViews,
   SCENE_BUDGET,
   drawCallBudget,
   estimateP95,
@@ -36,6 +40,8 @@ import {
   type BenchViewResult,
 } from '../../src/game/bench/bench';
 import { viewLabel } from '../../src/game/bench/benchPanel';
+import { APP_VIEWS, FLIGHTS } from '../../src/game/bench/appBench';
+import { benchLevel, presetParam, systemOf } from '../../src/game/quality/gameQuality';
 import { t } from '../../src/game/i18n';
 
 /** Deterministic uniform [0, 1) (LCG), so traces are reproducible. */
@@ -312,16 +318,101 @@ describe('quality controller', () => {
     expect(back!.t - 120_000).toBeLessThan(11_000);
   });
 
-  it('undoes a degrade episode that does not help (CPU-bound) and stays put', () => {
+  // Review finding: calling sceneChanged() on every change of the camera's body (sphere-of-influence crossings) wiped
+  // the anti-oscillation memory and brought back a probe/fail pair every 12 s (99 changes in 10 min).
+  it('rate-limits what sceneChanged() forgets, so frequent calls do not bring back probe cycling', () => {
+    let next = 12_000;
+    const r = sim({}, gpu(24), 10 * MIN, {
+      before: (ctrl, t) => {
+        if (t >= next) {
+          next += 12_000;
+          ctrl.sceneChanged();
+        }
+      },
+    });
+    const quiet = sim({}, gpu(24), 10 * MIN);
+    expect(r.changes.length).toBeLessThanOrEqual(quiet.changes.length + 2);
+    expect(r.share('medium')).toBeGreaterThan(0.95);
+    const probes = r.changes.filter((c) => c.reason === 'probe');
+    for (let i = 1; i < probes.length; i++) expect(probes[i]!.t - probes[i - 1]!.t).toBeGreaterThan(QUALITY_TUNING.sceneForgetMs);
+  });
+
+  it('keeps the floor and the limit across sceneChanged() (a 50 Hz display stays 50 Hz)', () => {
+    let next = 30_000;
+    const r = sim({}, () => 5, 10 * MIN, {
+      vsyncMs: 20,
+      jitterMs: 0.6,
+      before: (ctrl, t) => {
+        if (t >= next) {
+          next += 30_000;
+          ctrl.sceneChanged();
+        }
+      },
+    });
+    // The degrade, degrade, undo sequence happens once, not after every scene change.
+    expect(reasons(r.changes)).toEqual(['degrade:medium', 'degrade:low', 'ineffective:high', 'probe:ultra']);
+  });
+
+  it('undoes a degrade episode that does not help (CPU-bound), then uses the GPU headroom', () => {
     const r = sim({}, () => 25, 10 * MIN);
-    expect(reasons(r.changes)).toEqual(['degrade:medium', 'degrade:low', 'ineffective:high']);
-    expect(r.ctrl.level.name).toBe('high');
+    // 25 ms of CPU work shows as 33.3 ms frames at every level: that becomes the limit, and ultra costs nothing more.
+    expect(reasons(r.changes)).toEqual(['degrade:medium', 'degrade:low', 'ineffective:high', 'probe:ultra']);
+    expect(r.ctrl.level.name).toBe('ultra');
     expect(r.ctrl.stats().floor).toBe('high');
+    expect(r.ctrl.stats().limitMs).toBeCloseTo(33.3, 0);
+    expect(r.changes.at(-1)!.t).toBeLessThan(25_000);
   });
 
   it('undoes a degrade on a 50 Hz display, where 20 ms frames are the refresh rate', () => {
     const r = sim({}, () => 5, 10 * MIN, { vsyncMs: 20, jitterMs: 0.6 });
-    expect(reasons(r.changes)).toEqual(['degrade:medium', 'degrade:low', 'ineffective:high']);
+    expect(reasons(r.changes)).toEqual(['degrade:medium', 'degrade:low', 'ineffective:high', 'probe:ultra']);
+    expect(r.ctrl.stats().limitMs).toBeGreaterThan(20);
+    expect(r.ctrl.stats().limitMs).toBeLessThan(21);
+  });
+
+  // Review finding: after an effective degrade, a display that cannot show 60 fps never met the 60 fps "within" budget,
+  // so auto stayed low for the rest of the session once the load got light.
+  for (const [name, vsyncMs, heavyMs] of [
+    ['a 30 fps frame-rate cap (power saving)', 1000 / 30, 60],
+    ['a 50 Hz display', 20, 30],
+  ] as const) {
+    it(`climbs back up on ${name} after a heavy minute, once the load is light`, () => {
+      const r = sim({}, (l, t) => (t < MIN ? gpu(heavyMs)(l, t) : gpu(4)(l, t)), 20 * MIN, { vsyncMs, jitterMs: 0.6 });
+      // The heavy minute is handled (a degrade that helps)...
+      expect(['degrade', 'severe']).toContain(r.changes[0]!.reason);
+      expect(levelIndex(r.changes[0]!.to)).toBeLessThan(levelIndex('high'));
+      // ...and the light load gets the top level back within two minutes, then holds it.
+      const back = r.changes.find((c) => c.t > MIN && levelIndex(c.to) >= levelIndex('high'));
+      expect(back).toBeDefined();
+      expect(back!.t).toBeLessThan(3 * MIN);
+      expect(r.ctrl.level.name).toBe('ultra');
+      expect(r.changes.filter((c) => c.t > 3 * MIN)).toEqual([]);
+      expect(r.share('ultra')).toBeGreaterThan(0.85);
+      expect(r.ctrl.stats().limitMs).toBeCloseTo(vsyncMs, -0.5);
+    });
+  }
+
+  it('probes up from the floor when over budget there, and backs off when the next level is slower', () => {
+    // A slow GPU on a 60 Hz display: 33.3 ms at low, 66.7 ms at medium. Probes stay rare and every one fails fast.
+    const r = sim({}, gpu(100), 20 * MIN);
+    expect(r.changes[0]).toMatchObject({ reason: 'severe', to: 'low' });
+    const probes = r.changes.filter((c) => c.reason === 'probe');
+    const failed = r.changes.filter((c) => c.reason === 'probe-failed');
+    expect(probes.length).toBe(failed.length);
+    expect(probes.length).toBeLessThanOrEqual(6);
+    for (let i = 2; i < probes.length; i++) expect(probes[i]!.t - probes[i - 1]!.t).toBeGreaterThan(probes[i - 1]!.t - probes[i - 2]!.t);
+    expect(r.share('low')).toBeGreaterThan(0.97);
+    expect(r.ctrl.stats().limitMs).toBeNull();
+  });
+
+  it('lowers the limit when frames get clearly faster than it (the CPU load dropped)', () => {
+    // CPU-bound at 25 ms for a minute (limit 33.3 ms at 60 Hz), then light: the limit goes and the 60 fps budget is back.
+    const r = sim({}, (l, t) => (t < MIN ? 25 : gpu(12)(l, t)), 3 * MIN);
+    expect(r.ctrl.stats().limitMs).toBeNull();
+    // A GPU load that misses 60 fps at ultra is degraded again, as it would be without a limit.
+    const r2 = sim({}, (l, t) => (t < MIN ? 25 : t < 2 * MIN ? 4 : gpu(20)(l, t)), 4 * MIN);
+    expect(r2.ctrl.stats().limitMs).toBeNull();
+    expect(levelIndex(r2.ctrl.level.name)).toBeLessThan(levelIndex('ultra'));
   });
 
   it('releases a floor when frames get clearly worse', () => {
@@ -443,6 +534,9 @@ describe('benchmark statistics', () => {
 
   it('classifies p95 against the 60 and 30 fps budgets', () => {
     expect(verdictFor(16.7)).toBe('smooth');
+    // No frames, or no finite value: no verdict at all rather than a flattering one.
+    expect(verdictFor(0, 0)).toBe('none');
+    expect(verdictFor(NaN)).toBe('none');
     expect(verdictFor(16.71)).toBe('playable');
     expect(verdictFor(33.3)).toBe('playable');
     expect(verdictFor(33.31)).toBe('slow');
@@ -460,7 +554,8 @@ describe('benchmark statistics', () => {
     expect(w.cpuP50Ms).toBeNull();
     expect(drawCallBudget('webgpu')).toBe(SCENE_BUDGET.drawCallsWebGpu);
     expect(drawCallBudget('webgl2')).toBe(SCENE_BUDGET.drawCallsWebGl2);
-    expect(summarizeView('x', [], 0, 'webgpu')).toMatchObject({ frames: 0, p50Ms: 0, p95Ms: 0, maxMs: 0, meanMs: 0 });
+    expect(summarizeView('x', [], 0, 'webgpu')).toMatchObject({ frames: 0, p50Ms: 0, p95Ms: 0, maxMs: 0, meanMs: 0, verdict: 'none' });
+    expect(summarizeView('x', [frame(NaN), frame(-3)], 0, 'webgpu').verdict).toBe('none');
   });
 
   it('suggests the highest preset whose estimated p95 fits 60 fps', () => {
@@ -530,7 +625,9 @@ describe('benchmark statistics', () => {
   });
 
   it('uses the default route and stops when aborted', async () => {
-    expect(DEFAULT_BENCH_VIEWS).toEqual(['leo', 'earth-low', 'moon-surface', 'earthrise', 'saturn', 'sun']);
+    expect(DEFAULT_BENCH_VIEWS).toEqual(['leo', 'earth-low', 'earth-descent', 'moon-surface', 'earthrise', 'saturn', 'sun']);
+    // Every default view is one the game can place: a named view or a scripted flight.
+    for (const v of DEFAULT_BENCH_VIEWS) expect(APP_VIEWS.includes(v) || v in FLIGHTS).toBe(true);
     const ac = new AbortController();
     const seen: string[] = [];
     const driver: BenchDriver = {
@@ -553,12 +650,98 @@ describe('benchmark statistics', () => {
   it('has a message for every benchmark string the panel builds from data', () => {
     for (const v of DEFAULT_BENCH_VIEWS) expect(t(`quality.view.${v}`)).not.toBe(`quality.view.${v}`);
     for (const n of QUALITY_NAMES) expect(t(`quality.level.${n}`)).not.toBe(`quality.level.${n}`);
-    for (const v of ['smooth', 'playable', 'slow']) {
+    for (const v of [...APP_VIEWS, ...Object.keys(FLIGHTS)]) expect(t(`quality.view.${v}`)).not.toBe(`quality.view.${v}`);
+    for (const v of ['smooth', 'playable', 'slow', 'none']) {
       expect(t(`quality.bench.verdict.${v}`)).not.toBe(`quality.bench.verdict.${v}`);
       expect(t(`quality.bench.verdict.${v}.desc`)).not.toBe(`quality.bench.verdict.${v}.desc`);
     }
     for (const p of ['loading', 'warmup', 'measuring']) expect(t(`quality.bench.phase.${p}`)).not.toBe(`quality.bench.phase.${p}`);
     expect(viewLabel('earth-low')).toBe('Low over the Himalaya');
     expect(viewLabel('body:599')).toBe('body:599');
+  });
+
+  // Review finding: unknown view names were measured as low Earth orbit under the bogus name, an empty list gave a
+  // 'slow' verdict, zero-frame views read 'smooth', and an unbounded frame count never finished.
+  it('drops unknown views, refuses an empty list and bounds the frame counts', async () => {
+    const known = (n: string): boolean => ['leo', 'sun'].includes(n);
+    expect(resolveBenchViews(['sun', 'nosuchview', ' leo ', '', 'sun'], known)).toEqual({ views: ['sun', 'leo'], unknown: ['nosuchview'] });
+    expect(resolveBenchViews(','.split(','), known)).toEqual({ views: [], unknown: [] }); // ?benchViews=,
+    expect(clampCount(undefined, BENCH_FRAMES)).toBe(240);
+    expect(clampCount(Infinity, BENCH_FRAMES)).toBe(240);
+    expect(clampCount(NaN, BENCH_FRAMES)).toBe(240);
+    expect(clampCount(1e9, BENCH_FRAMES)).toBe(10_000);
+    expect(clampCount(0, BENCH_FRAMES)).toBe(1);
+    expect(clampCount(-5, BENCH_WARMUP)).toBe(0);
+    expect(clampCount(2.6, BENCH_WARMUP)).toBe(3);
+    let frames = 0;
+    const driver: BenchDriver = {
+      setView: () => undefined,
+      waitIdle: () => Promise.resolve(),
+      frame: () => {
+        frames++;
+        return Promise.resolve(frame(10));
+      },
+      info: () => ({ backend: 'webgpu', adapter: '', dpr: 1, width: 1, height: 1 }),
+    };
+    await expect(runBench(driver, { views: [] })).rejects.toThrow(RangeError);
+    const r = await runBench(driver, { views: ['a'], framesPerView: Infinity, warmup: NaN });
+    expect([r.framesPerView, r.warmup]).toEqual([240, 30]);
+    expect(frames).toBe(270);
+    const big = await runBench(driver, { views: ['a'], framesPerView: 1e12, warmup: 0 });
+    expect(big.framesPerView).toBe(BENCH_FRAMES.max);
+  });
+
+  it('reports views without valid frames as "no data", outside the overall verdict', async () => {
+    let view = '';
+    const driver: BenchDriver = {
+      setView: (v) => (view = v),
+      waitIdle: () => Promise.resolve(),
+      frame: () => Promise.resolve(frame(view === 'broken' ? NaN : 12)),
+      info: () => ({ backend: 'webgpu', adapter: '', dpr: 1, width: 1, height: 1 }),
+    };
+    const r = await runBench(driver, { views: ['broken', 'ok'], framesPerView: 5, warmup: 0 });
+    expect(r.views.map((v) => [v.view, v.frames, v.verdict])).toEqual([
+      ['broken', 0, 'none'],
+      ['ok', 5, 'smooth'],
+    ]);
+    expect(r.overall).toMatchObject({ worstView: 'ok', verdict: 'smooth', suggestedPreset: 'high' });
+    const none = await runBench(driver, { views: ['broken'], framesPerView: 5, warmup: 0 });
+    expect(none.overall).toMatchObject({ worstView: '', verdict: 'none', suggestedPreset: null });
+  });
+
+  it('tells a flight driver when the measured frames start', async () => {
+    const calls: string[] = [];
+    const driver: BenchDriver = {
+      setView: (v) => calls.push(`view ${v}`),
+      waitIdle: () => Promise.resolve(),
+      beginMeasure: (n) => calls.push(`measure ${n}`),
+      frame: () => {
+        calls.push('frame');
+        return Promise.resolve(frame(10));
+      },
+      info: () => ({ backend: 'webgpu', adapter: '', dpr: 1, width: 1, height: 1 }),
+    };
+    await runBench(driver, { views: ['earth-descent'], framesPerView: 2, warmup: 1 });
+    expect(calls).toEqual(['view earth-descent', 'frame', 'measure 2', 'frame', 'frame']);
+  });
+});
+
+describe('game quality wiring', () => {
+  it('reads presets from the URL and pins the benchmark level', () => {
+    expect(presetParam('auto')).toBe('auto');
+    expect(presetParam('ultra')).toBeNull(); // only auto reaches ultra
+    expect(presetParam(null)).toBeNull();
+    expect(benchLevel(new URLSearchParams('quality=low'))).toBe('low');
+    expect(benchLevel(new URLSearchParams('quality=auto'))).toBe('high');
+    expect(benchLevel(new URLSearchParams(''))).toBe('high');
+  });
+
+  it('tells star systems apart, so only arrivals elsewhere count as a scene change', () => {
+    const exo = (a: string): string | undefined => (a.startsWith('trappist-1') ? 'trappist-1' : undefined);
+    expect(systemOf('399', exo)).toBe('sol');
+    expect(systemOf('301', exo)).toBe('sol'); // Earth to Moon: same system, no scene change
+    expect(systemOf('trappist-1e', exo)).toBe('trappist-1');
+    expect(systemOf('*42', exo)).toBe('*42');
+    expect(systemOf('ism', exo)).toBeNull(); // in transit between stars
   });
 });

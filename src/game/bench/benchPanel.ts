@@ -34,6 +34,7 @@ function icon(kind: BenchVerdict | 'close' | 'copy' | 'download'): SVGSVGElement
     smooth: ['M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18Z', 'M7.8 12.4l2.8 2.8l5.6-6'],
     playable: ['M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18Z', 'M7.5 12h9'],
     slow: ['M12 3.5L2.8 19.5h18.4Z', 'M12 9.5v4.6', 'M12 16.9v.2'],
+    none: ['M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18Z', 'M9.6 9.4a2.5 2.5 0 1 1 3.4 2.4c-.6.3-1 .8-1 1.5v.4', 'M12 16.9v.2'],
     close: ['M6 6l12 12', 'M18 6L6 18'],
     copy: ['M9 9h10v11H9Z', 'M5 15V4h10'],
     download: ['M12 4v11', 'M7.5 10.5L12 15l4.5-4.5', 'M5 19.5h14'],
@@ -246,7 +247,16 @@ export class BenchPanel {
     verdict.id = `ks-bench-verdict-${this.id}`;
     verdict.append(this.badge(r.overall.verdict, 'ks-bench-badge-lg'));
     verdict.appendChild(
-      el('p', 'ks-bench-verdict-desc', t(`quality.bench.verdict.${r.overall.verdict}.desc`, { view: viewLabel(r.overall.worstView), ms: ms(worst?.p95Ms ?? r.overall.p95Ms) })),
+      el(
+        'p',
+        'ks-bench-verdict-desc',
+        t(`quality.bench.verdict.${r.overall.verdict}.desc`, {
+          view: viewLabel(r.overall.worstView),
+          ms: ms(worst?.p95Ms ?? r.overall.p95Ms),
+          smooth: ms(r.overall.budgets.smoothMs),
+          playable: ms(r.overall.budgets.playableMs),
+        }),
+      ),
     );
     const stats = el('dl', 'ks-bench-stats');
     const stat = (label: string, value: string, cls = ''): void => {
@@ -256,7 +266,8 @@ export class BenchPanel {
     };
     stat(t('quality.bench.stat.p50'), ms(r.overall.p50Ms));
     stat(t('quality.bench.stat.p95'), ms(r.overall.p95Ms));
-    stat(t('quality.bench.stat.suggested'), t(`quality.level.${r.overall.suggestedPreset}`), 'is-accent');
+    const suggested = r.overall.suggestedPreset;
+    stat(t('quality.bench.stat.suggested'), suggested ? t(`quality.level.${suggested}`) : t('quality.bench.noData'), 'is-accent');
     summary.append(verdict, stats);
     body.appendChild(summary);
 
@@ -340,12 +351,13 @@ export class BenchPanel {
     const first = items[0];
     const last = items[items.length - 1];
     if (!first || !last) return;
-    const active = document.activeElement;
-    const inside = active instanceof Node && this.root.contains(active);
-    if (e.shiftKey && (active === first || !inside)) {
+    // Wrap from the ends, and from anything that is not one of the stops (the title, which takes focus on open with
+    // tabIndex -1, or a click on text): the browser's own order would leave the dialog from there.
+    const at = items.indexOf(document.activeElement as HTMLElement);
+    if (e.shiftKey && at <= 0) {
       e.preventDefault();
       last.focus();
-    } else if (!e.shiftKey && (active === last || !inside)) {
+    } else if (!e.shiftKey && (at === -1 || at === items.length - 1)) {
       e.preventDefault();
       first.focus();
     }

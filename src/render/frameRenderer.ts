@@ -39,6 +39,7 @@ export interface FrameRendererOptions {
 }
 
 const tmpV = new THREE.Vector3();
+const tmpSize = new THREE.Vector2();
 
 export class FrameRenderer {
   readonly worldScene = new THREE.Scene();
@@ -60,6 +61,12 @@ export class FrameRenderer {
   private hdr: THREE.RenderTarget;
   private readonly pipeline: THREE.RenderPipeline;
   private readonly bloomNode: ReturnType<typeof bloom>;
+  /** Post output with and without bloom (setBloom swaps them, so bloom off also skips its passes). */
+  private readonly withBloom: ReturnType<typeof vec4>;
+  private readonly withoutBloom: ReturnType<typeof vec4>;
+  private bloomOn = true;
+  /** Cap on devicePixelRatio for the canvas and the scene buffer (adaptive quality, docs/QUALITY.md). */
+  private maxPixelRatio = 2;
   private renderScale = 1;
   private width = 1;
   private height = 1;
@@ -91,7 +98,9 @@ export class FrameRenderer {
     this.bloomNode = bloom(exposed, 0.6, 0.45, 0.9);
     this.bloomNode.strength = this.bloomStrength;
     this.pipeline = new THREE.RenderPipeline(renderer);
-    this.pipeline.outputNode = vec4(exposed.rgb.add(this.bloomNode.rgb), float(1));
+    this.withBloom = vec4(exposed.rgb.add(this.bloomNode.rgb), float(1));
+    this.withoutBloom = vec4(exposed.rgb, float(1));
+    this.pipeline.outputNode = this.withBloom;
   }
 
   add(r: DepthRenderable): void {
@@ -104,9 +113,28 @@ export class FrameRenderer {
     r.object.removeFromParent();
   }
 
-  setRenderScale(scale: number): void {
-    this.renderScale = scale;
+  /** Scene buffer = CSS size x min(devicePixelRatio, maxPixelRatio) x scale; the canvas uses the capped ratio too. */
+  setRenderScale(scale: number, maxPixelRatio = this.maxPixelRatio): void {
+    this.renderScale = Math.min(1, Math.max(0.25, scale));
+    this.maxPixelRatio = Math.max(0.5, maxPixelRatio);
     this.resize(this.width, this.height);
+  }
+
+  /**
+   * MSAA samples of the HDR scene buffer. three re-creates the attachments when the sample count changes
+   * (Textures.updateRenderTarget); pipelines recompile on the next frame, a one-off hitch.
+   */
+  setMsaa(samples: 0 | 4): void {
+    if (this.hdr.samples === samples) return;
+    this.hdr.samples = samples;
+  }
+
+  /** Bloom on or off. Off removes bloom's passes from the post graph, not just its strength. */
+  setBloom(on: boolean): void {
+    if (on === this.bloomOn) return;
+    this.bloomOn = on;
+    this.pipeline.outputNode = on ? this.withBloom : this.withoutBloom;
+    this.pipeline.needsUpdate = true;
   }
 
   getRenderScale(): number {
@@ -116,9 +144,14 @@ export class FrameRenderer {
   resize(width: number, height: number): void {
     this.width = Math.max(1, width);
     this.height = Math.max(1, height);
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    this.renderer.setPixelRatio(dpr);
-    this.renderer.setSize(this.width, this.height, false);
+    const dpr = Math.min(window.devicePixelRatio || 1, this.maxPixelRatio);
+    // Sizing the canvas resets its drawing buffer and the backend's default attachments: only when its size or pixel
+    // ratio changes (a render-scale change resizes the scene buffer alone).
+    const css = this.renderer.getSize(tmpSize);
+    if (css.x !== this.width || css.y !== this.height || this.renderer.getPixelRatio() !== dpr) {
+      this.renderer.setPixelRatio(dpr);
+      this.renderer.setSize(this.width, this.height, false);
+    }
     const w = Math.max(1, Math.round(this.width * dpr * this.renderScale));
     const h = Math.max(1, Math.round(this.height * dpr * this.renderScale));
     this.hdr.setSize(w, h);

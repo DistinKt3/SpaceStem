@@ -75,6 +75,8 @@ export class Cockpit {
   private compensationSet = false;
   private exposureSource: ExposureSource | null = null;
   private warned = false;
+  /** The state of the last update(), so a rebuilt cockpit can take over without a frame of default uniforms. */
+  private lastState: CockpitState | null = null;
   private readonly u = new CockpitUniforms();
   private readonly lights: CockpitLights;
   private readonly geo: CockpitGeometry;
@@ -207,7 +209,19 @@ export class Cockpit {
     this.u.pctGap.value = this.atlas.percent.gap ? 0.35 : 0;
   }
 
+  /**
+   * Take over from the cockpit this one replaces (a rebuild at another quality level): its brightness, its exposure
+   * binding or compensation, and its last state, so the first frame drawn with this one already looks the same.
+   */
+  continueFrom(prev: Cockpit): void {
+    this.panelBrightness = prev.panelBrightness;
+    this.exposureSource = prev.exposureSource;
+    if (prev.compensationSet) this.exposureCompensation = prev.compensation;
+    if (prev.lastState) this.update(0, prev.lastState);
+  }
+
   update(_dt: number, s: CockpitState): void {
+    this.lastState = s;
     const u = this.u;
     if (this.exposureSource) {
       const e = this.exposureSource.value;

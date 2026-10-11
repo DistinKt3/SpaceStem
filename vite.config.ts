@@ -17,6 +17,7 @@ export default defineConfig({
         cockpit: resolve(import.meta.dirname, 'cockpit.html'),
         audio: resolve(import.meta.dirname, 'audio.html'),
         ui: resolve(import.meta.dirname, 'ui.html'),
+        bench: resolve(import.meta.dirname, 'bench.html'),
         codexdata: resolve(import.meta.dirname, 'codexdata.html'),
         exo: resolve(import.meta.dirname, 'exo.html'),
         codex: resolve(import.meta.dirname, 'codex.html'),

@@ -310,7 +310,7 @@
   "settings.quality.medium": "Medium",
   "settings.quality.medium.desc": "Balanced",
   "settings.quality.high": "High",
-  "settings.quality.high.desc": "Sharpest terrain and stars",
+  "settings.quality.high.desc": "Sharp detail; Auto can go higher on fast hardware",
   "settings.graphics.fov": "Field of view",
   "settings.graphics.fov.hint": "Vertical angle. Wider shows more but shrinks distant objects.",
   "settings.graphics.showFps": "Show frame rate",

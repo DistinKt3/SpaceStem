@@ -17,6 +17,7 @@ interface ViewRow {
 }
 interface Report {
   format: string;
+  framesPerView: number;
   synthetic?: boolean;
   views: ViewRow[];
   overall: { verdict: string; suggestedPreset: string; worstView: string };
@@ -46,8 +47,8 @@ test.describe('benchmark panel (synthetic driver)', () => {
     const r = s.report!;
     expect(r.format).toBe('known-sky-bench');
     expect(r.synthetic).toBe(true);
-    // Progress: loading, warm-up and measuring for each of the six default views, in order.
-    const views = ['leo', 'earth-low', 'moon-surface', 'earthrise', 'saturn', 'sun'];
+    // Progress: loading, warm-up and measuring for each of the seven default views, in order.
+    const views = ['leo', 'earth-low', 'earth-descent', 'moon-surface', 'earthrise', 'saturn', 'sun'];
     expect(r.views.map((v) => v.view)).toEqual(views);
     expect([...new Set(s.progress.map((p) => p.view))]).toEqual(views);
     for (const v of views) expect(new Set(s.progress.filter((p) => p.view === v).map((p) => p.phase))).toEqual(new Set(['loading', 'warmup', 'measuring']));
@@ -62,10 +63,12 @@ test.describe('benchmark panel (synthetic driver)', () => {
 
     // One row per view, with the report's numbers and a worded verdict.
     const rows = d.getByRole('row');
-    await expect(rows).toHaveCount(7);
+    await expect(rows).toHaveCount(8);
     for (const [i, v] of r.views.entries()) {
       const row = rows.nth(i + 1);
-      await expect(row.getByRole('rowheader')).toHaveText(['Low Earth orbit', 'Low over the Himalaya', 'Lunar surface', 'Earthrise from the Moon', 'Saturn', 'Near the Sun'][i]!);
+      await expect(row.getByRole('rowheader')).toHaveText(
+        ['Low Earth orbit', 'Low over the Himalaya', 'Descent over the Himalaya', 'Lunar surface', 'Earthrise from the Moon', 'Saturn', 'Near the Sun'][i]!,
+      );
       await expect(row).toContainText(`${v.p95Ms.toFixed(1)} ms`);
       await expect(row).toContainText(`${v.p50Ms.toFixed(1)} ms`);
       await expect(row).toContainText({ smooth: 'Smooth', playable: 'Playable', slow: 'Slow' }[v.verdict]!);
@@ -81,6 +84,25 @@ test.describe('benchmark panel (synthetic driver)', () => {
       expect(await page.evaluate(() => document.querySelector('dialog.ks-bench')!.contains(document.activeElement))).toBe(true);
     }
     expect(errors).toEqual([]);
+  });
+
+  // Review finding: Shift+Tab from the title (focused on open, tabIndex -1) left the modal.
+  test('Shift+Tab stays inside the dialog, from the title and around the ends', async ({ page }) => {
+    await open(page);
+    const inDialog = (): Promise<{ inside: boolean; tag: string }> =>
+      page.evaluate(() => ({ inside: document.querySelector('dialog.ks-bench')!.contains(document.activeElement), tag: document.activeElement?.className ?? '' }));
+    await expect(page.getByRole('heading', { name: 'Benchmark results' })).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    // From the title, backwards wraps to the last control (the Close text button in the action bar).
+    expect(await inDialog()).toEqual({ inside: true, tag: expect.stringContaining('ks-bench-close-text') as unknown as string });
+    for (let i = 0; i < 12; i++) {
+      await page.keyboard.press('Shift+Tab');
+      expect((await inDialog()).inside).toBe(true);
+    }
+    // And forwards from a click on plain text (not a stop) goes to the first control, not out of the dialog.
+    await page.locator('.ks-bench-verdict-desc').click();
+    await page.keyboard.press('Tab');
+    expect((await inDialog()).inside).toBe(true);
   });
 
   test('Copy JSON puts the report on the clipboard and announces it', async ({ page, context }) => {
@@ -130,11 +152,79 @@ test.describe('benchmark panel (synthetic driver)', () => {
     await expect(card).toBeVisible();
     const live = card.getByRole('status');
     await expect(live).toHaveAttribute('aria-live', 'polite');
-    await expect(live).toHaveText('Low Earth orbit (1 of 6)');
+    await expect(live).toHaveText('Low Earth orbit (1 of 7)');
     await expect(card).toContainText('Loading the view');
     await expect(card.getByRole('progressbar', { name: 'Benchmark progress' })).toHaveAttribute('aria-valuenow', '0');
     await expect(dialog(page)).toBeHidden();
     await page.screenshot({ path: `${SHOTS}/progress.png` });
+  });
+
+  // Review finding: at 2x text on a phone-sized window the header (title, device and run lines) overflowed the dialog.
+  for (const [w, h, scale] of [
+    [390, 844, 2],
+    [320, 640, 2],
+    [480, 800, 2],
+    [390, 844, 1.5],
+    [320, 640, 1.5],
+    [800, 450, 2],
+    [1280, 720, 2],
+  ] as const) {
+    test(`no horizontal overflow or clipped header text at ${w}x${h} with ${scale}x text`, async ({ page }) => {
+      await page.setViewportSize({ width: w, height: h });
+      await open(page, `textScale=${scale}&profile=slow`);
+      const m = await page.evaluate(() => {
+        const frame = document.querySelector<HTMLElement>('.ks-bench-frame')!;
+        const fr = frame.getBoundingClientRect();
+        const sel = ['.ks-bench-eyebrow', '.ks-bench-title', '.ks-bench-device', '.ks-bench-meta > span', '.ks-bench-close', '.ks-bench-actions .ks-bench-btn', '.ks-bench-stat', '.ks-bench-verdict'];
+        const outside: string[] = [];
+        for (const s of sel) {
+          for (const el of document.querySelectorAll<HTMLElement>(s)) {
+            const r = el.getBoundingClientRect();
+            if (r.left < fr.left - 0.5 || r.right > fr.right + 0.5) outside.push(`${s} ${Math.round(r.left)}..${Math.round(r.right)} vs ${Math.round(fr.left)}..${Math.round(fr.right)}`);
+            if (el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).overflowX !== 'visible') outside.push(`${s} scrolls`);
+          }
+        }
+        return { overflow: frame.scrollWidth - frame.clientWidth, outside, page: document.documentElement.scrollWidth - innerWidth };
+      });
+      expect(m.overflow).toBeLessThanOrEqual(1);
+      expect(m.page).toBeLessThanOrEqual(0);
+      expect(m.outside).toEqual([]);
+      const box = (await dialog(page).boundingBox())!;
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width).toBeLessThanOrEqual(w);
+      if (w <= 480) await page.screenshot({ path: `${SHOTS}/narrow-${w}x${h}-${scale}x.png` });
+    });
+  }
+
+  // Review finding: a bogus ?profile= broke "Run again", and ?frames=Infinity froze the tab.
+  test('hostile URL parameters fall back to defaults', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await open(page, 'profile=bogus&frames=abc');
+    expect((await demoState(page)).report!.framesPerView).toBe(180);
+    await page.keyboard.press('Escape');
+    await page.getByRole('button', { name: 'Run again' }).click();
+    await expect(dialog(page)).toBeVisible();
+    await expect.poll(async () => (await demoState(page)).running).toBe(false);
+    expect(errors).toEqual([]);
+    await open(page, 'frames=Infinity');
+    expect((await demoState(page)).report!.framesPerView).toBe(180);
+    await open(page, 'frames=1e12');
+    expect((await demoState(page)).report!.framesPerView).toBe(2000);
+    expect(errors).toEqual([]);
+  });
+
+  test('a view without measured frames reads "No data" and is left out of the verdict', async ({ page }) => {
+    await open(page, 'profile=smooth');
+    await page.evaluate(() => {
+      const ks = (window as unknown as { __ks: { panel: { show(r: unknown): void; close(): void }; state: { report: Record<string, unknown> & { views: Record<string, unknown>[] } } } }).__ks;
+      const r = structuredClone(ks.state.report);
+      r.views[0] = { ...r.views[0], frames: 0, p50Ms: 0, p95Ms: 0, maxMs: 0, meanMs: 0, verdict: 'none' };
+      ks.panel.close();
+      ks.panel.show(r);
+    });
+    await expect(dialog(page).locator('tr[data-view="leo"]')).toContainText('No data');
+    await expect(dialog(page).locator('.ks-bench-verdict')).toContainText('Smooth');
   });
 
   test('large text and high contrast stay inside the viewport', async ({ page }) => {
@@ -151,7 +241,7 @@ test.describe('benchmark panel (synthetic driver)', () => {
       return f.scrollWidth - f.clientWidth;
     });
     expect(overflow).toBeLessThanOrEqual(1);
-    await expect(dialog(page).getByRole('row')).toHaveCount(7);
+    await expect(dialog(page).getByRole('row')).toHaveCount(8);
     await expect(dialog(page).getByRole('columnheader')).toHaveCount(7);
     await expect(page.locator('html')).toHaveAttribute('data-colorblind', 'high-contrast');
     await page.screenshot({ path: `${SHOTS}/panel-large-text-hc.png` });

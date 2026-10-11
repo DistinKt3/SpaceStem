@@ -1,7 +1,8 @@
 /**
- * Owner benchmark (`?bench=1`, TECH_PLAN Section 9): visits a fixed list of named views, waits for each to finish
- * loading, renders warm-up frames, then measures a fixed number of frames and reports frame-time percentiles, draw calls
- * and triangles per view, with an overall verdict against the 60 fps and 30 fps budgets and a suggested preset.
+ * Owner benchmark (`?bench=1`, TECH_PLAN Section 9): visits a fixed list of named views (one of them a scripted descent,
+ * so terrain streaming is measured too), waits for each to finish loading, renders warm-up frames, then measures a fixed
+ * number of frames and reports frame-cost percentiles, draw calls and triangles per view, with an overall verdict
+ * against the 60 fps and 30 fps budgets and a suggested preset.
  *
  * The benchmark talks to the game through BenchDriver, so the statistics are testable with a synthetic driver and the
  * results panel can be shown on a DOM-only demo page (bench.html). The game's driver is in appBench.ts.
@@ -10,8 +11,38 @@ import { QUALITY_NAMES, percentileSorted, qualityLevel, relativeCost, type Quali
 
 export { BenchPanel } from './benchPanel';
 
-/** Default route: orbit, low over terrain, standing on the Moon, Earthrise, a ringed giant, and the Sun up close. */
-export const DEFAULT_BENCH_VIEWS: readonly string[] = ['leo', 'earth-low', 'moon-surface', 'earthrise', 'saturn', 'sun'];
+/**
+ * Default route: orbit, low over terrain, a descent onto the Himalaya (a flight: the camera moves every measured frame,
+ * so terrain streaming and LOD changes are in the numbers), standing on the Moon, Earthrise, a ringed giant, and the
+ * Sun up close.
+ */
+export const DEFAULT_BENCH_VIEWS: readonly string[] = ['leo', 'earth-low', 'earth-descent', 'moon-surface', 'earthrise', 'saturn', 'sun'];
+
+/** Measured frames per view: default and bounds (a non-finite or out-of-range request is clamped or defaulted). */
+export const BENCH_FRAMES = { default: 240, min: 1, max: 10_000 } as const;
+/** Warm-up frames per view: default and bounds. */
+export const BENCH_WARMUP = { default: 30, min: 0, max: 1_000 } as const;
+
+/** A whole number in [min, max]; the default when `v` is missing or not finite. */
+export function clampCount(v: number | undefined, bounds: { default: number; min: number; max: number }): number {
+  if (v === undefined || !Number.isFinite(v)) return bounds.default;
+  return Math.min(bounds.max, Math.max(bounds.min, Math.round(v)));
+}
+
+/**
+ * Splits requested view names into the ones the driver knows and the rest (dropped with a warning by the caller);
+ * duplicates are kept once, in order.
+ */
+export function resolveBenchViews(requested: readonly string[], isKnown: (name: string) => boolean): { views: string[]; unknown: string[] } {
+  const views: string[] = [];
+  const unknown: string[] = [];
+  for (const raw of requested) {
+    const name = raw.trim();
+    if (!name || views.includes(name) || unknown.includes(name)) continue;
+    (isKnown(name) ? views : unknown).push(name);
+  }
+  return { views, unknown };
+}
 
 /** Frame budgets (ms): 60 fps and 30 fps. */
 export const FRAME_BUDGET = { smoothMs: 16.7, playableMs: 33.3 } as const;
@@ -45,12 +76,15 @@ export interface BenchDriver {
   setView(name: string): void;
   /** Resolves when the view has finished streaming (or the driver gives up waiting). */
   waitIdle(): Promise<void>;
+  /** Called after warm-up, before the measured frames of a view (a flight starts moving here). */
+  beginMeasure?(frames: number): void;
   /** Renders and times one frame. */
   frame(): Promise<BenchFrame>;
   info(): BenchInfo;
 }
 
-export type BenchVerdict = 'smooth' | 'playable' | 'slow';
+/** 'none': no valid frame was measured (excluded from the overall result). */
+export type BenchVerdict = 'smooth' | 'playable' | 'slow' | 'none';
 export type SuggestedPreset = 'low' | 'medium' | 'high';
 
 export interface BenchViewResult {
@@ -91,12 +125,12 @@ export interface BenchReport {
     p50Ms: number;
     p95Ms: number;
     maxMs: number;
-    /** View with the highest p95. */
+    /** View with the highest p95 among views with data ('' when none has data). */
     worstView: string;
-    /** Verdict of the worst view. */
+    /** Verdict of the worst view ('none' when no view has data). */
     verdict: BenchVerdict;
-    /** Highest preset whose estimated p95 fits 60 fps in every view (an estimate: see suggestPreset). */
-    suggestedPreset: SuggestedPreset;
+    /** Highest preset whose estimated p95 fits 60 fps in every view (an estimate: see suggestPreset); null without data. */
+    suggestedPreset: SuggestedPreset | null;
     budgets: { smoothMs: number; playableMs: number; drawCalls: number; triangles: number };
   };
 }
@@ -115,10 +149,11 @@ export interface BenchProgress {
 }
 
 export interface BenchOptions {
+  /** Views to visit, in order (must not be empty). Default DEFAULT_BENCH_VIEWS. */
   views?: readonly string[];
-  /** Measured frames per view. Default 240. */
+  /** Measured frames per view. Default 240, clamped to 1..10,000. */
   framesPerView?: number;
-  /** Unmeasured frames per view after loading (shader compiles, LOD settling). Default 30. */
+  /** Unmeasured frames per view after loading (shader compiles, LOD settling). Default 30, clamped to 0..1,000. */
   warmup?: number;
   /** Quality level in use, recorded in the report and used for the preset suggestion. */
   quality?: QualityName;
@@ -132,7 +167,8 @@ export interface BenchOptions {
   synthetic?: boolean;
 }
 
-export function verdictFor(p95Ms: number): BenchVerdict {
+export function verdictFor(p95Ms: number, frames = 1): BenchVerdict {
+  if (frames <= 0 || !Number.isFinite(p95Ms)) return 'none';
   if (p95Ms <= FRAME_BUDGET.smoothMs) return 'smooth';
   if (p95Ms <= FRAME_BUDGET.playableMs) return 'playable';
   return 'slow';
@@ -174,7 +210,7 @@ export function summarizeView(view: string, frames: readonly BenchFrame[], loadM
     cpuP50Ms: cpu.length ? round(percentileSorted(cpu, 0.5), 2) : null,
     meanDrawCalls,
     meanTriangles,
-    verdict: verdictFor(p95),
+    verdict: verdictFor(p95, n),
     overBudget,
   };
 }
@@ -211,8 +247,9 @@ function abortError(): Error {
 /** Runs the benchmark. Views run one after another; the report is built from the measured frames only. */
 export async function runBench(driver: BenchDriver, opts: BenchOptions = {}): Promise<BenchReport> {
   const views = [...(opts.views ?? DEFAULT_BENCH_VIEWS)];
-  const framesPerView = Math.max(1, Math.round(opts.framesPerView ?? 240));
-  const warmup = Math.max(0, Math.round(opts.warmup ?? 30));
+  if (views.length === 0) throw new RangeError('Benchmark: no views to measure');
+  const framesPerView = clampCount(opts.framesPerView, BENCH_FRAMES);
+  const warmup = clampCount(opts.warmup, BENCH_WARMUP);
   const now = opts.now ?? (() => performance.now());
   const quality = opts.quality && QUALITY_NAMES.includes(opts.quality) ? opts.quality : null;
   const check = (): void => {
@@ -237,6 +274,7 @@ export async function runBench(driver: BenchDriver, opts: BenchOptions = {}): Pr
       if (i % progressEvery === 0) progress('warmup', i + 1, warmup);
     }
     const frames: BenchFrame[] = [];
+    driver.beginMeasure?.(framesPerView);
     for (let i = 0; i < framesPerView; i++) {
       check();
       frames.push(await driver.frame());
@@ -247,8 +285,10 @@ export async function runBench(driver: BenchDriver, opts: BenchOptions = {}): Pr
     for (const f of frames) if (Number.isFinite(f.ms) && f.ms >= 0) all.push(f.ms);
   }
   const sorted = Float64Array.from(all).sort();
-  let worst = results[0];
-  for (const r of results) if (worst === undefined || r.p95Ms > worst.p95Ms) worst = r;
+  // Views without a single valid frame say nothing about speed: they are listed, but not part of the overall result.
+  const measured = results.filter((r) => r.verdict !== 'none');
+  let worst: BenchViewResult | undefined;
+  for (const r of measured) if (worst === undefined || r.p95Ms > worst.p95Ms) worst = r;
   return {
     format: BENCH_FORMAT,
     version: BENCH_VERSION,
@@ -265,8 +305,8 @@ export async function runBench(driver: BenchDriver, opts: BenchOptions = {}): Pr
       p95Ms: round(percentileSorted(sorted, 0.95), 2),
       maxMs: round(sorted.length ? sorted[sorted.length - 1]! : 0, 2),
       worstView: worst?.view ?? '',
-      verdict: worst?.verdict ?? 'slow',
-      suggestedPreset: suggestPreset(results, quality, info.dpr),
+      verdict: worst?.verdict ?? 'none',
+      suggestedPreset: measured.length ? suggestPreset(measured, quality, info.dpr) : null,
       budgets: { smoothMs: FRAME_BUDGET.smoothMs, playableMs: FRAME_BUDGET.playableMs, drawCalls: drawCallBudget(info.backend), triangles: SCENE_BUDGET.triangles },
     },
   };

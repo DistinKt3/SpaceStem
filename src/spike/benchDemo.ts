@@ -4,15 +4,30 @@
  * work. Exposes window.__ks for tests/e2e/bench.spec.ts.
  *
  * URL parameters: profile=mixed|smooth|slow, hold=progress (stop at the progress card), textScale=<0.8..2>,
- * colorblind=<mode>, reducedMotion=1, frames=<n> (measured frames per view).
+ * colorblind=<mode>, reducedMotion=1, frames=<n> (measured frames per view, 1..2000). Unknown or out-of-range values
+ * fall back to the defaults, so a hostile URL cannot break the page or freeze it.
  */
 import '../game/styles.css';
 import '../game/ui/ui.css';
-import { BenchPanel, runBench, type BenchDriver, type BenchFrame, type BenchProgress, type BenchReport } from '../game/bench/bench';
+import { BenchPanel, clampCount, runBench, type BenchDriver, type BenchFrame, type BenchProgress, type BenchReport } from '../game/bench/bench';
 import { COLORBLIND_MODES, Settings, type ColorblindMode } from '../game/settings/settings';
 import { t } from '../game/i18n';
 
 type Profile = 'mixed' | 'smooth' | 'slow';
+
+const PROFILE_NAMES: readonly Profile[] = ['mixed', 'smooth', 'slow'];
+/** Measured frames per view on this page (the synthetic driver resolves at once, so this bounds the page's work). */
+const DEMO_FRAMES = { default: 180, min: 1, max: 2_000 } as const;
+
+/** The profile a URL value names, or 'mixed'. */
+export function profileParam(v: string | null): Profile {
+  return v !== null && (PROFILE_NAMES as readonly string[]).includes(v) ? (v as Profile) : 'mixed';
+}
+
+/** Frames per view from a URL value: a whole number in 1..2000, else 180 (also for Infinity, NaN or a missing value). */
+export function framesParam(v: string | null): number {
+  return clampCount(v === null || v.trim() === '' ? undefined : Number(v), DEMO_FRAMES);
+}
 
 const params = new URLSearchParams(location.search);
 const settings = new Settings({ storage: null });
@@ -92,6 +107,7 @@ const PROFILES: Record<Profile, Record<string, { ms: number; draws: number; tris
   mixed: {
     leo: { ms: 9.2, draws: 182, tris: 640_000 },
     'earth-low': { ms: 19.5, draws: 340, tris: 1_620_000 },
+    'earth-descent': { ms: 22.8, draws: 362, tris: 1_540_000 },
     'moon-surface': { ms: 14.1, draws: 236, tris: 1_180_000 },
     earthrise: { ms: 12.6, draws: 214, tris: 910_000 },
     saturn: { ms: 7.4, draws: 96, tris: 310_000 },
@@ -100,6 +116,7 @@ const PROFILES: Record<Profile, Record<string, { ms: number; draws: number; tris
   smooth: {
     leo: { ms: 5.1, draws: 182, tris: 640_000 },
     'earth-low': { ms: 8.9, draws: 288, tris: 1_310_000 },
+    'earth-descent': { ms: 10.4, draws: 301, tris: 1_250_000 },
     'moon-surface': { ms: 7.2, draws: 236, tris: 1_080_000 },
     earthrise: { ms: 6.6, draws: 214, tris: 910_000 },
     saturn: { ms: 4.2, draws: 96, tris: 310_000 },
@@ -108,6 +125,7 @@ const PROFILES: Record<Profile, Record<string, { ms: number; draws: number; tris
   slow: {
     leo: { ms: 24, draws: 182, tris: 640_000 },
     'earth-low': { ms: 46, draws: 340, tris: 1_620_000 },
+    'earth-descent': { ms: 52, draws: 362, tris: 1_540_000 },
     'moon-surface': { ms: 35, draws: 236, tris: 1_180_000 },
     earthrise: { ms: 31, draws: 214, tris: 910_000 },
     saturn: { ms: 18, draws: 96, tris: 310_000 },
@@ -116,7 +134,7 @@ const PROFILES: Record<Profile, Record<string, { ms: number; draws: number; tris
 };
 
 export function syntheticDriver(profile: Profile, opts: { idleMs?: number } = {}): BenchDriver {
-  const table = PROFILES[profile];
+  const table = PROFILES[profileParam(profile)];
   const rnd = lcg(profile.length * 7919 + 17);
   let view = 'leo';
   return {
@@ -153,13 +171,17 @@ const rerun = document.getElementById('rerun') as HTMLButtonElement;
 rerun.textContent = t('quality.bench.runAgain');
 rerun.hidden = true;
 
-async function run(profile: Profile = 'mixed', extra: { hold?: boolean; frames?: number } = {}): Promise<BenchReport | null> {
+// Read and validated once: the first run and every "Run again" use the same values.
+const profile = profileParam(params.get('profile'));
+const frames = framesParam(params.get('frames'));
+
+async function run(which: Profile = profile, extra: { hold?: boolean; frames?: number } = {}): Promise<BenchReport | null> {
   state.running = true;
   state.progress = [];
   rerun.hidden = true;
-  const driver = syntheticDriver(profile, { idleMs: extra.hold ? 1e9 : 140 });
+  const driver = syntheticDriver(which, { idleMs: extra.hold ? 1e9 : 140 });
   const report = await runBench(driver, {
-    framesPerView: extra.frames ?? 180,
+    framesPerView: clampCount(extra.frames ?? frames, DEMO_FRAMES),
     warmup: 20,
     quality: 'high',
     synthetic: true,
@@ -175,12 +197,8 @@ async function run(profile: Profile = 'mixed', extra: { hold?: boolean; frames?:
   return report;
 }
 
-rerun.addEventListener('click', () => void run((params.get('profile') as Profile | null) ?? 'mixed'));
+rerun.addEventListener('click', () => void run(profile, { frames }));
 
 (window as unknown as { __ks: unknown }).__ks = { panel, state, run, settings };
 
-const profile = params.get('profile');
-void run(profile === 'smooth' || profile === 'slow' ? profile : 'mixed', {
-  hold: params.get('hold') === 'progress',
-  frames: Number(params.get('frames')) || 180,
-});
+void run(profile, { hold: params.get('hold') === 'progress', frames });

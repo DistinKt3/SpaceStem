@@ -180,6 +180,11 @@
   border-bottom: 1px solid var(--ksb-hair);
 }
 
+/* A flex item keeps its min-content width unless told otherwise: the title must be able to wrap inside the dialog. */
+.ks-bench-titles {
+  min-width: 0;
+}
+
 .ks-bench-eyebrow {
   display: flex;
   align-items: center;
@@ -215,6 +220,7 @@
   line-height: 1.15;
   text-transform: uppercase;
   outline: none;
+  overflow-wrap: anywhere;
 }
 
 .ks-bench-device {
@@ -231,6 +237,11 @@
   margin: 0.2rem 0 0;
   font-size: 0.8rem;
   color: var(--ks-dim);
+}
+
+.ks-bench-meta > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 /* --- Buttons --------------------------------------------------------------------------------------------------- */
@@ -439,6 +450,10 @@
 
 .ks-bench [data-verdict='slow'] {
   --tone: var(--ksb-danger);
+}
+
+.ks-bench [data-verdict='none'] {
+  --tone: var(--ks-dim);
 }
 
 /* --- Table ----------------------------------------------------------------------------------------------------- */
@@ -697,7 +712,10 @@
 
   .ks-bench-table tbody th.is-view {
     flex: 1 1 auto;
+    min-width: 0;
     font-size: 0.95rem;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 
   .ks-bench-table tbody td.is-result {
@@ -708,6 +726,19 @@
     order: 1;
     flex: 1 1 100%;
     width: auto;
+    min-width: 0;
+  }
+
+  .ks-bench-meter {
+    flex-wrap: wrap;
+  }
+
+  .ks-bench-meter-track {
+    min-width: 2rem;
+  }
+
+  .ks-bench-meter-value {
+    min-width: 0;
   }
 
   .ks-bench-table tbody td.is-num {
@@ -729,6 +760,8 @@
 
   .ks-bench-over {
     justify-content: flex-start;
+    flex-wrap: wrap;
+    white-space: normal;
   }
 }
 
@@ -751,17 +784,86 @@
     padding-right: 1rem;
   }
 
+  .ks-bench-head {
+    gap: 0.5rem;
+  }
+
+  .ks-bench-title {
+    font-size: 1.25rem;
+    letter-spacing: 0.04em;
+  }
+
+  .ks-bench-eyebrow {
+    letter-spacing: 0.16em;
+  }
+
+  /* Buttons may wrap their label rather than push the dialog wider. */
+  .ks-bench-actions .ks-bench-btn {
+    white-space: normal;
+  }
+
   .ks-bench-stats {
     grid-template-columns: minmax(0, 1fr);
   }
 
   .ks-bench-stat {
     flex-direction: row;
+    flex-wrap: wrap;
     align-items: baseline;
   }
 
   .ks-bench-stat dd {
     font-size: 1.1rem;
+  }
+}
+
+/* Very narrow (a phone at 2x text): the close button gets its own row so the title has the full width (no breaks
+   inside words), one action per line, labels without icons. */
+@container ks-bench-frame (max-width: 24rem) {
+  .ks-bench-head {
+    flex-wrap: wrap;
+    padding-top: 0.8rem;
+  }
+
+  .ks-bench-close {
+    order: -1;
+    margin: 0 -0.6rem 0 auto;
+  }
+
+  .ks-bench-titles {
+    flex: 1 1 100%;
+  }
+
+  .ks-bench-title {
+    font-size: 1.1rem;
+    letter-spacing: 0.02em;
+  }
+
+  .ks-bench-head,
+  .ks-bench-body,
+  .ks-bench-actions {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  .ks-bench-table tbody tr {
+    padding-left: 0.6rem;
+    padding-right: 0.6rem;
+  }
+
+  .ks-bench-actions .ks-bench-btn {
+    flex: 1 1 100%;
+    justify-content: center;
+    padding-inline: 0.5rem;
+    overflow-wrap: anywhere;
+  }
+
+  .ks-bench-actions .ks-bench-ico {
+    display: none;
+  }
+
+  .ks-bench-actions .ks-bench-close-text {
+    margin-left: 0;
   }
 }
 

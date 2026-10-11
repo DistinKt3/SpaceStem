@@ -8,6 +8,7 @@ import { unixMsToTdbSecondsSinceJ2000, tdbSecondsSinceJ2000ToUnixMs } from '../c
 import { Vec3d } from '../core/vec3d';
 import { createRenderer, effectiveDepthMode, type BackendRequest, type DepthMode, type RendererInfo } from '../render/bootstrap';
 import { FrameRenderer } from '../render/frameRenderer';
+import { GameQuality } from './quality/gameQuality';
 import { Starfield } from '../render/starfield';
 import { StarCatalog } from '../world/starCatalog';
 import { MapView } from './map/mapView';
@@ -77,6 +78,8 @@ export class App {
   map: MapView | null = null;
   reducedMotion = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
   depthMode: DepthMode = 'reversed';
+  /** Adaptive quality and the quality setting (docs/QUALITY.md). Created in boot(). */
+  quality!: GameQuality;
   /** Simulation time, TDB seconds since J2000. */
   simTime = 0;
   timeScale = 1;
@@ -205,12 +208,14 @@ export class App {
     this.depthMode = effectiveDepthMode(requested, this.info);
     this.frame = new FrameRenderer(this.renderer, { depthMode: this.depthMode, msaaSamples: this.params.get('msaa') === '0' ? 0 : 4 });
     this.frame.bloomStrength.value = Number(this.params.get('bloom') ?? 0.5);
+    this.quality = new GameQuality(this);
     // The free camera (?free=1, also used for screenshots) never drives the cockpit, so it gets none.
     if (this.params.get('cockpit') !== '0' && this.params.get('free') !== '1') {
-      this.cockpit = new Cockpit({ quality: this.settings.data.quality === 'low' ? 'low' : 'high' });
+      this.cockpit = new Cockpit({ quality: this.quality.level.cockpit });
       this.frame.cockpitScene.add(this.cockpit.group);
     }
     this.setCockpitVisible(this.cockpit !== null);
+    this.quality.apply();
     this.applySettings();
     const resize = (): void => this.frame.resize(innerWidth, innerHeight);
     window.addEventListener('resize', resize);
@@ -227,7 +232,7 @@ export class App {
       return SolarSystem.create(ephemeris, bodies, this.pool, this.frame, (name) => {
         const def = bodies.find((b) => b.name === name);
         this.progress(t('boot.loading', { item: def ? bodyLabel(def) : name }));
-      });
+      }, { viewSamples: this.quality.bootLevel.viewSamples });
     });
     const starCatalog = this.stars.load().then(async () => {
       this.frame.backgroundScene.add(this.stars.group);
@@ -275,6 +280,7 @@ export class App {
     this.cam.pos = p.pos;
     this.cam.quat.copy(p.quat);
     this.controller?.onPlace?.(this);
+    this.quality?.sceneChanged();
   }
 
   /** Named placements (also used by tests). */
@@ -370,6 +376,7 @@ export class App {
       return;
     }
     if (!paused) this.controller?.update(dt, this);
+    this.quality.frame(this.frameTimes[this.frameTimes.length - 1] ?? 0, paused);
     this.renderFrame(dt);
     this.codex.update(this.controller?.targetId ?? null, this.cam.pos.anchor, { inDaylightAtmosphere: this.inDaylightAtmosphere, mapOpen: false });
     if (this.settings.data.showFps && this.controller?.updateHud) {
@@ -533,6 +540,7 @@ export class App {
       [t('hud.sunDistance'), `${formatDistance(dSun)} · ${t('hud.lightTime')} ${formatDuration(dSun / SPEED_OF_LIGHT_M_PER_S)}`],
       [t('hud.utc'), utc],
       [t('hud.backend'), `${this.info.backend} · ${this.depthMode} · ${t('hud.fps', { v: Math.round(1000 / this.frameMs) })}`],
+      [t('quality.hud.label'), this.quality.hudValue()],
     ];
     this.hud.innerHTML = rows.map(([k, v]) => `<div class="row"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('');
   }
@@ -551,6 +559,7 @@ export class App {
       frameMsP95: pct(0.95),
       pendingChunks: this.pool.pending,
       anchor: this.cam.pos.anchor,
+      quality: this.quality.stats(),
     };
   }
 }
