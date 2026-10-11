@@ -11,7 +11,8 @@ import type { App } from '../app';
 import { hasKey, t } from '../i18n';
 import { MODES, type FlightMode } from '../ship/ship';
 import { ShipController } from '../ship/shipController';
-import { captionFor, type CaptionText } from './caption';
+import { captionFor, captionPlaceName, type CaptionInput, type CaptionText } from './caption';
+import { supersampleScale } from './screenshot';
 import { ShareController, type ApplyResult, type ShareHost } from './shareController';
 import { isShareId, makeShareState, type ShareState } from './shareLink';
 
@@ -59,9 +60,9 @@ export class GameShareHost implements ShareHost {
     return sys.externalAnchor?.(anchor, this.app.simTime, new Vec3d()) != null;
   }
 
-  /** True when the ship can target `id` (a loaded body or a catalogue star). */
+  /** True when the ship can target `id` (a loaded body, a catalogue star, or an exoplanet system's star). */
   targetKnown(id: string): boolean {
-    return this.app.sys.byId.has(id) || this.catalogIndex(id) !== null;
+    return this.app.sys.byId.has(id) || this.catalogIndex(id) !== null || this.app.exo.some((s) => s.spec.id === id);
   }
 
   currentState(): ShareState | null {
@@ -107,18 +108,45 @@ export class GameShareHost implements ShareHost {
     return Math.abs(app.simTime - tdb) > 1 ? 'time-adjusted' : 'ok';
   }
 
+  /** The place the camera is at, named by the same rule as the caption (so the arrival toast and the image agree). */
   placeName(): string {
-    const [near] = this.app.sys.nearest(this.app.cam.pos, this.app.simTime);
-    return bodyName(near.def);
+    return captionPlaceName(this.captionInput());
   }
 
+  /**
+   * Renders the frame for a screenshot, supersampled (TECH_PLAN §8): the scene is drawn at up to twice the canvas's
+   * resolution in each direction and filtered down to it, so edges and fine terrain detail come out smoother than on
+   * screen. The image keeps the canvas's size. Only the scene target grows (FrameRenderer.setRenderScale); bloom,
+   * star sizes and the level of detail follow the canvas, so the picture matches the view the player composed.
+   */
   captureFrame(): string {
+    const app = this.app;
+    const frame = app.frame;
+    const canvas = app.renderer.domElement;
+    const before = frame.getRenderScale();
+    const scale = app.settings.data.quality === 'low' ? before : supersampleScale(canvas.width, canvas.height, before);
     // Render (not tick): this runs inside App.tick and must not advance input or the simulation.
-    this.app.renderFrame();
-    return this.app.renderer.domElement.toDataURL('image/png');
+    if (scale === before) {
+      app.renderFrame();
+      return canvas.toDataURL('image/png');
+    }
+    try {
+      frame.setRenderScale(scale);
+      app.renderFrame();
+      return canvas.toDataURL('image/png');
+    } finally {
+      frame.setRenderScale(before);
+      // Resizing cleared the canvas: draw the normal frame again, so the screen never shows an empty one.
+      app.renderFrame();
+    }
   }
 
   caption(): CaptionText {
+    return captionFor(this.captionInput());
+  }
+
+  /** The values the caption describes, from the simulation (the HUD's own quantities). */
+  captionInput(): CaptionInput {
     const app = this.app;
     const sys = app.sys;
     const p = app.cam.pos;
@@ -127,7 +155,7 @@ export class GameShareHost implements ShareHost {
     const isStar = near.def.kind === 'star';
     const ground = isStar ? 0 : sys.surfaceHeightBelow(near, p, time);
     const star = sys.primaryStar(p, time);
-    return captionFor({
+    return {
       nearName: bodyName(near.def),
       nearIsStar: isStar,
       altitudeM: alt - ground,
@@ -135,7 +163,13 @@ export class GameShareHost implements ShareHost {
       starName: bodyName(star.def),
       starDistanceM: sys.bodyRelative(star.def.id, p, time, new Vec3d()).length(),
       utcMs: tdbSecondsSinceJ2000ToUnixMs(time),
-    });
+    };
+  }
+
+  /** The map, the settings or the Codex has taken over the screen. */
+  overlayOpen(): boolean {
+    const app = this.app;
+    return (app.map?.isOpen ?? false) || app.panel.isOpen || app.codex.ui.isOpen;
   }
 
   setScreenshotMode(active: boolean): void {
@@ -153,9 +187,16 @@ export class GameShareHost implements ShareHost {
 
 /** Creates the share/screenshot controller for the running game. */
 export function createGameShare(app: App): ShareController {
-  return new ShareController({
+  const share = new ShareController({
     host: new GameShareHost(app),
     input: app.input,
     reducedMotion: () => app.reducedMotion,
+    // Codex discoveries use the same corner (an arrival by link often unlocks one): share toasts stack below them.
+    stackBelow: () => [app.codex.ui.toast.element],
   });
+  // The Codex can open without a game action (a toast's View button): screenshot mode ends with it.
+  app.codex.ui.onOpenChange((open) => {
+    if (open) share.screenshot.exit();
+  });
+  return share;
 }
