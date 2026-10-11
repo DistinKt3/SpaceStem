@@ -196,7 +196,12 @@ intro.append(
 const target = el('section', 'lab lab-target');
 target.setAttribute('aria-label', t('codex.demo.target'));
 const targetName = el('div', 'n');
-target.append(el('div', 'k', t('codex.demo.target')), targetName, provenanceBadge('measured'), el('div', 'hint', t('codex.demo.targetHint')));
+target.append(
+  el('div', 'k', t('codex.demo.target')),
+  targetName,
+  provenanceBadge('measured'),
+  el('div', 'hint', t('codex.demo.targetHint')),
+);
 
 const badges = el('section', 'lab lab-badges');
 badges.setAttribute('aria-label', t('codex.legend.title'));
@@ -215,7 +220,8 @@ store.onChange(syncLab);
 // Lab shortcuts (the Codex dialogs keep their own keys while open).
 addEventListener('keydown', (e) => {
   const tag = (e.target as HTMLElement | null)?.tagName;
-  if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || e.ctrlKey || e.metaKey || e.altKey || ui.isOpen) return;
+  if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || e.ctrlKey || e.metaKey || e.altKey || ui.isOpen)
+    return;
   if (e.code === 'KeyC') ui.panel.open();
   else if (e.code === 'KeyI') ui.howWeKnow.showById(TARGET_ID);
   else if (e.code === 'KeyD') discoverNext();
@@ -224,7 +230,12 @@ addEventListener('keydown', (e) => {
 });
 
 void store.load().then(() => {
-  src.textContent = usedFixtures || sourceParam === 'fixtures' ? t('codex.demo.sourceFixtures') : store.error ? t('codex.error') : t('codex.demo.sourceData');
+  src.textContent =
+    usedFixtures || sourceParam === 'fixtures'
+      ? t('codex.demo.sourceFixtures')
+      : store.error
+        ? t('codex.error')
+        : t('codex.demo.sourceData');
   for (const id of (params.get('discover') ?? '').split(',').filter(Boolean)) store.discover(id);
   syncLab();
   const open = params.get('open');

@@ -99,7 +99,9 @@ function parseFact(raw: unknown, where: string, problems: string[]): CodexFact |
     return null;
   }
   if (!isProvenance(raw['provenance'])) {
-    problems.push(`${where}: fact "${label}" has no valid provenance; dropped (a value is never shown without its tier)`);
+    problems.push(
+      `${where}: fact "${label}" has no valid provenance; dropped (a value is never shown without its tier)`,
+    );
     return null;
   }
   const method = str(raw['method']) ?? '';
@@ -200,7 +202,8 @@ export function parseCodex(raw: unknown): Parsed<CodexEntry[]> {
   if (!isObj(raw) || !Array.isArray(raw['entries'])) {
     return { value: [], problems: ['codex: expected an object with an "entries" array'] };
   }
-  if (raw['version'] !== 1) problems.push(`codex: unexpected version ${JSON.stringify(raw['version'])}; reading as version 1`);
+  if (raw['version'] !== 1)
+    problems.push(`codex: unexpected version ${JSON.stringify(raw['version'])}; reading as version 1`);
   const seen = new Set<string>();
   const out: CodexEntry[] = [];
   raw['entries'].forEach((e, i) => {
@@ -236,7 +239,8 @@ function parseCitation(key: string, raw: unknown, problems: string[]): CodexCita
   }
   const year = finite(raw['year']) ? raw['year'] : null;
   const verified = raw['verified'] === true;
-  if (typeof raw['verified'] !== 'boolean') problems.push(`citation ${key}: "verified" is not a boolean; treated as false`);
+  if (typeof raw['verified'] !== 'boolean')
+    problems.push(`citation ${key}: "verified" is not a boolean; treated as false`);
   const license = nonEmpty(raw['license']);
   const note = nonEmpty(raw['note']);
   return {

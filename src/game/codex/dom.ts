@@ -10,7 +10,11 @@ type Attrs = Record<string, string | number | boolean | null | undefined>;
 type Child = Node | string | null | undefined | false;
 
 /** Creates an element; attributes with null/undefined/false values are skipped, true sets an empty attribute. */
-export function h<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Attrs = {}, ...children: Child[]): HTMLElementTagNameMap[K] {
+export function h<K extends keyof HTMLElementTagNameMap>(
+  tag: K,
+  attrs: Attrs = {},
+  ...children: Child[]
+): HTMLElementTagNameMap[K] {
   const el = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs)) {
     if (v === null || v === undefined || v === false) continue;
@@ -31,17 +35,22 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 const ICONS = {
   body: '<circle cx="8" cy="8" r="5.2"/><path d="M4.2 11.6c2.6-1 5.6-3.4 7.4-7" opacity=".7"/>',
   star: '<path d="M8 1.8 9.4 6.6 14.2 8 9.4 9.4 8 14.2 6.6 9.4 1.8 8 6.6 6.6Z"/>',
-  exoplanet: '<ellipse cx="8" cy="8" rx="6.6" ry="2.6" opacity=".7"/><circle cx="8" cy="8" r="2.2"/><circle cx="13.4" cy="6.6" r="1" fill="currentColor" stroke="none"/>',
-  concept: '<path d="M8 1.8 13.4 4.9v6.2L8 14.2 2.6 11.1V4.9Z"/><circle cx="8" cy="8" r="1.6" fill="currentColor" stroke="none"/>',
+  exoplanet:
+    '<ellipse cx="8" cy="8" rx="6.6" ry="2.6" opacity=".7"/><circle cx="8" cy="8" r="2.2"/><circle cx="13.4" cy="6.6" r="1" fill="currentColor" stroke="none"/>',
+  concept:
+    '<path d="M8 1.8 13.4 4.9v6.2L8 14.2 2.6 11.1V4.9Z"/><circle cx="8" cy="8" r="1.6" fill="currentColor" stroke="none"/>',
   log: '<circle cx="8" cy="8" r="6"/><path d="M8 4.6V8l2.4 1.6"/>',
   lock: '<rect x="3.2" y="7" width="9.6" height="6.8" rx="1.4"/><path d="M5.4 7V5.2a2.6 2.6 0 0 1 5.2 0V7"/>',
   search: '<circle cx="7" cy="7" r="4.4"/><path d="m10.4 10.4 3.6 3.6"/>',
   close: '<path d="m4 4 8 8M12 4l-8 8"/>',
-  external: '<path d="M9.5 2.5h4v4M13.5 2.5 7.5 8.5M11.5 9.5v3.4a.6.6 0 0 1-.6.6H3.1a.6.6 0 0 1-.6-.6V5.1a.6.6 0 0 1 .6-.6h3.4"/>',
+  external:
+    '<path d="M9.5 2.5h4v4M13.5 2.5 7.5 8.5M11.5 9.5v3.4a.6.6 0 0 1-.6.6H3.1a.6.6 0 0 1-.6-.6V5.1a.6.6 0 0 1 .6-.6h3.4"/>',
   back: '<path d="M10 3 5 8l5 5"/>',
   forward: '<path d="m6 3 5 5-5 5"/>',
-  question: '<circle cx="8" cy="8" r="6.2"/><path d="M6.2 6.3a1.9 1.9 0 1 1 2.6 1.8c-.5.2-.8.6-.8 1.1v.5"/><circle cx="8" cy="11.6" r=".6" fill="currentColor" stroke="none"/>',
-  codex: '<path d="M8 1.6 13.6 4.8v6.4L8 14.4 2.4 11.2V4.8Z"/><path d="M8 1.6v12.8M2.4 4.8 13.6 11.2M13.6 4.8 2.4 11.2" opacity=".45"/><circle cx="8" cy="8" r="2" fill="currentColor" stroke="none"/>',
+  question:
+    '<circle cx="8" cy="8" r="6.2"/><path d="M6.2 6.3a1.9 1.9 0 1 1 2.6 1.8c-.5.2-.8.6-.8 1.1v.5"/><circle cx="8" cy="11.6" r=".6" fill="currentColor" stroke="none"/>',
+  codex:
+    '<path d="M8 1.6 13.6 4.8v6.4L8 14.4 2.4 11.2V4.8Z"/><path d="M8 1.6v12.8M2.4 4.8 13.6 11.2M13.6 4.8 2.4 11.2" opacity=".45"/><circle cx="8" cy="8" r="2" fill="currentColor" stroke="none"/>',
   warn: '<path d="M8 2.2 14.2 13H1.8Z"/><path d="M8 6.4v3"/><circle cx="8" cy="11.1" r=".6" fill="currentColor" stroke="none"/>',
 } as const;
 export type IconName = keyof typeof ICONS;
@@ -73,7 +82,8 @@ export function richText(text: string): DocumentFragment {
 
 /** Focusable, visible elements inside root, in tab order. */
 export function focusables(root: HTMLElement): HTMLElement[] {
-  const sel = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+  const sel =
+    'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
   return [...root.querySelectorAll<HTMLElement>(sel)].filter((el) => {
     if (el.tabIndex < 0 || el.closest('[hidden], [inert]')) return false;
     const r = el.getClientRects();
@@ -100,8 +110,12 @@ export function trapTab(e: KeyboardEvent, root: HTMLElement): boolean {
   // Focus may rest on something that is not itself tabbable (a heading focused for reading): the browser moves on
   // from it in document order, so wrap only when nothing tabbable lies ahead in that direction.
   const ahead = e.shiftKey
-    ? items.some((el) => (active.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_PRECEDING) !== 0 && !el.contains(active))
-    : items.some((el) => (active.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0 && !active.contains(el));
+    ? items.some(
+        (el) => (active.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_PRECEDING) !== 0 && !el.contains(active),
+      )
+    : items.some(
+        (el) => (active.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0 && !active.contains(el),
+      );
   if ((e.shiftKey && active === first) || (!e.shiftKey && active === last) || !ahead) {
     e.preventDefault();
     (e.shiftKey ? last : first).focus();
@@ -152,7 +166,11 @@ export function showDialog(d: HTMLDialogElement): void {
 }
 
 /** Citation as text with its DOI or URL as an external link; marks unverified and missing sources honestly. */
-export function citationView(key: string, c: CodexCitation | undefined, opts: { accessed?: 'always' | 'web' | 'never' } = {}): HTMLElement {
+export function citationView(
+  key: string,
+  c: CodexCitation | undefined,
+  opts: { accessed?: 'always' | 'web' | 'never'; short?: boolean } = {},
+): HTMLElement {
   const wrap = h('span', { class: 'ks-cx-cite' });
   if (!key) {
     wrap.classList.add('is-missing');
@@ -164,9 +182,12 @@ export function citationView(key: string, c: CodexCitation | undefined, opts: { 
     wrap.append(icon('warn'), t('codex.cite.missing', { key }));
     return wrap;
   }
-  const text = formatCitation(c);
   const href = citationHref(c);
   const linkText = c.doi ? `doi:${c.doi}` : c.url.trim();
+  // Short form (a source already given in full above): authors, year and the link.
+  const text = opts.short
+    ? `${t('codex.cite.short', { authors: c.authors.trim(), year: c.year === null ? t('codex.cite.noDate') : String(c.year) })} ${linkText}`.trim()
+    : formatCitation(c);
   if (href && linkText && text.endsWith(linkText)) {
     wrap.append(text.slice(0, text.length - linkText.length));
     // The icon is kept on one line with the last characters so it never wraps alone.
@@ -181,11 +202,21 @@ export function citationView(key: string, c: CodexCitation | undefined, opts: { 
       ),
     );
   } else wrap.append(text);
-  const accessed = opts.accessed ?? 'web';
-  if (c.accessed && (accessed === 'always' || (accessed === 'web' && !c.doi))) wrap.append(' ', h('span', { class: 'ks-cx-accessed' }, t('codex.cite.accessed', { date: c.accessed })));
-  if (c.license) wrap.append(' ', h('span', { class: 'ks-cx-accessed' }, t('codex.cite.license', { license: c.license })));
+  const accessed = opts.short ? 'never' : (opts.accessed ?? 'web');
+  if (c.accessed && (accessed === 'always' || (accessed === 'web' && !c.doi)))
+    wrap.append(' ', h('span', { class: 'ks-cx-accessed' }, t('codex.cite.accessed', { date: c.accessed })));
+  if (c.license && !opts.short)
+    wrap.append(' ', h('span', { class: 'ks-cx-accessed' }, t('codex.cite.license', { license: c.license })));
   if (!c.verified) {
-    wrap.append(' ', h('span', { class: 'ks-cx-unverified', title: t('codex.cite.unverifiedTitle') }, t('codex.cite.unverified'), srOnly(`: ${t('codex.cite.unverifiedTitle')}`)));
+    wrap.append(
+      ' ',
+      h(
+        'span',
+        { class: 'ks-cx-unverified', title: t('codex.cite.unverifiedTitle') },
+        t('codex.cite.unverified'),
+        srOnly(`: ${t('codex.cite.unverifiedTitle')}`),
+      ),
+    );
   }
   return wrap;
 }

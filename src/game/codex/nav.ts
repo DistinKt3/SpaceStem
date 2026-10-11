@@ -41,7 +41,8 @@ function readPads(): Set<string> {
   const down = new Set<string>();
   let pads: readonly (Gamepad | null)[];
   try {
-    pads = typeof navigator !== 'undefined' && typeof navigator.getGamepads === 'function' ? navigator.getGamepads() : [];
+    pads =
+      typeof navigator !== 'undefined' && typeof navigator.getGamepads === 'function' ? navigator.getGamepads() : [];
   } catch {
     return down;
   }

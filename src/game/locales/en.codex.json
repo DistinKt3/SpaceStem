@@ -127,5 +127,8 @@
   "codex.demo.sourceData": "Content: public/data/codex/en.json",
   "codex.demo.sourceFixtures": "Content: test fixtures (public/data/codex/en.json not found)",
   "codex.demo.target": "Target",
-  "codex.demo.targetHint": "I: How do we know this?"
+  "codex.demo.targetHint": "I: How do we know this?",
+  "codex.cite.short": "{authors} ({year}).",
+  "codex.errorTitle": "Codex unavailable",
+  "codex.errorShort": "No entries available."
 }

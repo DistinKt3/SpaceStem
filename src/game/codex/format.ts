@@ -24,7 +24,18 @@ function nf(lang: string): Intl.NumberFormat {
 }
 
 const SUPERSCRIPT: Record<string, string> = {
-  '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹', '-': '⁻', '+': '',
+  '0': '⁰',
+  '1': '¹',
+  '2': '²',
+  '3': '³',
+  '4': '⁴',
+  '5': '⁵',
+  '6': '⁶',
+  '7': '⁷',
+  '8': '⁸',
+  '9': '⁹',
+  '-': '⁻',
+  '+': '',
 };
 
 /** True when formatQuantity would use "m × 10ⁿ" for this value. */
@@ -68,7 +79,8 @@ export function formatFactValue(f: Pick<CodexFact, 'value' | 'unit' | 'uncertain
   const plain = typeof f.value !== 'number' || !usesScientific(f.value);
   let uncertainty: string | null = null;
   let asym: FactValueParts['asym'] = null;
-  if (typeof f.uncertainty === 'number') uncertainty = t('codex.value.pm', { unc: formatQuantity(f.uncertainty, lang, plain) });
+  if (typeof f.uncertainty === 'number')
+    uncertainty = t('codex.value.pm', { unc: formatQuantity(f.uncertainty, lang, plain) });
   else if (typeof f.uncertainty === 'string') {
     const u = f.uncertainty.trim();
     // Already signed ("±0.2", "+0.013/-0.012") strings are shown as given, with typographic minus signs.

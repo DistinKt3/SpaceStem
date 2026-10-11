@@ -10,7 +10,14 @@ import {
   type CodexSource,
   type StorageLike,
 } from '../../src/game/codex/codexStore';
-import { formatFactValue, formatQuantity, lockedHint, normalizeSearch, parseInline, relativeTime } from '../../src/game/codex/format';
+import {
+  formatFactValue,
+  formatQuantity,
+  lockedHint,
+  normalizeSearch,
+  parseInline,
+  relativeTime,
+} from '../../src/game/codex/format';
 import { parseCitations, parseCodex, type CodexCitation, type CodexEntry } from '../../src/game/codex/types';
 
 class MemoryStorage implements StorageLike {
@@ -41,7 +48,11 @@ class BrokenStorage implements StorageLike {
 const fixtures = (): CodexSource => staticSource(codexFixture, citationsFixture);
 
 async function loaded(opts: { storage?: StorageLike | null; now?: () => number } = {}): Promise<CodexStore> {
-  const store = new CodexStore({ source: fixtures(), storage: opts.storage ?? null, ...(opts.now ? { now: opts.now } : {}) });
+  const store = new CodexStore({
+    source: fixtures(),
+    storage: opts.storage ?? null,
+    ...(opts.now ? { now: opts.now } : {}),
+  });
   await store.load();
   return store;
 }
@@ -79,7 +90,9 @@ describe('codex fixtures', () => {
     const entries = parseCodex(codexFixture).value;
     expect(new Set(entries.map((e) => e.kind))).toEqual(new Set(['body', 'star', 'exoplanet', 'concept']));
     expect(new Set(entries.map((e) => e.unlock))).toEqual(new Set(['start', 'visit']));
-    expect(new Set(entries.flatMap((e) => e.facts.map((f) => f.provenance)))).toEqual(new Set(['measured', 'inferred', 'generated']));
+    expect(new Set(entries.flatMap((e) => e.facts.map((f) => f.provenance)))).toEqual(
+      new Set(['measured', 'inferred', 'generated']),
+    );
   });
 });
 
@@ -103,14 +116,20 @@ describe('CodexStore content', () => {
 
   it('load() runs once and never rejects', async () => {
     const codex = vi.fn(() => Promise.resolve<unknown>(codexFixture));
-    const store = new CodexStore({ source: { codex, citations: () => Promise.resolve(citationsFixture) }, storage: null });
+    const store = new CodexStore({
+      source: { codex, citations: () => Promise.resolve(citationsFixture) },
+      storage: null,
+    });
     await Promise.all([store.load(), store.load()]);
     expect(codex).toHaveBeenCalledTimes(1);
   });
 
   it('falls back to empty content when the files are missing', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    const store = new CodexStore({ source: { codex: () => Promise.reject(new Error('404')), citations: () => Promise.reject(new Error('404')) }, storage: null });
+    const store = new CodexStore({
+      source: { codex: () => Promise.reject(new Error('404')), citations: () => Promise.reject(new Error('404')) },
+      storage: null,
+    });
     await store.load();
     expect(store.loaded).toBe(true);
     expect(store.entries()).toEqual([]);
@@ -121,7 +140,10 @@ describe('CodexStore content', () => {
 
   it('keeps entries when only citations are missing, and reports the unresolved keys', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    const store = new CodexStore({ source: { codex: () => Promise.resolve(codexFixture), citations: () => Promise.reject(new Error('404')) }, storage: null });
+    const store = new CodexStore({
+      source: { codex: () => Promise.resolve(codexFixture), citations: () => Promise.reject(new Error('404')) },
+      storage: null,
+    });
     await store.load();
     expect(store.entries()).toHaveLength(8);
     expect(store.problems.some((p) => p.includes('"agol2021" not found'))).toBe(true);
@@ -129,7 +151,10 @@ describe('CodexStore content', () => {
   });
 
   it('withFallback uses the fallback per file', async () => {
-    const source = withFallback({ codex: () => Promise.reject(new Error('404')), citations: () => Promise.resolve({}) }, fixtures());
+    const source = withFallback(
+      { codex: () => Promise.reject(new Error('404')), citations: () => Promise.resolve({}) },
+      fixtures(),
+    );
     const store = new CodexStore({ source, storage: null });
     await store.load();
     expect(store.entries()).toHaveLength(8);
@@ -217,7 +242,10 @@ describe('CodexStore discovery', () => {
     const a = await loaded({ storage });
     expect(a.log()).toEqual([]);
     expect(a.discover('moon')).toBe(true);
-    storage.setItem('knownsky.codex.v1', JSON.stringify({ v: 1, log: [{ id: 'moon', at: 'x' }, null, { id: 'sun', at: 5 }], seen: [3] }));
+    storage.setItem(
+      'knownsky.codex.v1',
+      JSON.stringify({ v: 1, log: [{ id: 'moon', at: 'x' }, null, { id: 'sun', at: 5 }], seen: [3] }),
+    );
     expect((await loaded({ storage })).log()).toEqual([]); // sun is a start entry, moon's time is invalid
     const b = await loaded({ storage: new BrokenStorage() });
     expect(b.discover('moon')).toBe(true);
@@ -250,7 +278,16 @@ describe('CodexStore discovery', () => {
 });
 
 describe('codex parsing', () => {
-  const base = { id: 'x', title: 'X', kind: 'body', unlock: 'visit', summary: '', body: [], howWeKnow: [], related: [] };
+  const base = {
+    id: 'x',
+    title: 'X',
+    kind: 'body',
+    unlock: 'visit',
+    summary: '',
+    body: [],
+    howWeKnow: [],
+    related: [],
+  };
 
   it('drops facts without a valid tier instead of guessing one', () => {
     const r = parseCodex({
@@ -291,7 +328,20 @@ describe('codex parsing', () => {
   });
 
   it('reads citations conservatively', () => {
-    const r = parseCitations({ ok: { authors: 'A', title: 'T', year: 2020, venue: 'V', doi: null, url: 'https://x.org', accessed: '2026-01-01', verified: true }, bad: { title: 'T' }, maybe: { authors: 'A', title: 'T' } });
+    const r = parseCitations({
+      ok: {
+        authors: 'A',
+        title: 'T',
+        year: 2020,
+        venue: 'V',
+        doi: null,
+        url: 'https://x.org',
+        accessed: '2026-01-01',
+        verified: true,
+      },
+      bad: { title: 'T' },
+      maybe: { authors: 'A', title: 'T' },
+    });
     expect([...r.value.keys()]).toEqual(['ok', 'maybe']);
     expect(r.value.get('maybe')).toMatchObject({ year: null, doi: null, url: '', verified: false });
   });
@@ -307,7 +357,9 @@ describe('citation formatting', () => {
     expect(formatCitation(cite({ year: null, doi: null, title: 'Is it a planet?', venue: 'Web page.' }))).toBe(
       'Agol, E. et al. (n.d.). Is it a planet? Web page. https://iopscience.iop.org/article/10.3847/PSJ/abd022',
     );
-    expect(formatCitation(cite({ doi: null, url: '', venue: '' }))).toBe('Agol, E. et al. (2021). Refining the Transit-timing and Photometric Analysis of TRAPPIST-1.');
+    expect(formatCitation(cite({ doi: null, url: '', venue: '' }))).toBe(
+      'Agol, E. et al. (2021). Refining the Transit-timing and Photometric Analysis of TRAPPIST-1.',
+    );
   });
   it('links only to the DOI resolver or http(s) URLs', () => {
     expect(citationHref(cite())).toBe('https://doi.org/10.3847/PSJ/abd022');
@@ -316,7 +368,8 @@ describe('citation formatting', () => {
     expect(citationHref(cite({ doi: null, url: '' }))).toBeNull();
   });
   it('formats every fixture citation as one line ending in a link or a full stop', () => {
-    for (const c of parseCitations(citationsFixture).value.values()) expect(formatCitation(c)).toMatch(/(\.|doi:\S+|https?:\/\/\S+)$/);
+    for (const c of parseCitations(citationsFixture).value.values())
+      expect(formatCitation(c)).toMatch(/(\.|doi:\S+|https?:\/\/\S+)$/);
   });
 });
 
@@ -362,7 +415,11 @@ describe('codex value formatting', () => {
     expect(lockedHint(get('moon'), entries)).toBe('Visit this world in the Solar System to unlock it.');
     expect(lockedHint(get('trappist-1e'), entries)).toBe('Travel to the TRAPPIST-1 system to unlock it.');
     expect(lockedHint(get('proxima-centauri'), entries)).toBe('Jump to Proxima Centauri to unlock it.');
-    expect(lockedHint({ ...get('moon'), unlock: 'scan', systemId: 'nowhere' }, entries)).toBe('Scan this object up close to unlock it.');
-    expect(lockedHint({ ...get('parallax'), unlock: 'visit' }, entries)).toBe('Keep exploring: this entry unlocks along the way.');
+    expect(lockedHint({ ...get('moon'), unlock: 'scan', systemId: 'nowhere' }, entries)).toBe(
+      'Scan this object up close to unlock it.',
+    );
+    expect(lockedHint({ ...get('parallax'), unlock: 'visit' }, entries)).toBe(
+      'Keep exploring: this entry unlocks along the way.',
+    );
   });
 });

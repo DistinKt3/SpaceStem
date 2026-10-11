@@ -32,7 +32,12 @@ export function factValueView(f: CodexFact, cls = 'ks-cx-value'): HTMLElement {
     h('span', { class: 'v' }, p.value),
     p.uncertainty ? ' ' : null,
     p.asym
-      ? h('span', { class: 'unc asym' }, h('span', { class: 'up' }, p.asym.plus), h('span', { class: 'dn' }, p.asym.minus))
+      ? h(
+          'span',
+          { class: 'unc asym' },
+          h('span', { class: 'up' }, p.asym.plus),
+          h('span', { class: 'dn' }, p.asym.minus),
+        )
       : p.uncertainty
         ? h('span', { class: 'unc' }, p.uncertainty)
         : null,
@@ -54,6 +59,8 @@ export class HowWeKnowPanel implements CodexNavTarget {
   private escAt = -Infinity;
   private readonly closeCbs = new Set<() => void>();
   private readonly id = `ks-hwk-${++uid}`;
+  /** Citations already shown in full in the current rendering. */
+  private readonly cited = new Set<string>();
 
   constructor(
     private readonly store: CodexStore,
@@ -61,7 +68,11 @@ export class HowWeKnowPanel implements CodexNavTarget {
   ) {
     this.eyebrow = h('p', { class: 'ks-cx-eyebrow' });
     this.title = h('h2', { class: 'ks-hwk-title', id: `${this.id}-title`, tabindex: -1 }, t('codex.hwk.title'));
-    const closeX = h('button', { type: 'button', class: 'ks-cx-iconbtn', 'aria-label': t('codex.hwk.close'), title: t('codex.hwk.close') }, icon('close'));
+    const closeX = h(
+      'button',
+      { type: 'button', class: 'ks-cx-iconbtn', 'aria-label': t('codex.hwk.close'), title: t('codex.hwk.close') },
+      icon('close'),
+    );
     closeX.addEventListener('click', () => this.close());
     this.scroll = h('div', { class: 'ks-hwk-scroll' });
     this.readBtn = h('button', { type: 'button', class: 'ks-cx-btn ks-cx-btn--primary ks-hwk-read' });
@@ -80,7 +91,16 @@ export class HowWeKnowPanel implements CodexNavTarget {
       this.scroll,
       h('footer', { class: 'ks-hwk-foot' }, this.opts.onReadEntry ? this.readBtn : null, closeBtn),
     );
-    this.element = h('dialog', { class: 'ks-hwk', 'aria-labelledby': `${this.id}-title`, 'aria-describedby': `${this.id}-intro`, 'data-input': 'keyboard' }, this.frame);
+    this.element = h(
+      'dialog',
+      {
+        class: 'ks-hwk',
+        'aria-labelledby': `${this.id}-title`,
+        'aria-describedby': `${this.id}-intro`,
+        'data-input': 'keyboard',
+      },
+      this.frame,
+    );
     this.element.addEventListener('keydown', (e) => this.onKey(e));
     // Keys typed in the dialog belong to it, not to the game behind it.
     this.element.addEventListener('keyup', (e) => e.stopPropagation());
@@ -187,7 +207,12 @@ export class HowWeKnowPanel implements CodexNavTarget {
         break;
       case 'accept': {
         const a = document.activeElement;
-        if (a instanceof HTMLElement && this.element.contains(a) && (a instanceof HTMLButtonElement || a instanceof HTMLAnchorElement)) a.click();
+        if (
+          a instanceof HTMLElement &&
+          this.element.contains(a) &&
+          (a instanceof HTMLButtonElement || a instanceof HTMLAnchorElement)
+        )
+          a.click();
         else focusables(this.frame)[0]?.focus();
         break;
       }
@@ -227,9 +252,13 @@ export class HowWeKnowPanel implements CodexNavTarget {
   private render(e: CodexEntry): void {
     this.eyebrow.textContent = t('codex.hwk.eyebrow', { title: e.title });
     const discovered = this.store.discovered(e.id);
-    this.readBtn.replaceChildren(discovered ? t('codex.hwk.read') : t('codex.hwk.readLocked'), discovered ? icon('forward') : icon('lock'));
+    this.readBtn.replaceChildren(
+      discovered ? t('codex.hwk.read') : t('codex.hwk.readLocked'),
+      discovered ? icon('forward') : icon('lock'),
+    );
     this.readBtn.disabled = !discovered;
 
+    this.cited.clear();
     const parts: HTMLElement[] = [h('p', { class: 'ks-hwk-intro', id: `${this.id}-intro` }, t('codex.hwk.intro'))];
 
     if (e.facts.length > 0) {
@@ -238,28 +267,65 @@ export class HowWeKnowPanel implements CodexNavTarget {
         list.append(
           this.item(
             f.provenance,
-            h('div', { class: 'ks-hwk-fact-top' }, h('span', { class: 'ks-hwk-label' }, f.label), factValueView(f, 'ks-cx-value ks-hwk-value')),
+            h(
+              'div',
+              { class: 'ks-hwk-fact-top' },
+              h('span', { class: 'ks-hwk-label' }, f.label),
+              factValueView(f, 'ks-cx-value ks-hwk-value'),
+            ),
             f.method,
             f.citation,
           ),
         );
       }
-      parts.push(h('section', { class: 'ks-hwk-section', 'aria-labelledby': `${this.id}-values` }, h('h3', { class: 'ks-cx-h3', id: `${this.id}-values` }, t('codex.hwk.values')), list));
+      parts.push(
+        h(
+          'section',
+          { class: 'ks-hwk-section', 'aria-labelledby': `${this.id}-values` },
+          h('h3', { class: 'ks-cx-h3', id: `${this.id}-values` }, t('codex.hwk.values')),
+          list,
+        ),
+      );
     }
 
     if (e.howWeKnow.length > 0) {
       const list = h('ul', { class: 'ks-hwk-list', role: 'list' });
-      for (const c of e.howWeKnow) list.append(this.item(c.provenance, h('p', { class: 'ks-hwk-claim' }, richText(c.claim)), c.method, c.citation));
-      parts.push(h('section', { class: 'ks-hwk-section', 'aria-labelledby': `${this.id}-claims` }, h('h3', { class: 'ks-cx-h3', id: `${this.id}-claims` }, t('codex.hwk.claims')), list));
+      for (const c of e.howWeKnow)
+        list.append(
+          this.item(c.provenance, h('p', { class: 'ks-hwk-claim' }, richText(c.claim)), c.method, c.citation),
+        );
+      parts.push(
+        h(
+          'section',
+          { class: 'ks-hwk-section', 'aria-labelledby': `${this.id}-claims` },
+          h('h3', { class: 'ks-cx-h3', id: `${this.id}-claims` }, t('codex.hwk.claims')),
+          list,
+        ),
+      );
     }
 
-    if (e.facts.length === 0 && e.howWeKnow.length === 0) parts.push(h('p', { class: 'ks-cx-empty' }, t('codex.hwk.none')));
+    if (e.facts.length === 0 && e.howWeKnow.length === 0)
+      parts.push(h('p', { class: 'ks-cx-empty' }, t('codex.hwk.none')));
 
     const tiers = h('ul', { class: 'ks-hwk-tiers', role: 'list' });
     for (const p of ['measured', 'inferred', 'generated'] as const) {
-      tiers.append(h('li', { class: `ks-hwk-tier ks-hwk-tier--${p}` }, provenanceBadge(p), h('p', {}, t(`codex.tier.${p}.explain`))));
+      tiers.append(
+        h(
+          'li',
+          { class: `ks-hwk-tier ks-hwk-tier--${p}` },
+          provenanceBadge(p),
+          h('p', {}, t(`codex.tier.${p}.explain`)),
+        ),
+      );
     }
-    parts.push(h('section', { class: 'ks-hwk-section', 'aria-labelledby': `${this.id}-tiers` }, h('h3', { class: 'ks-cx-h3', id: `${this.id}-tiers` }, t('codex.hwk.tiers')), tiers));
+    parts.push(
+      h(
+        'section',
+        { class: 'ks-hwk-section', 'aria-labelledby': `${this.id}-tiers` },
+        h('h3', { class: 'ks-cx-h3', id: `${this.id}-tiers` }, t('codex.hwk.tiers')),
+        tiers,
+      ),
+    );
 
     this.scroll.replaceChildren(...parts);
   }
@@ -267,7 +333,24 @@ export class HowWeKnowPanel implements CodexNavTarget {
   private item(p: Provenance, top: HTMLElement, method: string, citation: string): HTMLLIElement {
     const meta = h('dl', { class: 'ks-hwk-meta' });
     if (method) meta.append(h('dt', {}, t('codex.hwk.method')), h('dd', {}, method));
-    meta.append(h('dt', {}, t('codex.hwk.source')), h('dd', {}, citationView(citation, citation ? this.store.citation(citation) : undefined, { accessed: 'always' })));
-    return h('li', { class: `ks-hwk-item ks-hwk-item--${p}` }, h('div', { class: 'ks-hwk-top' }, provenanceBadge(p), top), meta);
+    const repeat = citation !== '' && this.cited.has(citation);
+    this.cited.add(citation);
+    meta.append(
+      h('dt', {}, t('codex.hwk.source')),
+      h(
+        'dd',
+        {},
+        citationView(citation, citation ? this.store.citation(citation) : undefined, {
+          accessed: 'always',
+          short: repeat,
+        }),
+      ),
+    );
+    return h(
+      'li',
+      { class: `ks-hwk-item ks-hwk-item--${p}` },
+      h('div', { class: 'ks-hwk-top' }, provenanceBadge(p), top),
+      meta,
+    );
   }
 }

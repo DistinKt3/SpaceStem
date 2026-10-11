@@ -12,8 +12,10 @@ interface CodexHook {
 }
 type HookWindow = Window & { __ksCodex: CodexHook };
 
-const discover = (page: Page, id: string): Promise<boolean> => page.evaluate((i) => (window as unknown as HookWindow).__ksCodex.store.discover(i), id);
-const discovered = (page: Page, id: string): Promise<boolean> => page.evaluate((i) => (window as unknown as HookWindow).__ksCodex.store.discovered(i), id);
+const discover = (page: Page, id: string): Promise<boolean> =>
+  page.evaluate((i) => (window as unknown as HookWindow).__ksCodex.store.discover(i), id);
+const discovered = (page: Page, id: string): Promise<boolean> =>
+  page.evaluate((i) => (window as unknown as HookWindow).__ksCodex.store.discovered(i), id);
 
 async function open(page: Page, query = '', opts: { reset?: boolean } = {}): Promise<string[]> {
   const errors: string[] = [];
@@ -103,14 +105,19 @@ test.describe('Codex panel', () => {
     expect(errors).toEqual([]);
   });
 
-  test('lists locked entries with hints, searches discovered entries only, and shows the discovery log', async ({ page }) => {
+  test('lists locked entries with hints, searches discovered entries only, and shows the discovery log', async ({
+    page,
+  }) => {
     await open(page, 'discover=moon,trappist-1&open=codex');
     await expect(codex(page)).toBeVisible();
     // Opens on the newest unseen discovery.
     await expect(entryTitle(page)).toHaveText('TRAPPIST-1');
     await page.getByRole('tab', { name: /Exoplanets/ }).click();
     await expect(codex(page).getByRole('option')).toHaveCount(1);
-    await expect(codex(page).getByRole('option').first()).toHaveAttribute('aria-label', 'Not yet discovered. Travel to the TRAPPIST-1 system to unlock it.');
+    await expect(codex(page).getByRole('option').first()).toHaveAttribute(
+      'aria-label',
+      'Not yet discovered. Travel to the TRAPPIST-1 system to unlock it.',
+    );
     await codex(page).getByRole('option').first().click();
     await expect(page.locator('.ks-cx-lockcard')).toContainText('Travel to the TRAPPIST-1 system to unlock it.');
     await settle(page);
@@ -140,7 +147,9 @@ test.describe('Codex panel', () => {
     await page.screenshot({ path: `${SHOTS}/panel-log.png` });
   });
 
-  test('How do we know this?: values with tiers and citations, a focus trap, and Esc back to the opener', async ({ page }) => {
+  test('How do we know this?: values with tiers and citations, a focus trap, and Esc back to the opener', async ({
+    page,
+  }) => {
     const errors = await open(page, 'open=codex&entry=earth');
     const button = page.getByRole('button', { name: 'How do we know this?' });
     await button.click();
@@ -160,6 +169,15 @@ test.describe('Codex panel', () => {
     await expect(link).toHaveAttribute('href', 'https://doi.org/10.1007/s10569-017-9805-5');
     await expect(link).toHaveAttribute('target', '_blank');
     await expect(link).toHaveAttribute('rel', /noopener/);
+    // A source already given in full is shortened to authors, year and link.
+    const second = dialog.locator('.ks-hwk-item').nth(1);
+    await expect(second.locator('.ks-cx-cite')).toHaveText(
+      /^Archinal, B\. A\. et al\. \(2018\)\. doi:10\.1007\/s10569-017-9805-5/,
+    );
+    await expect(second.getByRole('link', { name: /doi:10\.1007/ })).toHaveAttribute(
+      'href',
+      'https://doi.org/10.1007/s10569-017-9805-5',
+    );
     await expect(dialog.getByRole('img', { name: /^Inferred: / }).first()).toBeVisible();
     await expect(dialog.getByRole('img', { name: /^Generated: / }).first()).toBeVisible();
     await expect(dialog.locator('.ks-hwk-tier')).toHaveCount(3);
@@ -225,9 +243,27 @@ test.describe('provenance badges', () => {
     );
     expect(info).toHaveLength(6);
     const by = (p: string, compact: boolean) => info.find((i) => i.p === p && i.compact === compact)!;
-    expect(by('measured', false)).toMatchObject({ role: 'img', aria: 'Measured: directly observed and catalogued', border: 'solid', text: 'Measured', glyph: 'currentColor|0' });
-    expect(by('inferred', false)).toMatchObject({ role: 'img', aria: /^Inferred: not observed directly/, border: 'dashed', text: 'Inferred', glyph: 'none|1' });
-    expect(by('generated', false)).toMatchObject({ role: 'img', aria: /^Generated: plausible fill/, border: 'dotted', text: 'Generated', glyph: 'none|0' });
+    expect(by('measured', false)).toMatchObject({
+      role: 'img',
+      aria: 'Measured: directly observed and catalogued',
+      border: 'solid',
+      text: 'Measured',
+      glyph: 'currentColor|0',
+    });
+    expect(by('inferred', false)).toMatchObject({
+      role: 'img',
+      aria: /^Inferred: not observed directly/,
+      border: 'dashed',
+      text: 'Inferred',
+      glyph: 'none|1',
+    });
+    expect(by('generated', false)).toMatchObject({
+      role: 'img',
+      aria: /^Generated: plausible fill/,
+      border: 'dotted',
+      text: 'Generated',
+      glyph: 'none|0',
+    });
     // Three distinct border styles and glyphs, so colour is never the only cue.
     expect(new Set(info.filter((i) => !i.compact).map((i) => i.border)).size).toBe(3);
     expect(new Set(info.filter((i) => !i.compact).map((i) => i.glyph)).size).toBe(3);
@@ -241,7 +277,9 @@ test.describe('provenance badges', () => {
   test('take their colours from the palette tokens', async ({ page }) => {
     await open(page, 'colorblind=deuteranopia');
     const colors = await page.evaluate(() =>
-      ['measured', 'inferred', 'generated'].map((p) => getComputedStyle(document.querySelector(`.lab-badges .ks-badge--${p}`)!).color),
+      ['measured', 'inferred', 'generated'].map(
+        (p) => getComputedStyle(document.querySelector(`.lab-badges .ks-badge--${p}`)!).color,
+      ),
     );
     expect(colors).toEqual(['rgb(86, 180, 233)', 'rgb(240, 228, 66)', 'rgb(0, 168, 122)']);
   });
@@ -273,7 +311,9 @@ test.describe('discovery and toasts', () => {
     await page.goto('/codex.html?source=fixtures');
     await page.waitForFunction(() => (window as unknown as { __ksCodex?: unknown }).__ksCodex !== undefined);
     expect(await discovered(page, 'trappist-1e')).toBe(true);
-    expect(await page.evaluate(() => (window as unknown as HookWindow).__ksCodex.store.log().map((r) => r.id))).toEqual(['trappist-1e']);
+    expect(await page.evaluate(() => (window as unknown as HookWindow).__ksCodex.store.log().map((r) => r.id))).toEqual(
+      ['trappist-1e'],
+    );
     await expect(page.locator('.ks-cx-toast')).toHaveCount(0); // old discoveries are not announced again
     expect(errors).toEqual([]);
   });
@@ -304,7 +344,9 @@ test.describe('discovery and toasts', () => {
   test('the game setting data-reduced-motion also stops the slide', async ({ page }) => {
     await open(page, 'reduced=1');
     await discover(page, 'moon');
-    expect(await page.locator('.ks-cx-toast').evaluate((el) => getComputedStyle(el).animationName)).toBe('ks-cx-toast-fade');
+    expect(await page.locator('.ks-cx-toast').evaluate((el) => getComputedStyle(el).animationName)).toBe(
+      'ks-cx-toast-fade',
+    );
   });
 });
 
@@ -312,15 +354,30 @@ test.describe('input and layout', () => {
   test('gamepad: D-pad moves, RB switches category, A opens, B goes back and closes', async ({ page }) => {
     await page.addInitScript(() => {
       const buttons = Array.from({ length: 17 }, () => ({ pressed: false, touched: false, value: 0 }));
-      const pad = { id: 'test pad', index: 0, connected: true, mapping: 'standard', axes: [0, 0, 0, 0], buttons, timestamp: 0 };
+      const pad = {
+        id: 'test pad',
+        index: 0,
+        connected: true,
+        mapping: 'standard',
+        axes: [0, 0, 0, 0],
+        buttons,
+        timestamp: 0,
+      };
       (window as unknown as { __pad: typeof pad }).__pad = pad;
       Object.defineProperty(navigator, 'getGamepads', { value: () => [pad] });
     });
     await open(page, 'open=codex');
     const press = async (b: number): Promise<void> => {
-      await page.evaluate((i) => ((window as unknown as { __pad: { buttons: { pressed: boolean }[] } }).__pad.buttons[i]!.pressed = true), b);
+      await page.evaluate(
+        (i) => ((window as unknown as { __pad: { buttons: { pressed: boolean }[] } }).__pad.buttons[i]!.pressed = true),
+        b,
+      );
       await page.waitForTimeout(300);
-      await page.evaluate((i) => ((window as unknown as { __pad: { buttons: { pressed: boolean }[] } }).__pad.buttons[i]!.pressed = false), b);
+      await page.evaluate(
+        (i) =>
+          ((window as unknown as { __pad: { buttons: { pressed: boolean }[] } }).__pad.buttons[i]!.pressed = false),
+        b,
+      );
       await page.waitForTimeout(250);
     };
     const listbox = page.getByRole('listbox');

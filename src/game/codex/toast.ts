@@ -42,7 +42,13 @@ export class CodexToast {
     this.duration = opts.durationMs ?? 6000;
     this.max = opts.maxVisible ?? 3;
     // The region exists before any toast so screen readers announce additions to it.
-    this.element = h('div', { class: 'ks-cx-toasts', role: 'region', 'aria-label': t('codex.toast.region'), 'aria-live': 'polite', 'aria-relevant': 'additions' });
+    this.element = h('div', {
+      class: 'ks-cx-toasts',
+      role: 'region',
+      'aria-label': t('codex.toast.region'),
+      'aria-live': 'polite',
+      'aria-relevant': 'additions',
+    });
     (opts.parent ?? document.body).append(this.element);
   }
 
@@ -95,7 +101,12 @@ export class CodexToast {
     const card = h(
       'div',
       { class: `ks-cx-toast${still ? ' is-still' : ''}`, 'data-entry': entry.id },
-      h('span', { class: 'ks-cx-toast-icon', 'aria-hidden': 'true' }, icon('codex'), icon(entry.kind, 'ks-cx-icon ks-cx-toast-kind')),
+      h(
+        'span',
+        { class: 'ks-cx-toast-icon', 'aria-hidden': 'true' },
+        icon('codex'),
+        icon(entry.kind, 'ks-cx-icon ks-cx-toast-kind'),
+      ),
       h(
         'div',
         { class: 'ks-cx-toast-text' },
@@ -109,18 +120,42 @@ export class CodexToast {
     const actions = h('div', { class: 'ks-cx-toast-actions' });
     const live: Live = { el: card, remaining: this.duration, started: performance.now(), timer: 0 };
     if (this.opts.onView) {
-      const view = h('button', { type: 'button', class: 'ks-cx-btn ks-cx-btn--primary ks-cx-toast-view', 'aria-label': t('codex.toast.viewLabel', { title: entry.title }) }, t('codex.toast.view'));
+      const view = h(
+        'button',
+        {
+          type: 'button',
+          class: 'ks-cx-btn ks-cx-btn--primary ks-cx-toast-view',
+          'aria-label': t('codex.toast.viewLabel', { title: entry.title }),
+        },
+        t('codex.toast.view'),
+      );
       view.addEventListener('click', () => {
         this.dismiss(live, true);
         this.opts.onView?.(entry.id);
       });
       actions.append(view);
     }
-    const x = h('button', { type: 'button', class: 'ks-cx-iconbtn ks-cx-toast-x', 'aria-label': t('codex.toast.dismiss'), title: t('codex.toast.dismiss') }, icon('close'));
+    const x = h(
+      'button',
+      {
+        type: 'button',
+        class: 'ks-cx-iconbtn ks-cx-toast-x',
+        'aria-label': t('codex.toast.dismiss'),
+        title: t('codex.toast.dismiss'),
+      },
+      icon('close'),
+    );
     x.addEventListener('click', () => this.dismiss(live, true));
     actions.append(x);
     card.append(actions);
-    if (!still) card.append(h('span', { class: 'ks-cx-toast-timer', 'aria-hidden': 'true', style: `animation-duration: ${this.duration}ms` }));
+    if (!still)
+      card.append(
+        h('span', {
+          class: 'ks-cx-toast-timer',
+          'aria-hidden': 'true',
+          style: `animation-duration: ${this.duration}ms`,
+        }),
+      );
 
     const pause = (): void => {
       if (!live.timer) return;

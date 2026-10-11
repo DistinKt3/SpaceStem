@@ -36,10 +36,12 @@ export interface CodexSource {
 
 /** The shipped data under public/data. */
 export function publicDataSource(locale = 'en'): CodexSource {
-  return {
-    codex: () => fetchJson<unknown>(`codex/${locale}.json`),
-    citations: () => fetchJson<unknown>('citations.json'),
-  };
+  // A dev server answers a missing file with its HTML page, which fails to parse: report that as "missing".
+  const get = (path: string): Promise<unknown> =>
+    fetchJson<unknown>(path).catch((err: unknown) => {
+      throw new Error(err instanceof SyntaxError ? `${path} is missing or not JSON` : String(err));
+    });
+  return { codex: () => get(`codex/${locale}.json`), citations: () => get('citations.json') };
 }
 
 /** Data already in memory (tests, demos). */
@@ -120,7 +122,10 @@ export class CodexStore {
       const errors: string[] = [];
       if (codex.status === 'rejected') errors.push(`codex: ${String(codex.reason)}`);
       if (citations.status === 'rejected') errors.push(`citations: ${String(citations.reason)}`);
-      this.setData(codex.status === 'fulfilled' ? codex.value : { version: 1, entries: [] }, citations.status === 'fulfilled' ? citations.value : {});
+      this.setData(
+        codex.status === 'fulfilled' ? codex.value : { version: 1, entries: [] },
+        citations.status === 'fulfilled' ? citations.value : {},
+      );
       this.error = errors.length > 0 ? errors.join('; ') : null;
       if (this.error) console.warn(`Codex: ${this.error}`);
     })();
@@ -266,7 +271,9 @@ export class CodexStore {
     for (const e of this.list) {
       if (!this.discovered(e.id)) continue;
       const title = normalizeSearch(e.title);
-      const rest = normalizeSearch([e.summary, ...e.body, ...e.facts.map((f) => f.label), e.starName ?? '', t(`codex.kind.${e.kind}`)].join(' '));
+      const rest = normalizeSearch(
+        [e.summary, ...e.body, ...e.facts.map((f) => f.label), e.starName ?? '', t(`codex.kind.${e.kind}`)].join(' '),
+      );
       let score = 0;
       for (const w of words) {
         if (title.startsWith(w)) score += 4;
@@ -336,7 +343,8 @@ export class CodexStore {
       for (const r of d.log as unknown[]) {
         if (typeof r !== 'object' || r === null) continue;
         const { id, at } = r as Record<string, unknown>;
-        if (typeof id !== 'string' || typeof at !== 'number' || !Number.isFinite(at) || this.recordIds.has(id)) continue;
+        if (typeof id !== 'string' || typeof at !== 'number' || !Number.isFinite(at) || this.recordIds.has(id))
+          continue;
         this.recordIds.set(id, this.records.length);
         this.records.push({ id, at });
       }

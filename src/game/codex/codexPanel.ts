@@ -68,6 +68,9 @@ export class CodexPanel implements CodexNavTarget {
   private returnFocus: HTMLElement | null = null;
   private timer = 0;
   private escAt = -Infinity;
+  /** When the Codex was last closed (ms), to open on anything discovered since. */
+  private closedAt = -Infinity;
+  private readonly unsubscribe: () => void;
 
   constructor(
     private readonly store: CodexStore,
@@ -81,11 +84,25 @@ export class CodexPanel implements CodexNavTarget {
       'div',
       { class: 'ks-cx-brand' },
       icon('codex', 'ks-cx-icon ks-cx-brand-icon'),
-      h('div', {}, h('h2', { class: 'ks-cx-title', id: id('title') }, t('codex.title')), h('p', { class: 'ks-cx-sub' }, t('codex.subtitle'))),
+      h(
+        'div',
+        {},
+        h('h2', { class: 'ks-cx-title', id: id('title') }, t('codex.title')),
+        h('p', { class: 'ks-cx-sub' }, t('codex.subtitle')),
+      ),
     );
     this.tablist = h('div', { class: 'ks-cx-tabs', role: 'tablist', 'aria-label': t('codex.categories') });
     for (const tab of CODEX_TABS) {
-      const b = h('button', { type: 'button', class: 'ks-cx-tab', role: 'tab', id: id(`tab-${tab}`), 'aria-controls': id('list'), 'aria-selected': 'false', tabindex: -1, 'data-tab': tab });
+      const b = h('button', {
+        type: 'button',
+        class: 'ks-cx-tab',
+        role: 'tab',
+        id: id(`tab-${tab}`),
+        'aria-controls': id('list'),
+        'aria-selected': 'false',
+        tabindex: -1,
+        'data-tab': tab,
+      });
       b.addEventListener('click', () => this.setTab(tab, { focus: 'tab' }));
       this.tabs.set(tab, b);
       this.tablist.append(b);
@@ -93,13 +110,31 @@ export class CodexPanel implements CodexNavTarget {
     this.tablist.addEventListener('keydown', (e) => this.onTabKey(e));
     this.progressText = h('span', { class: 'ks-cx-progress-text' });
     this.progressFill = h('span', { class: 'ks-cx-progress-fill' });
-    const progress = h('div', { class: 'ks-cx-progress' }, this.progressText, h('span', { class: 'ks-cx-progress-bar', 'aria-hidden': 'true' }, this.progressFill));
-    const closeBtn = h('button', { type: 'button', class: 'ks-cx-iconbtn ks-cx-close', 'aria-label': t('codex.close'), title: t('codex.close') }, icon('close'), h('kbd', { class: 'ks-cx-kbd', 'aria-hidden': 'true' }, t('codex.key.esc')));
+    const progress = h(
+      'div',
+      { class: 'ks-cx-progress' },
+      this.progressText,
+      h('span', { class: 'ks-cx-progress-bar', 'aria-hidden': 'true' }, this.progressFill),
+    );
+    const closeBtn = h(
+      'button',
+      { type: 'button', class: 'ks-cx-iconbtn ks-cx-close', 'aria-label': t('codex.close'), title: t('codex.close') },
+      icon('close'),
+      h('kbd', { class: 'ks-cx-kbd', 'aria-hidden': 'true' }, t('codex.key.esc')),
+    );
     closeBtn.addEventListener('click', () => this.close());
     const head = h('header', { class: 'ks-cx-head' }, brand, this.tablist, progress, closeBtn);
 
     // Sidebar: search, entry list, tier legend.
-    this.search = h('input', { type: 'search', class: 'ks-cx-search-input', id: id('search'), placeholder: t('codex.search.placeholder'), autocomplete: 'off', spellcheck: 'false', 'aria-controls': id('list') });
+    this.search = h('input', {
+      type: 'search',
+      class: 'ks-cx-search-input',
+      id: id('search'),
+      placeholder: t('codex.search.placeholder'),
+      autocomplete: 'off',
+      spellcheck: 'false',
+      'aria-controls': id('list'),
+    });
     this.search.addEventListener('input', () => this.setQuery(this.search.value));
     this.search.addEventListener('keydown', (e) => this.onSearchKey(e));
     const searchBox = h(
@@ -125,7 +160,14 @@ export class CodexPanel implements CodexNavTarget {
       h('p', { class: 'ks-cx-eyebrow' }, t('codex.legend.title')),
       h('div', { class: 'ks-cx-legend-badges' }, ...PROVENANCES.map((p) => provenanceBadge(p))),
     );
-    const side = h('div', { class: 'ks-cx-side' }, searchBox, h('div', { class: 'ks-cx-listwrap' }, this.listbox, this.listEmpty), legend, this.status);
+    const side = h(
+      'div',
+      { class: 'ks-cx-side' },
+      searchBox,
+      h('div', { class: 'ks-cx-listwrap' }, this.listbox, this.listEmpty),
+      legend,
+      this.status,
+    );
 
     // Main: entry view.
     this.backBtn = h('button', { type: 'button', class: 'ks-cx-back' }, icon('back'), t('codex.entry.back'));
@@ -134,7 +176,11 @@ export class CodexPanel implements CodexNavTarget {
     this.main = h('div', { class: 'ks-cx-main', tabindex: -1 }, this.backBtn, this.article);
 
     this.frame = h('div', { class: 'ks-cx-frame' }, head, h('div', { class: 'ks-cx-body' }, side, this.main));
-    this.element = h('dialog', { class: 'ks-cx', 'aria-labelledby': id('title'), 'data-input': 'keyboard', 'data-view': 'list' }, this.frame);
+    this.element = h(
+      'dialog',
+      { class: 'ks-cx', 'aria-labelledby': id('title'), 'data-input': 'keyboard', 'data-view': 'list' },
+      this.frame,
+    );
     this.element.addEventListener('keydown', (e) => this.onKey(e));
     this.element.addEventListener('keyup', (e) => e.stopPropagation());
     this.element.addEventListener('cancel', (e) => {
@@ -153,8 +199,12 @@ export class CodexPanel implements CodexNavTarget {
     });
     (opts.parent ?? document.body).append(this.element);
 
-    this.store.onChange(() => {
-      if (this.openState) this.refresh();
+    this.unsubscribe = this.store.onChange(() => {
+      if (!this.openState) return;
+      // Content that arrives while the Codex is open (slow load) gets a selection like a fresh open.
+      const first = this.selectedId ? undefined : this.defaultEntry();
+      if (first) this.goTo(first);
+      else this.refresh();
     });
   }
 
@@ -185,19 +235,21 @@ export class CodexPanel implements CodexNavTarget {
       this.showEntry(entryId);
       return;
     }
-    if (!this.selectedId || !this.store.entry(this.selectedId)) {
-      // Start on the newest unseen discovery, else the first known entry.
-      const fresh = [...this.store.log()].reverse().find((r) => this.store.isNew(r.id));
-      const first = fresh?.id ?? this.store.entries().find((e) => this.store.discovered(e.id))?.id ?? this.store.entries()[0]?.id;
-      if (first) {
-        this.tab = this.store.entry(first)!.kind;
-        this.activeId = first;
-      }
-    }
+    // Open on anything discovered since the Codex was last closed, else where the player left it, else the start.
+    const fresh = this.newestUnseen();
+    const target =
+      fresh && fresh.at > this.closedAt
+        ? fresh.id
+        : this.selectedId && this.store.entry(this.selectedId)
+          ? null
+          : this.defaultEntry();
     this.element.dataset['view'] = 'list';
-    this.refresh();
-    const it = this.activeItem();
-    if (it) this.select(it.id);
+    if (target) this.goTo(target);
+    else {
+      this.refresh();
+      const it = this.activeItem();
+      if (it) this.select(it.id);
+    }
     this.listbox.focus({ preventScroll: true });
   }
 
@@ -221,6 +273,7 @@ export class CodexPanel implements CodexNavTarget {
 
   dispose(): void {
     this.close();
+    this.unsubscribe();
     this.element.remove();
   }
 
@@ -253,7 +306,16 @@ export class CodexPanel implements CodexNavTarget {
   nav(cmd: CodexNavCommand): void {
     this.element.dataset['input'] = 'pad';
     const a = document.activeElement;
-    const zone = a === this.listbox ? 'list' : a instanceof Node && this.tablist.contains(a) ? 'tabs' : a === this.search ? 'search' : a instanceof Node && this.main.contains(a) ? 'main' : 'other';
+    const zone =
+      a === this.listbox
+        ? 'list'
+        : a instanceof Node && this.tablist.contains(a)
+          ? 'tabs'
+          : a === this.search
+            ? 'search'
+            : a instanceof Node && this.main.contains(a)
+              ? 'main'
+              : 'other';
     const tabIndex = CODEX_TABS.indexOf(this.tab);
     switch (cmd) {
       case 'up':
@@ -273,7 +335,8 @@ export class CodexPanel implements CodexNavTarget {
       case 'left':
       case 'right': {
         const d = cmd === 'right' ? 1 : -1;
-        if (zone === 'tabs') this.setTab(CODEX_TABS[(tabIndex + d + CODEX_TABS.length) % CODEX_TABS.length]!, { focus: 'tab' });
+        if (zone === 'tabs')
+          this.setTab(CODEX_TABS[(tabIndex + d + CODEX_TABS.length) % CODEX_TABS.length]!, { focus: 'tab' });
         else if (zone === 'list' && d > 0) this.openActive();
         else if (zone === 'main' && d < 0) this.showList();
         else if (zone === 'main') moveFocus(this.main, 1);
@@ -286,7 +349,7 @@ export class CodexPanel implements CodexNavTarget {
         else this.focusList();
         break;
       case 'back':
-        if (zone === 'main' || this.element.dataset['view'] === 'entry') this.showList();
+        if (zone === 'main' || (this.narrow() && this.element.dataset['view'] === 'entry')) this.showList();
         else if (zone === 'search' && this.query) this.clearQuery();
         else this.close();
         break;
@@ -307,15 +370,44 @@ export class CodexPanel implements CodexNavTarget {
   private finishClose(): void {
     removeNavTarget(this);
     window.clearInterval(this.timer);
+    this.closedAt = this.now();
     const rf = this.returnFocus;
     this.returnFocus = null;
     if (rf?.isConnected) rf.focus({ preventScroll: true });
     for (const cb of [...this.closeCbs]) cb();
   }
 
+  private newestUnseen(): { id: string; at: number } | undefined {
+    return [...this.store.log()].reverse().find((r) => this.store.isNew(r.id));
+  }
+
+  /** The newest unseen discovery, else the first known entry, else the first entry. */
+  private defaultEntry(): string | undefined {
+    return (
+      this.newestUnseen()?.id ??
+      this.store.entries().find((e) => this.store.discovered(e.id))?.id ??
+      this.store.entries()[0]?.id
+    );
+  }
+
+  /** Selects an entry in its own category without moving focus. */
+  private goTo(id: string): void {
+    const e = this.store.entry(id);
+    if (!e) return;
+    if (this.query) this.clearQuery();
+    this.tab = e.kind;
+    this.activeId = id;
+    this.refresh();
+    this.select(id);
+  }
+
   /** True in the single-pane layout (set by a container query in codex.css). */
   private narrow(): boolean {
-    return getComputedStyle(this.frame.lastElementChild ?? this.frame).getPropertyValue('--ks-cx-narrow').trim() === '1';
+    return (
+      getComputedStyle(this.frame.lastElementChild ?? this.frame)
+        .getPropertyValue('--ks-cx-narrow')
+        .trim() === '1'
+    );
   }
 
   /** Esc / B: back to the list in the narrow layout, else close. */
@@ -390,7 +482,11 @@ export class CodexPanel implements CodexNavTarget {
     this.activeId = null;
     this.refresh();
     const n = this.items.length;
-    this.status.textContent = q.trim() ? (n > 0 ? tCount('codex.search.results', n) : t('codex.search.none', { q: q.trim() })) : '';
+    this.status.textContent = q.trim()
+      ? n > 0
+        ? tCount('codex.search.results', n)
+        : t('codex.search.none', { q: q.trim() })
+      : '';
   }
 
   private clearQuery(): void {
@@ -457,7 +553,10 @@ export class CodexPanel implements CodexNavTarget {
 
   private onListKey(e: KeyboardEvent): void {
     const i = this.activeIndex();
-    const page = Math.max(1, Math.floor(this.listbox.clientHeight / Math.max(1, this.items[0]?.el.offsetHeight ?? 40)) - 1);
+    const page = Math.max(
+      1,
+      Math.floor(this.listbox.clientHeight / Math.max(1, this.items[0]?.el.offsetHeight ?? 40)) - 1,
+    );
     let next: number;
     switch (e.key) {
       case 'ArrowDown':
@@ -511,18 +610,33 @@ export class CodexPanel implements CodexNavTarget {
       b.tabIndex = on ? 0 : -1;
       b.classList.toggle('is-active', on);
       const label = t(`codex.cat.${tab}`);
-      const children: (Node | string)[] = [icon(tab === 'log' ? 'log' : tab), h('span', { class: 'ks-cx-tab-label' }, label)];
+      const children: (Node | string)[] = [
+        icon(tab === 'log' ? 'log' : tab),
+        h('span', { class: 'ks-cx-tab-label' }, label),
+      ];
       if (tab === 'log') {
         const n = this.store.log().length;
         if (n > 0) children.push(h('span', { class: 'ks-cx-tab-count', 'aria-hidden': 'true' }, String(n)));
-        if (this.store.newCount() > 0) children.push(h('span', { class: 'ks-cx-dot', 'aria-hidden': 'true' }), srOnly(`, ${t('codex.tab.newLabel')}`));
+        if (this.store.newCount() > 0)
+          children.push(
+            h('span', { class: 'ks-cx-dot', 'aria-hidden': 'true' }),
+            srOnly(`, ${t('codex.tab.newLabel')}`),
+          );
       } else {
         const pr = this.store.progress(tab);
         children.push(
-          h('span', { class: 'ks-cx-tab-count', 'aria-hidden': 'true' }, t('codex.tab.count', { n: String(pr.discovered), total: String(pr.total) })),
+          h(
+            'span',
+            { class: 'ks-cx-tab-count', 'aria-hidden': 'true' },
+            t('codex.tab.count', { n: String(pr.discovered), total: String(pr.total) }),
+          ),
           srOnly(`, ${t('codex.tab.countLabel', { n: String(pr.discovered), total: String(pr.total) })}`),
         );
-        if (this.store.newCount(tab) > 0) children.push(h('span', { class: 'ks-cx-dot', 'aria-hidden': 'true' }), srOnly(`, ${t('codex.tab.newLabel')}`));
+        if (this.store.newCount(tab) > 0)
+          children.push(
+            h('span', { class: 'ks-cx-dot', 'aria-hidden': 'true' }),
+            srOnly(`, ${t('codex.tab.newLabel')}`),
+          );
       }
       b.title = label;
       b.replaceChildren(...children);
@@ -549,26 +663,44 @@ export class CodexPanel implements CodexNavTarget {
     this.items = rows.map(({ entry: e, at }, i) => {
       const locked = !this.store.discovered(e.id);
       const isNew = !locked && this.store.isNew(e.id);
-      const el = h('div', { class: 'ks-cx-opt', role: 'option', id: `${this.id}-opt-${i}`, 'aria-selected': String(e.id === this.selectedId), 'data-entry': e.id });
+      const el = h('div', {
+        class: 'ks-cx-opt',
+        role: 'option',
+        id: `${this.id}-opt-${i}`,
+        'aria-selected': String(e.id === this.selectedId),
+        'data-entry': e.id,
+      });
       if (locked) {
         const hint = lockedHint(e, all);
         el.classList.add('is-locked');
         el.setAttribute('aria-label', t('codex.locked.optionLabel', { hint }));
         el.append(
           h('span', { class: 'ks-cx-opt-icon' }, icon('lock')),
-          h('span', { class: 'ks-cx-opt-text' }, h('span', { class: 'ks-cx-opt-title' }, t('codex.locked.title')), h('span', { class: 'ks-cx-opt-sub' }, hint)),
+          h(
+            'span',
+            { class: 'ks-cx-opt-text' },
+            h('span', { class: 'ks-cx-opt-title' }, t('codex.locked.title')),
+            h('span', { class: 'ks-cx-opt-sub' }, hint),
+          ),
         );
       } else {
         let sub: HTMLElement;
         if (at !== null) {
           const when = relativeTime(at, now);
           sub = h('span', { class: 'ks-cx-opt-sub' }, `${kindLabel(e.kind)} · `, h('span', { 'data-ks-at': at }, when));
-          el.setAttribute('aria-label', t('codex.log.optionLabel', { title: e.title, kind: kindLabel(e.kind), when }) + (isNew ? `, ${t('codex.new')}` : ''));
+          el.setAttribute(
+            'aria-label',
+            t('codex.log.optionLabel', { title: e.title, kind: kindLabel(e.kind), when }) +
+              (isNew ? `, ${t('codex.new')}` : ''),
+          );
         } else {
           sub = h('span', { class: 'ks-cx-opt-sub' }, searching ? `${kindLabel(e.kind)} · ${e.summary}` : e.summary);
           el.setAttribute('aria-label', isNew ? t('codex.newLabel', { title: e.title }) : e.title);
         }
-        el.append(h('span', { class: 'ks-cx-opt-icon' }, icon(e.kind)), h('span', { class: 'ks-cx-opt-text' }, h('span', { class: 'ks-cx-opt-title' }, e.title), sub));
+        el.append(
+          h('span', { class: 'ks-cx-opt-icon' }, icon(e.kind)),
+          h('span', { class: 'ks-cx-opt-text' }, h('span', { class: 'ks-cx-opt-title' }, e.title), sub),
+        );
         if (isNew) {
           el.classList.add('is-new');
           el.append(h('span', { class: 'ks-cx-new', 'aria-hidden': 'true' }, t('codex.new')));
@@ -593,7 +725,7 @@ export class CodexPanel implements CodexNavTarget {
     let empty = '';
     if (this.items.length === 0) {
       if (!this.store.loaded) empty = t('codex.loading');
-      else if (this.store.error && this.store.entries().length === 0) empty = t('codex.error');
+      else if (this.store.error && this.store.entries().length === 0) empty = t('codex.errorShort');
       else if (searching) empty = t('codex.search.none', { q: this.query.trim() });
       else if (this.tab === 'log') empty = t('codex.log.empty');
       else empty = t('codex.list.empty');
@@ -625,7 +757,8 @@ export class CodexPanel implements CodexNavTarget {
       el.textContent = relativeTime(Number(el.dataset['ksAt']), now);
     }
     const when = this.article.querySelector<HTMLElement>('[data-ks-discovered]');
-    if (when) when.textContent = t('codex.entry.discovered', { when: relativeTime(Number(when.dataset['ksDiscovered']), now) });
+    if (when)
+      when.textContent = t('codex.entry.discovered', { when: relativeTime(Number(when.dataset['ksDiscovered']), now) });
   }
 
   private renderEntry(): void {
@@ -634,8 +767,21 @@ export class CodexPanel implements CodexNavTarget {
     const e = this.selectedId ? this.store.entry(this.selectedId) : undefined;
     this.article.classList.remove('is-locked');
     if (!e) {
-      const msg = this.store.error && this.store.entries().length === 0 ? t('codex.error') : this.store.loaded ? t('codex.list.empty') : t('codex.loading');
-      this.article.replaceChildren(h('p', { class: 'ks-cx-empty' }, msg));
+      if (this.store.error && this.store.entries().length === 0) {
+        this.article.classList.add('is-locked');
+        this.article.replaceChildren(
+          h(
+            'div',
+            { class: 'ks-cx-lockcard ks-cx-errorcard', role: 'alert' },
+            h('span', { class: 'ks-cx-lockcard-icon' }, icon('warn')),
+            h('h2', { class: 'ks-cx-entry-title', id: titleId, tabindex: -1 }, t('codex.errorTitle')),
+            h('p', { class: 'ks-cx-lockcard-note' }, t('codex.error')),
+          ),
+        );
+      } else
+        this.article.replaceChildren(
+          h('p', { class: 'ks-cx-empty' }, this.store.loaded ? t('codex.list.empty') : t('codex.loading')),
+        );
       return;
     }
     if (!this.store.discovered(e.id)) {
@@ -655,7 +801,12 @@ export class CodexPanel implements CodexNavTarget {
     }
 
     const where = systemLabel(e, this.store.entries());
-    const eyebrow = h('p', { class: 'ks-cx-eyebrow ks-cx-entry-eyebrow' }, icon(e.kind), where ? `${kindLabel(e.kind)} · ${where}` : kindLabel(e.kind));
+    const eyebrow = h(
+      'p',
+      { class: 'ks-cx-eyebrow ks-cx-entry-eyebrow' },
+      icon(e.kind),
+      where ? `${kindLabel(e.kind)} · ${where}` : kindLabel(e.kind),
+    );
     const title = h('h2', { class: 'ks-cx-entry-title', id: titleId, tabindex: -1 }, e.title);
 
     // Tally of value tiers, shape-coded like the badges.
@@ -667,30 +818,52 @@ export class CodexPanel implements CodexNavTarget {
       if (!n) continue;
       const badge = provenanceBadge(p, { compact: true });
       badge.setAttribute('aria-hidden', 'true');
-      tally.append(h('li', { class: `ks-cx-tally-item ks-cx-tally--${p}` }, badge, h('span', { 'aria-hidden': 'true' }, String(n)), srOnly(tCount(`codex.tierCount.${p}`, n))));
+      tally.append(
+        h(
+          'li',
+          { class: `ks-cx-tally-item ks-cx-tally--${p}` },
+          badge,
+          h('span', { 'aria-hidden': 'true' }, String(n)),
+          srOnly(tCount(`codex.tierCount.${p}`, n)),
+        ),
+      );
     }
     const at = this.store.discoveredAt(e.id);
     const when =
       at !== null
-        ? h('span', { class: 'ks-cx-when', 'data-ks-discovered': at }, t('codex.entry.discovered', { when: relativeTime(at, this.now()) }))
+        ? h(
+            'span',
+            { class: 'ks-cx-when', 'data-ks-discovered': at },
+            t('codex.entry.discovered', { when: relativeTime(at, this.now()) }),
+          )
         : h('span', { class: 'ks-cx-when' }, t('codex.entry.knownFromStart'));
     const meta = h('div', { class: 'ks-cx-entry-meta' }, counts.size > 0 ? tally : null, when);
     const hwk = this.opts.howWeKnow;
     const actions = h('div', { class: 'ks-cx-entry-actions' });
     if (hwk && (e.facts.length > 0 || e.howWeKnow.length > 0)) {
-      const b = h('button', { type: 'button', class: 'ks-cx-btn ks-cx-btn--primary ks-cx-hwk-btn' }, icon('question'), t('codex.entry.howWeKnow'));
+      const b = h(
+        'button',
+        { type: 'button', class: 'ks-cx-btn ks-cx-btn--primary ks-cx-hwk-btn' },
+        icon('question'),
+        t('codex.entry.howWeKnow'),
+      );
       b.addEventListener('click', () => hwk.show(e, b));
       actions.append(b);
     }
 
     // Numbered sources, in order of first use.
     const refs = new Map<string, number>();
-    for (const k of [...e.facts.map((f) => f.citation), ...e.howWeKnow.map((c) => c.citation)]) if (k && !refs.has(k)) refs.set(k, refs.size + 1);
+    for (const k of [...e.facts.map((f) => f.citation), ...e.howWeKnow.map((c) => c.citation)])
+      if (k && !refs.has(k)) refs.set(k, refs.size + 1);
     const srcId = (n: number): string => `${this.id}-src-${n}`;
     const refLink = (key: string): HTMLElement => {
       const n = refs.get(key);
       if (!n) return h('span', { class: 'ks-cx-dim' }, '—');
-      const a = h('a', { class: 'ks-cx-ref', href: `#${srcId(n)}`, 'aria-label': t('codex.entry.sourceRef', { n: String(n) }) }, `[${n}]`);
+      const a = h(
+        'a',
+        { class: 'ks-cx-ref', href: `#${srcId(n)}`, 'aria-label': t('codex.entry.sourceRef', { n: String(n) }) },
+        `[${n}]`,
+      );
       a.addEventListener('click', (ev) => {
         // Scroll within the dialog without touching the page URL (the hash is used for share links).
         ev.preventDefault();
@@ -716,7 +889,12 @@ export class CodexPanel implements CodexNavTarget {
             'tr',
             { class: `ks-cx-fact ks-cx-fact--${f.provenance}` },
             h('td', { class: 'ks-cx-fact-tier' }, badge),
-            h('th', { scope: 'row', class: 'ks-cx-fact-label' }, h('span', { class: 'ks-cx-fact-name' }, f.label), f.method ? h('span', { class: 'ks-cx-fact-method' }, f.method) : null),
+            h(
+              'th',
+              { scope: 'row', class: 'ks-cx-fact-label' },
+              h('span', { class: 'ks-cx-fact-name' }, f.label),
+              f.method ? h('span', { class: 'ks-cx-fact-method' }, f.method) : null,
+            ),
             h('td', { class: 'ks-cx-fact-value' }, factValueView(f)),
             h('td', { class: 'ks-cx-fact-src' }, refLink(f.citation)),
           ),
@@ -740,7 +918,9 @@ export class CodexPanel implements CodexNavTarget {
         ),
         tbody,
       );
-      parts.push(h('section', { class: 'ks-cx-section' }, h('h3', { class: 'ks-cx-h3' }, t('codex.entry.facts')), table));
+      parts.push(
+        h('section', { class: 'ks-cx-section' }, h('h3', { class: 'ks-cx-h3' }, t('codex.entry.facts')), table),
+      );
     }
 
     if (e.related.length > 0) {
@@ -753,18 +933,41 @@ export class CodexPanel implements CodexNavTarget {
           b.addEventListener('click', () => this.showEntry(rid));
           list.append(h('li', {}, b));
         } else {
-          list.append(h('li', {}, h('span', { class: 'ks-cx-chip is-locked', title: lockedHint(r, this.store.entries()) }, icon('lock'), t('codex.locked.title'))));
+          list.append(
+            h(
+              'li',
+              {},
+              h(
+                'span',
+                { class: 'ks-cx-chip is-locked', title: lockedHint(r, this.store.entries()) },
+                icon('lock'),
+                t('codex.locked.title'),
+              ),
+            ),
+          );
         }
       }
-      if (list.childElementCount > 0) parts.push(h('section', { class: 'ks-cx-section' }, h('h3', { class: 'ks-cx-h3' }, t('codex.entry.related')), list));
+      if (list.childElementCount > 0)
+        parts.push(
+          h('section', { class: 'ks-cx-section' }, h('h3', { class: 'ks-cx-h3' }, t('codex.entry.related')), list),
+        );
     }
 
     if (refs.size > 0) {
       const ol = h('ol', { class: 'ks-cx-sources' });
       for (const [key, n] of refs) {
-        ol.append(h('li', { id: srcId(n), tabindex: -1 }, h('span', { class: 'ks-cx-src-n', 'aria-hidden': 'true' }, `[${n}]`), citationView(key, this.store.citation(key))));
+        ol.append(
+          h(
+            'li',
+            { id: srcId(n), tabindex: -1 },
+            h('span', { class: 'ks-cx-src-n', 'aria-hidden': 'true' }, `[${n}]`),
+            citationView(key, this.store.citation(key)),
+          ),
+        );
       }
-      parts.push(h('section', { class: 'ks-cx-section' }, h('h3', { class: 'ks-cx-h3' }, t('codex.entry.sources')), ol));
+      parts.push(
+        h('section', { class: 'ks-cx-section' }, h('h3', { class: 'ks-cx-h3' }, t('codex.entry.sources')), ol),
+      );
     }
 
     this.article.replaceChildren(...parts.filter((p): p is HTMLElement => p !== null));
@@ -777,6 +980,7 @@ function systemLabel(e: CodexEntry, entries: readonly CodexEntry[]): string | nu
   if (!e.systemId) return null;
   const key = `codex.systemLabel.${e.systemId}`;
   if (hasKey(key)) return t(key);
-  const star = e.starName ?? entries.find((x) => x.kind === 'star' && x.systemId === e.systemId && x.starName)?.starName;
+  const star =
+    e.starName ?? entries.find((x) => x.kind === 'star' && x.systemId === e.systemId && x.starName)?.starName;
   return star ? t('codex.systemLabel.named', { star }) : null;
 }

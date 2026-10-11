@@ -34,9 +34,17 @@ export function createCodexUI(store: CodexStore, opts: CodexUIOptions = {}): Cod
   const ref: { panel?: CodexPanel } = {};
   const parent = opts.parent ? { parent: opts.parent } : {};
   const howWeKnow = new HowWeKnowPanel(store, { onReadEntry: (id) => ref.panel?.open(id), ...parent });
-  const panel = new CodexPanel(store, { howWeKnow, ...(opts.closeKeys ? { closeKeys: opts.closeKeys } : {}), ...parent });
+  const panel = new CodexPanel(store, {
+    howWeKnow,
+    ...(opts.closeKeys ? { closeKeys: opts.closeKeys } : {}),
+    ...parent,
+  });
   ref.panel = panel;
-  const toast = new CodexToast({ onView: (id) => panel.open(id), ...(opts.toastDurationMs ? { durationMs: opts.toastDurationMs } : {}), ...parent });
+  const toast = new CodexToast({
+    onView: (id) => panel.open(id),
+    ...(opts.toastDurationMs ? { durationMs: opts.toastDurationMs } : {}),
+    ...parent,
+  });
   const off = store.onDiscover((e) => toast.show(e));
   return {
     store,
