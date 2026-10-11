@@ -200,8 +200,15 @@ def test_blocks_hold_only_their_tier(system):
         assert {"seed", "terrain", "albedo", "palette", "iceCoverage", "nightSideGlow", "rationale"} <= set(g)
         assert g["provenance"] == "generated" and g["terrain"] in ("cratered", "volcanic", "icy", "mixed")
         assert g["seed"] == ex.hash_string(p["id"])
-    assert all(v["provenance"] == "measured" for v in system["star"].values())
-    assert all(v["provenance"] == "measured" for v in system["position"].values())
+    # Values the source derives (Teff from L and R, R from the transit density and a mass relation, the age from
+    # empirical indicators) and the distance computed from the parallax are Inferred, each with a note (D-036).
+    derived_star = {"teffK", "radiusSun", "massSun", "ageGyr"}
+    for k, v in system["star"].items():
+        assert v["provenance"] == ("inferred" if k in derived_star else "measured"), k
+        if k in derived_star:
+            assert v.get("note"), k
+    assert system["position"]["raDeg"]["provenance"] == system["position"]["decDeg"]["provenance"] == "measured"
+    assert system["position"]["distancePc"]["provenance"] == "inferred" and system["position"]["distancePc"]["note"]
     assert system["orbitalPlane"]["nodeDeg"]["provenance"] == "generated"
 
 
@@ -252,7 +259,9 @@ def test_measured_values_match_archive(system, archive):
     assert star["radiusSun"]["value"] == row["st_rad"]
     assert star["massSun"]["value"] == row["st_mass"]
     assert star["luminosityLogSun"]["value"] == row["st_lum"]
-    assert system["position"]["distancePc"]["value"] == row["sy_dist"]
+    # Distance: 1/parallax from Gaia DR3 (not the archive's DR2 sy_dist), within 0.5% of the archive value.
+    assert system["position"]["distancePc"]["citation"] == "gaia-dr3"
+    assert abs(system["position"]["distancePc"]["value"] / row["sy_dist"] - 1) < 0.005
     assert star["vMag"]["value"] != row["sy_vmag"]  # documented correction: direct photometry instead of TICv8
 
 

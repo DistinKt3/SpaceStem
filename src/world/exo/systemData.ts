@@ -212,19 +212,23 @@ function checkSourced(
   checkUncertainty(v['uncertainty'], path, out);
 }
 
-const STAR_FIELDS: readonly [keyof ExoStar, 'number' | 'string'][] = [
-  ['teffK', 'number'],
-  ['radiusSun', 'number'],
-  ['massSun', 'number'],
-  ['luminosityLogSun', 'number'],
-  ['luminositySun', 'number'],
-  ['ageGyr', 'number'],
-  ['metallicityFeH', 'number'],
-  ['spectralType', 'string'],
-  ['vMag', 'number'],
-  ['jMag', 'number'],
-  ['kMag', 'number'],
-  ['gaiaDr3Id', 'string'],
+/**
+ * Star fields with their type and tier (D-036). The source derives T_eff, radius and mass from a luminosity, a transit
+ * density and an empirical mass relation, and the age from empirical indicators, so those are Inferred.
+ */
+const STAR_FIELDS: readonly [keyof ExoStar, 'number' | 'string', Provenance][] = [
+  ['teffK', 'number', 'inferred'],
+  ['radiusSun', 'number', 'inferred'],
+  ['massSun', 'number', 'inferred'],
+  ['luminosityLogSun', 'number', 'measured'],
+  ['luminositySun', 'number', 'measured'],
+  ['ageGyr', 'number', 'inferred'],
+  ['metallicityFeH', 'number', 'measured'],
+  ['spectralType', 'string', 'measured'],
+  ['vMag', 'number', 'measured'],
+  ['jMag', 'number', 'measured'],
+  ['kMag', 'number', 'measured'],
+  ['gaiaDr3Id', 'string', 'measured'],
 ];
 export const MEASURED_FIELDS: readonly (keyof ExoPlanetMeasured)[] = [
   'periodDays',
@@ -299,13 +303,15 @@ export function validateSystem(data: unknown): string[] {
   const star = data['star'];
   if (!isObj(star)) out.push('star is missing');
   else {
-    for (const [k, kind] of STAR_FIELDS) checkSourced(star[k], `star.${k}`, kind, 'measured', citations, out);
+    for (const [k, kind, tier] of STAR_FIELDS) checkSourced(star[k], `star.${k}`, kind, tier, citations, out);
     for (const k of ['teffK', 'radiusSun', 'massSun', 'luminositySun'] as const) checkPositive(star[k], `star.${k}`, out);
   }
   const pos = data['position'];
   if (!isObj(pos)) out.push('position is missing');
   else {
-    for (const k of ['raDeg', 'decDeg', 'distancePc']) checkSourced(pos[k], `position.${k}`, 'number', 'measured', citations, out);
+    for (const k of ['raDeg', 'decDeg']) checkSourced(pos[k], `position.${k}`, 'number', 'measured', citations, out);
+    // The distance is computed from the measured parallax (1/parallax), so it is Inferred.
+    checkSourced(pos['distancePc'], 'position.distancePc', 'number', 'inferred', citations, out);
     checkPositive(pos['distancePc'], 'position.distancePc', out);
   }
   const plane = data['orbitalPlane'];

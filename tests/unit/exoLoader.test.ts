@@ -18,7 +18,8 @@ describe('TRAPPIST-1 through the game adapter', () => {
     // Mean ephemeris period (inferred) is used for phase, not the N-body osculating period.
     expect(b.periodDays).toBeCloseTo(1.5108737, 7);
     expect(spec!.star.luminositySun).toBeCloseTo(0.000553, 9);
-    expect(spec!.distancePc).toBeCloseTo(12.43, 2);
+    // 1/parallax from Gaia DR3 (80.212 mas), as the Codex quotes it.
+    expect(spec!.distancePc).toBeCloseTo(12.467, 2);
   });
 
   it('carries the generated palettes and scales them to the generated albedo', () => {

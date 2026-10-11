@@ -124,7 +124,8 @@ export class ExoSystem {
       geometricAlbedo: 1,
       albedoScale: 1,
       surface: { type: 'star', teffK: s.star.teffK },
-      provenance: measured,
+      // Radius and temperature are derived by the source (D-036), as for catalogue stars the game visits.
+      provenance: 'inferred',
       source: 'NASA Exoplanet Archive',
       citation: s.star.citation,
       luminositySun: s.star.luminositySun,

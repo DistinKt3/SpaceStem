@@ -14,26 +14,28 @@
    "value": 2566.0,
    "uncertainty": 26.0,
    "unit": "K",
-   "provenance": "measured",
+   "provenance": "inferred",
    "source": "NASA Exoplanet Archive pscomppars (st_teff); Agol et al. 2021",
-   "citation": "agol2021"
+   "citation": "agol2021",
+   "note": "Agol et al. 2021 compute it from the luminosity (Ducrot et al. 2020) and the radius with the Stefan-Boltzmann law."
   },
   "radiusSun": {
    "value": 0.1192,
    "uncertainty": 0.0013,
    "unit": "R_sun",
-   "provenance": "measured",
+   "provenance": "inferred",
    "source": "NASA Exoplanet Archive pscomppars (st_rad); Agol et al. 2021",
-   "citation": "agol2021"
+   "citation": "agol2021",
+   "note": "Agol et al. 2021 combine the stellar density measured from the transits with the mass below."
   },
   "massSun": {
    "value": 0.0898,
    "uncertainty": 0.0023,
    "unit": "M_sun",
-   "provenance": "measured",
+   "provenance": "inferred",
    "source": "NASA Exoplanet Archive pscomppars (st_mass); Agol et al. 2021",
    "citation": "agol2021",
-   "note": "Agol et al. 2021 adopt this mass from the Mann et al. (2019) M_Ks-mass relation."
+   "note": "Agol et al. 2021 adopt this mass from the Mann et al. (2019) M_Ks-mass relation, an empirical model."
   },
   "luminosityLogSun": {
    "value": -3.25727,
@@ -59,7 +61,7 @@
    "value": 7.6,
    "uncertainty": 2.2,
    "unit": "Gyr",
-   "provenance": "measured",
+   "provenance": "inferred",
    "source": "NASA Exoplanet Archive pscomppars (st_age); Piaulet-Ghorayeb et al. 2025",
    "citation": "piaulet-ghorayeb2025",
    "note": "Same value as Burgasser & Mamajek (2017), who combined many empirical age indicators (colour-magnitude position, density, lithium, gravity features, metallicity, kinematics, rotation, activity). The uncertainty is large."
@@ -135,13 +137,13 @@
    "note": "ICRS. Epoch J2015.5 (the Gaia DR2 epoch carried into TICv8), not J2000: the star moves about 1.03 arcsec per year, so its J2000 position is about 15 arcsec away. Gaia DR3 at epoch J2016.0: RA 346.626522 deg, Dec -5.043528 deg."
   },
   "distancePc": {
-   "value": 12.42988881,
-   "uncertainty": 0.01870661,
+   "value": 12.4669,
+   "uncertainty": 0.011,
    "unit": "pc",
-   "provenance": "measured",
-   "source": "NASA Exoplanet Archive pscomppars (sy_dist); Gaia DR2",
-   "citation": "gaia-dr2",
-   "note": "1/parallax from Gaia DR2 (80.451 +/- 0.121 mas). Gaia DR3 measures 80.212 +/- 0.072 mas (12.467 pc); the archive had not adopted it for this star when queried. Light from TRAPPIST-1 takes about 40.5 years to reach us."
+   "provenance": "inferred",
+   "source": "Inverse of the Gaia DR3 parallax (gaiadr3.gaia_source)",
+   "citation": "gaia-dr3",
+   "note": "1/parallax, with the parallax 80.212 +/- 0.072 mas (Gaia DR3). The NASA Exoplanet Archive still lists the Gaia DR2 value, 12.430 pc (parallax 80.451 +/- 0.121 mas). Light from TRAPPIST-1 takes about 40.7 years to reach us."
   }
  },
  "orbitalPlane": {
@@ -1556,14 +1558,6 @@
    "venue": "The Astrophysical Journal Letters 990, L52",
    "doi": "10.3847/2041-8213/adf42e",
    "url": "https://arxiv.org/abs/2509.05414"
-  },
-  "gaia-dr2": {
-   "authors": "Gaia Collaboration, Brown, A. G. A. et al.",
-   "year": 2018,
-   "title": "Gaia Data Release 2. Summary of the contents and survey properties",
-   "venue": "Astronomy & Astrophysics 616, A1",
-   "doi": "10.1051/0004-6361/201833051",
-   "url": "https://arxiv.org/abs/1804.09365"
   },
   "gaia-dr3": {
    "authors": "Gaia Collaboration, Vallenari, A. et al.",

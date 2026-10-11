@@ -78,7 +78,10 @@ describe('trappist-1.json schema', () => {
     expect(periods[6]).toBeCloseTo(18.772866, 6);
   });
 
-  it('gives every measured field a provenance, source, unit, uncertainty and a resolvable citation', () => {
+  it('gives every catalogued field a provenance, source, unit, uncertainty and a resolvable citation', () => {
+    // Derived by the source (T_eff from L and R, R from the transit density and a mass relation, the age from empirical
+    // indicators) or computed here (distance = 1/parallax): Inferred, with a note saying how (D-036).
+    const derived = new Set(['star.teffK', 'star.radiusSun', 'star.massSun', 'star.ageGyr', 'position.distancePc']);
     const measured = [
       ...sys.planets.flatMap((p) => MEASURED_FIELDS.map((k) => ({ path: `${p.id}.${k}`, s: p.measured[k] }))),
       ...Object.entries(sys.star).map(([k, s]) => ({ path: `star.${k}`, s: s as ExoSourced<unknown> })),
@@ -86,7 +89,8 @@ describe('trappist-1.json schema', () => {
     ];
     expect(measured.length).toBe(7 * 7 + 12 + 3);
     for (const { path, s } of measured) {
-      expect(s.provenance, path).toBe('measured');
+      expect(s.provenance, path).toBe(derived.has(path) ? 'inferred' : 'measured');
+      if (derived.has(path)) expect(s.note?.length ?? 0, `${path} note`).toBeGreaterThan(20);
       expect(s.citation, path).toMatch(/^[a-z0-9-]+$/);
       expect(sys.citations[s.citation], `${path} citation ${s.citation}`).toBeDefined();
       expect(s.source.length, path).toBeGreaterThan(10);

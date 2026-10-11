@@ -62,8 +62,8 @@ unchanged (checked by the script). Agol et al. 2021 give no transit midpoint or 
 { id, name, retrieved: 'YYYY-MM-DD', source,
   exoplanetCount: { value, asOf, source, citation },
   star: { teffK, radiusSun, massSun, luminosityLogSun, luminositySun, ageGyr, metallicityFeH, spectralType,
-          vMag, jMag, kMag, gaiaDr3Id },                                     // all Sourced, measured
-  position: { raDeg, decDeg, distancePc },                                  // Sourced, measured
+          vMag, jMag, kMag, gaiaDr3Id },  // Sourced; teffK, radiusSun, massSun, ageGyr inferred, the rest measured
+  position: { raDeg, decDeg, distancePc },                                  // Sourced; distancePc inferred (1/parallax)
   orbitalPlane: { inclinationDeg /*inferred*/, nodeDeg /*generated*/ },
   planets: [{ id, name, letter, defaultParameterSet: { label, citation, published },
               measured:  { periodDays, semiMajorAxisAu, radiusEarth, massEarth, inclinationDeg, eccentricity,
@@ -93,14 +93,14 @@ Class codes: `composition` is `rocky` or `rocky-or-water-rich`; `atmosphere` is 
 
 | JSON field | Archive column | Reference (citation key) |
 |---|---|---|
-| `star.teffK`, `radiusSun`, `massSun`, `luminosityLogSun` | `st_teff`, `st_rad`, `st_mass`, `st_lum` | Agol et al. 2021 (`agol2021`); the mass is Agol's adoption of the Mann et al. 2019 relation |
+| `star.teffK`, `radiusSun`, `massSun`, `luminosityLogSun` | `st_teff`, `st_rad`, `st_mass`, `st_lum` | Agol et al. 2021 (`agol2021`). Teff, radius and mass are **inferred**: Agol computes Teff from the luminosity and radius, the radius from the transit density and the mass, and adopts the mass from the Mann et al. 2019 relation |
 | `star.luminositySun` | `10^st_lum` | `agol2021` (unit conversion, still measured) |
-| `star.ageGyr`, `metallicityFeH`, `spectralType` | `st_age`, `st_met`, `st_spectype` | Piaulet-Ghorayeb et al. 2025 (`piaulet-ghorayeb2025`); the age equals Burgasser & Mamajek 2017 |
+| `star.ageGyr`, `metallicityFeH`, `spectralType` | `st_age`, `st_met`, `st_spectype` | Piaulet-Ghorayeb et al. 2025 (`piaulet-ghorayeb2025`); the age equals Burgasser & Mamajek 2017 and is **inferred** (empirical age indicators) |
 | `star.vMag` | not used (`sy_vmag`) | Costa et al. 2006 via SIMBAD (`costa2006`); see correction 1 |
 | `star.jMag`, `kMag` | `sy_jmag`, `sy_kmag` | TICv8 (`stassun2019`); identical to 2MASS in SIMBAD |
 | `star.gaiaDr3Id` | `gaia_dr3_id` | `gaia-dr3`; confirmed in the Gaia DR3 archive |
 | `position.raDeg`, `decDeg` | `ra`, `dec` | TICv8 (`stassun2019`); epoch J2015.5, see section 4 |
-| `position.distancePc` | `sy_dist` | Gaia DR2 (`gaia-dr2`); see section 4 |
+| `position.distancePc` | not used (`sy_dist` is Gaia DR2) | 1/parallax from Gaia DR3 (`gaia-dr3`), **inferred**; see section 4 |
 | `planets[].measured.periodDays`, `semiMajorAxisAu`, `radiusEarth`, `massEarth`, `inclinationDeg` | `pl_orbper`, `pl_orbsmax`, `pl_rade`, `pl_masse`, `pl_orbincl` | `agol2021` |
 | `planets[].measured.eccentricity` | `pl_orbeccen` | Grimm et al. 2018 (`grimm2018`) |
 | `planets[].measured.transitMidBJD` | `pl_tranmid` (BJD_TDB) | Ducrot et al. 2020 (`ducrot2020`) |
@@ -113,9 +113,11 @@ Class codes: `composition` is `rocky` or `rocky-or-water-rich`; `atmosphere` is 
    value in the note. The script stops if SIMBAD's V source changes.
 2. **TRAPPIST-1 e semi-major-axis uncertainty.** The archive lists ±0.0025 au, ten times Agol et al. 2021's published
    (2.925 ± 0.025) × 10⁻² au; every other planet matches the paper. We use ±0.00025 au and say so in the note.
-3. **Distance: archive (Gaia DR2) kept.** The archive still uses the Gaia DR2 parallax (80.451 ± 0.121 mas,
-   12.430 ± 0.019 pc). Gaia DR3 (queried directly) gives 80.212 ± 0.072 mas (12.467 pc), a 0.3% difference at
-   1.7 sigma combined. The note quotes DR3. Switching to DR3 is a one-line change if the integrator prefers it.
+3. **Distance: Gaia DR3, not the archive's DR2.** The archive still uses the Gaia DR2 parallax (80.451 ± 0.121 mas,
+   12.430 ± 0.019 pc). Gaia DR3 (queried directly) gives 80.212 ± 0.072 mas, so 12.467 ± 0.011 pc, a 0.3% difference
+   at 1.7 sigma combined. The game uses DR3, the newer and more precise measurement, so the HUD and the Codex quote
+   the same distance; the note keeps the archive's DR2 value. The distance is Inferred because it is computed from
+   the parallax.
 4. **Position epoch.** The archive's RA/Dec (346.6263919, −5.0434618) are TICv8's original-epoch coordinates, which
    are Gaia DR2 positions at **J2015.5**, not J2000. They match Gaia DR3's J2016.0 position after 0.5 yr of proper
    motion (about 1.03 arcsec/yr). The J2000 position is about 15 arcsec away. The note says this; at 12 pc the offset
@@ -233,7 +235,7 @@ Every value row carries its tier as visually hidden text, so its accessible name
   orbit is a circle of radius a; the phase is 2π (t − T₀)/P from the mean ephemeris (`inferred.ephemerisPeriodDays`,
   `ephemerisTransitMidBJD`), so a quarter period after transit the planet is on +y.
 - **Time convention.** `t` is the TDB instant at which an observer at the Solar System barycentre sees the
-  configuration, the convention of BJD_TDB epochs. Light from TRAPPIST-1 takes about 40.5 years to reach us
+  configuration, the convention of BJD_TDB epochs. Light from TRAPPIST-1 takes about 40.7 years to reach us
   (`lightTimeSeconds(system)`); to place planets at the instant their light leaves, add that to `t`. Which convention
   the game uses is a design choice for the integrator.
 - **Phase accuracy.** Through mid-2027 the mean ephemeris stays within 17-107 minutes of the published forecast
@@ -268,7 +270,7 @@ _Generated by `tools/pipeline/exoplanets.py` from the archive query of 2026-10-1
 
 | Field | NASA Exoplanet Archive | trappist1_verified.json | Explanation |
 |---|---|---|---|
-| star.parallax | 80.4512 +/- 0.1211 (Gaia DR2) | 80.2123 +/- 0.0716 | Archive uses Gaia DR2 for this star; the verified file has Gaia (E)DR3, now confirmed in the Gaia DR3 archive. We keep the archive distance and quote DR3 in the note (0.3% difference). |
+| star.parallax | 80.4512 +/- 0.1211 (Gaia DR2) | 80.2123 +/- 0.0716 | Archive uses Gaia DR2 for this star; the verified file has Gaia (E)DR3, now confirmed in the Gaia DR3 archive. The game uses the DR3 distance, as the Codex does, and quotes DR2 in the note (0.3% difference). |
 | star.distance | 12.4299 +/- 0.0187 | 12.47 +/- 0.01 | Follows from the parallax difference above. |
 | star.pm_ra | 901.0 +/- 8.0 | 930.788 | Archive uses TICv8 proper motion (SuperBlink, +/-8 mas/yr); the verified value is Gaia DR3 (confirmed in the Gaia archive). Not used in the output. |
 | star.pm_dec | -492.0 +/- 8.0 | -479.038 | As for pm_ra. |

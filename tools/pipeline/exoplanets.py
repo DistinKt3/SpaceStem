@@ -636,6 +636,16 @@ def archive_measured(row: dict[str, Any], col: str, unit: str, note: str | None 
                    uncertainty(row.get(f"{col}err1"), row.get(f"{col}err2")), note)
 
 
+def archive_inferred(row: dict[str, Any], col: str, unit: str, note: str) -> dict[str, Any]:
+    """An archive value that its source derived from other quantities or a model (D-036: Inferred); `note` says how."""
+    value = row[col]
+    if value is None:
+        raise SystemExit(f"{row.get('pl_name', HOST)}: archive has no {col}")
+    ref = parse_reflink(row.get(f"{col}_reflink"))
+    return sourced(value, unit, "inferred", f"NASA Exoplanet Archive pscomppars ({col}); {ref.label}", ref.key,
+                   uncertainty(row.get(f"{col}err1"), row.get(f"{col}err2")), note)
+
+
 def sym_err(row: dict[str, Any], col: str) -> float:
     return max(abs(row.get(f"{col}err1") or 0.0), abs(row.get(f"{col}err2") or 0.0))
 
@@ -676,18 +686,23 @@ def build_star(row: dict[str, Any], simbad: list[dict[str, str]]) -> dict[str, A
         "direct CCD photometry (Costa et al. 2006, via SIMBAD). We use the direct measurement."))
 
     return {
-        "teffK": archive_measured(row, "st_teff", "K"),
-        "radiusSun": archive_measured(row, "st_rad", "R_sun"),
-        "massSun": archive_measured(
+        "teffK": archive_inferred(
+            row, "st_teff", "K",
+            "Agol et al. 2021 compute it from the luminosity (Ducrot et al. 2020) and the radius with the "
+            "Stefan-Boltzmann law."),
+        "radiusSun": archive_inferred(
+            row, "st_rad", "R_sun",
+            "Agol et al. 2021 combine the stellar density measured from the transits with the mass below."),
+        "massSun": archive_inferred(
             row, "st_mass", "M_sun",
-            "Agol et al. 2021 adopt this mass from the Mann et al. (2019) M_Ks-mass relation."),
+            "Agol et al. 2021 adopt this mass from the Mann et al. (2019) M_Ks-mass relation, an empirical model."),
         "luminosityLogSun": archive_measured(row, "st_lum", "log10(L/L_sun)"),
         "luminositySun": sourced(
             round_sig(l_val, 4), "L_sun", "measured",
             f"NASA Exoplanet Archive pscomppars (10^st_lum); {lum_ref.label}", lum_ref.key,
             uncertainty(round_sig(l_hi, 2), -round_sig(l_lo, 2)),
             "Linear form of luminosityLogSun. Agol et al. 2021 list (5.53 +/- 0.19)e-4 L_sun from Ducrot et al. 2020."),
-        "ageGyr": archive_measured(
+        "ageGyr": archive_inferred(
             row, "st_age", "Gyr", "Same value as Burgasser & Mamajek (2017), who combined many empirical age "
             "indicators (colour-magnitude position, density, lithium, gravity features, metallicity, kinematics, "
             "rotation, activity). The uncertainty is large."),
@@ -717,11 +732,14 @@ def build_position(row: dict[str, Any], gaia: dict[str, str]) -> dict[str, Any]:
     return {
         "raDeg": archive_measured(row, "ra", "deg", epoch_note),
         "decDeg": archive_measured(row, "dec", "deg", epoch_note),
-        "distancePc": archive_measured(
-            row, "sy_dist", "pc",
-            f"1/parallax from Gaia DR2 ({row['sy_plx']:.3f} +/- {sym_err(row, 'sy_plx'):.3f} mas). Gaia DR3 measures "
-            f"{g_plx:.3f} +/- {g_plx_e:.3f} mas ({1000.0 / g_plx:.3f} pc); the archive had not adopted it for this "
-            "star when queried. Light from TRAPPIST-1 takes about 40.5 years to reach us."),
+        # Gaia DR3, not the archive's DR2 value, so the game agrees with the Codex (which cites DR3).
+        "distancePc": sourced(
+            round(1000.0 / g_plx, 4), "pc", "inferred", "Inverse of the Gaia DR3 parallax (gaiadr3.gaia_source)",
+            "gaia-dr3", round_sig(1000.0 * g_plx_e / g_plx**2, 2),
+            f"1/parallax, with the parallax {g_plx:.3f} +/- {g_plx_e:.3f} mas (Gaia DR3). The NASA Exoplanet Archive "
+            f"still lists the Gaia DR2 value, {row['sy_dist']:.3f} pc (parallax {row['sy_plx']:.3f} +/- "
+            f"{sym_err(row, 'sy_plx'):.3f} mas). Light from TRAPPIST-1 takes about "
+            f"{1000.0 / g_plx * 3.261563777:.1f} years to reach us."),
     }
 
 
@@ -1117,7 +1135,8 @@ def agree(a: float, b: float) -> bool:
 
 EXPLAIN = {
     "star.parallax": "Archive uses Gaia DR2 for this star; the verified file has Gaia (E)DR3, now confirmed in the Gaia "
-                     "DR3 archive. We keep the archive distance and quote DR3 in the note (0.3% difference).",
+                     "DR3 archive. The game uses the DR3 distance, as the Codex does, and quotes DR2 in the note "
+                     "(0.3% difference).",
     "star.distance": "Follows from the parallax difference above.",
     "star.ra": "Different epochs: the archive position is at J2015.5 (TICv8), the verified file at J2000. Proper motion "
                "explains the offset.",
