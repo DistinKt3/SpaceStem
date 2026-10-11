@@ -85,26 +85,74 @@
       .chip-btn[aria-pressed='true'], .seg button[aria-pressed='true'] { background: rgba(127, 212, 255, 0.18); border-color: var(--ks-accent); color: #fff; box-shadow: 0 0 12px rgba(127, 212, 255, 0.28); }
       .seg { display: inline-flex; gap: 4px; margin-left: auto; }
       .foot { margin: 8px 0 0; color: var(--ks-dim); font-size: 0.72rem; line-height: 1.45; }
-      button:focus-visible, tr:focus-visible, summary:focus-visible, a:focus-visible { outline: 2px solid var(--ks-accent); outline-offset: 2px; }
+      button:focus-visible, summary:focus-visible, a:focus-visible { outline: 2px solid var(--ks-accent); outline-offset: 2px; }
+      .exo-sr { position: absolute !important; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 
-      /* Planet table */
-      .table-wrap { overflow-x: auto; }
+      /* Planet table. Columns sit under a Measured / Inferred / Generated group whose rule is solid, dashed or dotted,
+         and each group's first column carries the same line style down its left edge (readable without colour). */
+      .table-wrap { overflow-x: auto; container-type: inline-size; }
       .ptable { width: 100%; border-collapse: collapse; font-size: 0.76rem; }
-      .ptable th { text-align: left; font: 600 0.6rem var(--ks-mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ks-dim); padding: 4px 8px 6px; border-bottom: 1px solid rgba(127, 212, 255, 0.18); white-space: nowrap; }
+      .ptable th { text-align: left; font: 600 0.6rem var(--ks-mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ks-dim); padding: 4px 8px 6px; white-space: nowrap; vertical-align: bottom; }
+      .ptable thead tr.cols th { border-bottom: 1px solid rgba(127, 212, 255, 0.18); }
+      .ptable th.grp { position: relative; padding: 2px 8px 7px; font-size: 0.56rem; }
+      .ptable th.grp::after { content: ''; position: absolute; left: 5px; right: 5px; bottom: 0; border-bottom: 1.5px solid currentColor; opacity: 0.85; }
+      .ptable th.grp-measured { color: var(--ks-measured); }
+      .ptable th.grp-inferred { color: var(--ks-inferred); }
+      .ptable th.grp-inferred::after { border-bottom-style: dashed; }
+      .ptable th.grp-generated { color: var(--ks-generated); }
+      .ptable th.grp-generated::after { border-bottom-style: dotted; border-bottom-width: 2px; }
+      .ptable th.grp .exo-prov { font-size: 0.56rem; padding: 0.25em 0.5em; }
+      .ptable th.c .h, .ptable th.c .u { display: block; }
+      .ptable th.c .u { margin-top: 2px; font-weight: 400; letter-spacing: 0.04em; text-transform: none; color: rgba(138, 160, 192, 0.8); }
       .ptable td { padding: 6px 8px; border-bottom: 1px solid rgba(127, 212, 255, 0.07); white-space: nowrap; font-variant-numeric: tabular-nums; }
-      .ptable td.m, .ptable td.i { font-family: var(--ks-mono); font-size: 0.72rem; }
-      .ptable td.m { border-left: 2px solid transparent; }
+      .ptable td.num { font-family: var(--ks-mono); font-size: 0.72rem; }
+      .ptable .first { border-left: 1px solid; }
+      .ptable .v-measured.first, .ptable th.c-measured.first { border-left-color: rgba(127, 212, 255, 0.4); border-left-style: solid; }
+      .ptable .v-inferred.first, .ptable th.c-inferred.first { border-left-color: rgba(255, 210, 127, 0.45); border-left-style: dashed; }
+      .ptable .v-generated.first, .ptable th.c-generated.first { border-left-color: rgba(196, 155, 255, 0.6); border-left-style: dotted; }
+      .ptable td.v-inferred { color: #ffe6b8; }
+      .ptable td.g { color: #e6d8ff; }
+      .ptable td.g > * { vertical-align: middle; }
+      .ptable td.g .tsw { margin-right: 8px; }
       .ptable tbody tr { cursor: pointer; transition: background 0.15s ease; }
       .ptable tbody tr:hover { background: rgba(127, 212, 255, 0.06); }
       .ptable tbody tr.on { background: rgba(127, 212, 255, 0.12); box-shadow: inset 2px 0 0 var(--ks-accent); }
-      .ptable .pl b { color: var(--ks-accent); font-family: var(--ks-mono); }
-      .ptable .pl .dim { font-size: 0.7rem; }
-      .ptable td.i { color: #ffe6b8; }
-      .ptable td.g { display: flex; align-items: center; gap: 8px; color: #e6d8ff; }
+      .ptable th.pl { padding-left: 6px; }
+      .pl-btn {
+        font: 600 0.8rem var(--ks-mono); color: var(--ks-accent); background: none; border: 1px solid transparent; border-radius: 5px;
+        min-width: 26px; padding: 2px 6px; cursor: pointer; text-transform: none; letter-spacing: 0;
+      }
+      .pl-btn:hover { border-color: rgba(127, 212, 255, 0.35); }
+      .pl-btn[aria-current='true'] { border-color: var(--ks-accent); background: rgba(127, 212, 255, 0.14); color: #fff; }
       .tsw { display: inline-flex; border-radius: 3px; overflow: hidden; outline: 1px solid rgba(196, 155, 255, 0.35); }
       .tsw i { width: 7px; height: 12px; display: block; }
-      .legend { display: flex; gap: 14px; margin-top: 8px; font-size: 0.7rem; color: var(--ks-dim); flex-wrap: wrap; }
+      @container (max-width: 640px) {
+        .ptable th, .ptable td { padding-left: 6px; padding-right: 6px; }
+        .ptable td.g .tsw { display: none; }
+        .ptable td.g { white-space: normal; min-width: 5.5em; line-height: 1.25; }
+      }
+      /* Phones: slightly tighter type; the table scrolls sideways with the planet column pinned, and a fade on the
+         right edge shows there is more until the end is reached. */
+      @container (max-width: 470px) {
+        .ptable th { letter-spacing: 0.07em; padding: 3px 5px 5px; }
+        .ptable td { padding: 6px 5px; }
+        .ptable td.num { font-size: 0.68rem; }
+        .ptable th.grp { padding: 2px 4px 7px; }
+        .ptable th.c .h { white-space: normal; }
+        .ptable td.g { white-space: nowrap; }
+        .ptable th.pl, .ptable td.corner { position: sticky; left: 0; z-index: 1; background: #0b1729; }
+        .ptable tbody tr.on th.pl { background: #14304a; }
+        .pl-btn { min-width: 24px; padding: 2px 5px; }
+      }
+      .table-scroll { position: relative; }
+      .table-scroll::after {
+        content: ''; position: absolute; top: 0; right: 0; bottom: 0; width: 28px; pointer-events: none;
+        background: linear-gradient(90deg, transparent, rgba(6, 14, 26, 0.92)); opacity: 0; transition: opacity 0.2s ease;
+      }
+      .table-scroll.more::after { opacity: 1; }
+      .legend { display: flex; gap: 6px 14px; margin-top: 8px; font-size: 0.7rem; color: var(--ks-dim); flex-wrap: wrap; align-items: center; }
       .legend > span { display: inline-flex; align-items: center; gap: 6px; }
+      .legend .legend-note { flex-basis: 100%; font-size: 0.66rem; color: rgba(138, 160, 192, 0.85); }
 
       /* Provenance marks: shape and line style differ, not only colour. */
       .dot { width: 9px; height: 9px; border-radius: 50%; box-sizing: border-box; display: inline-block; flex: none; border: 2px solid currentColor; }
@@ -139,12 +187,13 @@
       .sec-head { display: flex; align-items: center; gap: 8px; margin: 0 0 4px; }
       .sec-cap { font-size: 0.64rem; color: var(--ks-dim); line-height: 1.25; }
       .vrow {
-        display: grid; grid-template-columns: minmax(0, 1fr) auto 9px; gap: 8px; align-items: center; width: 100%;
+        display: grid; grid-template-columns: minmax(6.5em, 1fr) minmax(0, auto) 9px; gap: 8px; align-items: center; width: 100%;
         background: none; border: 0; border-radius: 5px; padding: 3px 4px; color: var(--ks-fg); cursor: pointer; text-align: left;
-        font: 0.72rem var(--ks-font);
+        font: 0.72rem var(--ks-font); position: relative;
       }
-      .vrow .k { color: var(--ks-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .vrow .v { font: 0.7rem var(--ks-mono); text-align: right; font-variant-numeric: tabular-nums; }
+      /* Labels and values wrap instead of truncating on narrow screens. */
+      .vrow .k { color: var(--ks-dim); line-height: 1.3; overflow-wrap: anywhere; }
+      .vrow .v { font: 0.7rem var(--ks-mono); text-align: right; font-variant-numeric: tabular-nums; line-height: 1.3; overflow-wrap: anywhere; }
       .vrow:hover { background: rgba(127, 212, 255, 0.07); }
       .vrow.on { background: rgba(127, 212, 255, 0.14); box-shadow: inset 2px 0 0 var(--ks-accent); }
       .vrow.on .k { color: var(--ks-fg); }
@@ -166,6 +215,12 @@
       .detail a { color: var(--ks-accent); }
       .detail code { font: 0.68rem var(--ks-mono); color: var(--ks-accent); }
       .rows { display: grid; gap: 1px; }
+      @media (max-width: 420px) {
+        .pc-top { grid-template-columns: minmax(0, 1fr); }
+        .preview-fig { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 10px; align-items: center; }
+        .preview { width: 112px; height: 112px; }
+        .preview-fig figcaption { margin-top: 0; }
+      }
       @media (prefers-reduced-motion: reduce) { .chip-btn, .seg button, .ptable tbody tr { transition: none; } }
     </style>
   </head>
