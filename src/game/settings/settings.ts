@@ -3,6 +3,12 @@
  * every storage access is guarded (private mode, blocked storage and quota errors must never break the game), stored
  * data is migrated step by step to the current version and then sanitised field by field, so corrupt or hand-edited
  * data degrades to defaults one field at a time instead of failing.
+ *
+ * Reduced motion and the colour mode default from the system preferences (prefers-reduced-motion, prefers-contrast)
+ * and keep following them, live, until the player picks a value that differs from the system's. Only such explicit
+ * choices are stored; choosing the system's value again returns the setting to following the system.
+ *
+ * Saving is debounced (a slider drag writes once, after it settles) and flushed when the page is hidden or unloaded.
  */
 import { ACTIONS, FIXED, bindingAllowed, defaultBindings } from '../input/actions';
 import { parseBinding, sameBinding, type Binding, type BindingMap, type BindingSlots, type InputContext } from '../input/bindings';
@@ -25,8 +31,9 @@ export interface SettingsData {
   version: number;
   /** Root text scale, 0.8..2 (applied as the :root font-size, so every rem-based UI scales). */
   textScale: number;
+  /** Defaults to 'high-contrast' when the system asks for more contrast (prefers-contrast: more), else 'none'. */
   colorblind: ColorblindMode;
-  /** Defaults from prefers-reduced-motion. */
+  /** Defaults from prefers-reduced-motion, and follows it until the player overrides it. */
   reducedMotion: boolean;
   subtitles: boolean;
   captionSize: CaptionSize;
@@ -49,12 +56,18 @@ export interface SettingsData {
 /** A patch may set volumes partially. `version` is accepted for convenience and ignored. */
 export type SettingsPatch = Partial<Omit<SettingsData, 'volumes'>> & { volumes?: Partial<Volumes> };
 
-export const SETTINGS_VERSION = 1;
+export const SETTINGS_VERSION = 2;
 export const SETTINGS_STORAGE_KEY = 'knownsky.settings';
+/** Default delay before a change is written to storage. */
+export const SETTINGS_SAVE_DELAY_MS = 250;
+
+/** Settings whose default comes from a system preference. Stored only when the player's choice differs from it. */
+export const SYSTEM_KEYS = ['reducedMotion', 'colorblind'] as const;
+export type SystemKey = (typeof SYSTEM_KEYS)[number];
 
 export const LIMITS = {
   textScale: { min: 0.8, max: 2, step: 0.05 },
-  mouseSensitivity: { min: 0.1, max: 5, step: 0.05 },
+  mouseSensitivity: { min: 0.1, max: 5, step: 0.01 },
   fovDeg: { min: 45, max: 100, step: 1 },
   volume: { min: 0, max: 1, step: 0.01 },
 } as const;
@@ -110,6 +123,15 @@ export const MIGRATIONS: MigrationTable = {
   // Version 0: data written before settings carried a version number. Field names are unchanged, so stamping the
   // version is enough; sanitising below fills anything missing.
   0: (raw) => ({ ...raw, version: 1 }),
+  // Version 1 stored every field, so reducedMotion and colorblind were pinned to whatever the system said at first
+  // launch. Version 2 stores them only as explicit choices. The no-preference values are what version 1 wrote for
+  // nearly every player without them choosing anything, so they are dropped and follow the system again.
+  1: (raw) => {
+    const out: Raw = { ...raw, version: 2 };
+    if (out['reducedMotion'] === false) delete out['reducedMotion'];
+    if (out['colorblind'] === 'none') delete out['colorblind'];
+    return out;
+  },
 };
 
 /** Upgrades raw stored data step by step. Unknown future versions are kept as-is and sanitised field by field. */
@@ -206,11 +228,14 @@ export interface SettingsOptions {
   /** Storage backend; defaults to localStorage when reachable. Pass null for memory-only settings. */
   storage?: StorageLike | null;
   key?: string;
+  /** System preferences. Omitted: read from matchMedia and followed live as they change. */
   env?: SettingsEnvironment;
   /** Load from storage in the constructor (default true). */
   autoLoad?: boolean;
-  /** Save after every change (default true). */
+  /** Save after changes (default true). */
   autoSave?: boolean;
+  /** Delay before a change is saved, so a burst (a slider drag) writes once; 0 saves at once. Default 250 ms. */
+  saveDelayMs?: number;
 }
 
 function defaultStorage(): StorageLike | null {
@@ -221,14 +246,22 @@ function defaultStorage(): StorageLike | null {
   }
 }
 
+const SYSTEM_QUERIES = ['(prefers-reduced-motion: reduce)', '(prefers-contrast: more)'];
+
 export class Settings {
   private current: Readonly<SettingsData>;
   private readonly listeners = new Set<SettingsListener>();
   private readonly storage: StorageLike | null;
   private readonly key: string;
   private readonly autoSave: boolean;
-  readonly defaults: Readonly<SettingsData>;
+  private readonly saveDelayMs: number;
+  private saveTimer: ReturnType<typeof setTimeout> | null = null;
+  private env: SettingsEnvironment;
+  private _defaults: Readonly<SettingsData>;
+  /** System-derived keys the player set to something other than the system's value. */
+  private readonly overrides = new Set<SystemKey>();
   private appliedRoot: HTMLElement | null = null;
+  private readonly cleanups: (() => void)[] = [];
   /** Why the last load fell back to defaults ('corrupt' | 'unavailable'), or null when it read cleanly. */
   lastLoadIssue: 'corrupt' | 'unavailable' | null = null;
 
@@ -236,8 +269,24 @@ export class Settings {
     this.storage = options.storage === undefined ? defaultStorage() : options.storage;
     this.key = options.key ?? SETTINGS_STORAGE_KEY;
     this.autoSave = options.autoSave ?? true;
-    this.defaults = deepFreeze(defaultSettings(options.env ?? detectEnvironment()));
-    this.current = deepFreeze(structuredClone(this.defaults) as SettingsData);
+    this.saveDelayMs = Math.max(0, options.saveDelayMs ?? SETTINGS_SAVE_DELAY_MS);
+    this.env = options.env ?? detectEnvironment();
+    this._defaults = deepFreeze(defaultSettings(this.env));
+    this.current = deepFreeze(structuredClone(this._defaults) as SettingsData);
+    if (!options.env) this.watchSystem();
+    if (this.storage && typeof window !== 'undefined' && typeof document !== 'undefined') {
+      // A pending debounced save must not be lost when the tab closes or goes to the background.
+      const flush = (): void => this.flush();
+      const hidden = (): void => {
+        if (document.visibilityState === 'hidden') this.flush();
+      };
+      window.addEventListener('pagehide', flush);
+      document.addEventListener('visibilitychange', hidden);
+      this.cleanups.push(() => {
+        window.removeEventListener('pagehide', flush);
+        document.removeEventListener('visibilitychange', hidden);
+      });
+    }
     if (options.autoLoad ?? true) this.load();
   }
 
@@ -245,22 +294,74 @@ export class Settings {
     return this.current;
   }
 
-  /** Applies a patch (sanitised and clamped), notifies listeners of the keys that actually changed, then saves. */
+  /** Defaults for the current system preferences. */
+  get defaults(): Readonly<SettingsData> {
+    return this._defaults;
+  }
+
+  /** The system preferences currently in effect. */
+  get environment(): Readonly<SettingsEnvironment> {
+    return this.env;
+  }
+
+  /** True when the player chose a value for a system-derived setting that differs from the system's. */
+  isOverridden(key: SystemKey): boolean {
+    return this.overrides.has(key);
+  }
+
+  /**
+   * Applies a patch (sanitised and clamped), notifies listeners of the keys that actually changed, then saves. Setting
+   * reducedMotion or colorblind to a value other than the system's makes it an explicit choice; setting the system's
+   * value makes it follow the system again.
+   */
   set(patch: SettingsPatch): void {
     const merged = { ...this.current, ...patch, volumes: { ...this.current.volumes, ...patch.volumes } };
     // Invalid values in a patch keep the current value.
-    this.replace(sanitize(merged, this.current));
+    const next = sanitize(merged, this.current);
+    let overridesChanged = false;
+    for (const k of SYSTEM_KEYS) {
+      if (patch[k] === undefined) continue;
+      const explicit = !equalValue(next[k], this._defaults[k]);
+      if (explicit !== this.overrides.has(k)) overridesChanged = true;
+      if (explicit) this.overrides.add(k);
+      else this.overrides.delete(k);
+    }
+    if (!this.replace(next) && overridesChanged) this.scheduleSave();
   }
 
-  /** Restores defaults for the given keys, or everything when no keys are given. */
+  /** Restores defaults for the given keys, or everything when no keys are given. System-derived keys follow the system again. */
   reset(keys?: readonly SettingsKey[]): void {
-    if (!keys) {
-      this.replace(structuredClone(this.defaults));
-      return;
+    const touched = SYSTEM_KEYS.filter((k) => (!keys || keys.includes(k)) && this.overrides.has(k));
+    for (const k of touched) this.overrides.delete(k);
+    let changed: boolean;
+    if (!keys) changed = this.replace(structuredClone(this._defaults));
+    else {
+      const patch: Raw = {};
+      for (const k of keys) patch[k] = structuredClone(this._defaults[k]);
+      changed = this.replace(sanitize({ ...this.current, ...patch }, this._defaults));
     }
-    const patch: Raw = {};
-    for (const k of keys) patch[k] = structuredClone(this.defaults[k]);
-    this.replace(sanitize({ ...this.current, ...patch }, this.defaults));
+    if (!changed && touched.length > 0) this.scheduleSave();
+  }
+
+  /**
+   * Updates the system preferences (called when the media queries change; tests may call it directly). Settings that
+   * follow the system take the new values; explicit choices stay.
+   */
+  setEnvironment(env: SettingsEnvironment): void {
+    if (env.prefersReducedMotion === this.env.prefersReducedMotion && env.prefersMoreContrast === this.env.prefersMoreContrast) return;
+    this.env = { ...env };
+    this._defaults = deepFreeze(defaultSettings(this.env));
+    const next: SettingsData = { ...this.current, ...this.systemValues() };
+    // Nothing to save: values that follow the system are not stored.
+    this.replace(next, false);
+  }
+
+  /** The current defaults of the system-derived keys that are not overridden. */
+  private systemValues(): Partial<SettingsData> {
+    const out: Partial<SettingsData> = {};
+    if (!this.overrides.has('reducedMotion')) out.reducedMotion = this._defaults.reducedMotion;
+    if (!this.overrides.has('colorblind')) out.colorblind = this._defaults.colorblind;
+    return out;
   }
 
   /** Subscribes to changes; returns the unsubscribe function. */
@@ -270,8 +371,9 @@ export class Settings {
   }
 
   load(): void {
-    let next: SettingsData = structuredClone(this.defaults);
+    let next: SettingsData = structuredClone(this._defaults);
     this.lastLoadIssue = null;
+    this.overrides.clear();
     let text: string | null = null;
     try {
       text = this.storage?.getItem(this.key) ?? null;
@@ -282,7 +384,10 @@ export class Settings {
       try {
         const parsed: unknown = JSON.parse(text);
         if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) throw new Error('not an object');
-        next = sanitize(migrate(parsed as Raw), this.defaults);
+        const raw = migrate(parsed as Raw);
+        next = sanitize(raw, this._defaults);
+        // A stored (valid) system-derived value is an explicit choice.
+        for (const k of SYSTEM_KEYS) if (raw[k] !== undefined && equalValue(raw[k], next[k])) this.overrides.add(k);
       } catch {
         this.lastLoadIssue = 'corrupt';
       }
@@ -290,12 +395,30 @@ export class Settings {
     this.replace(next, false);
   }
 
+  /** Writes to storage now (cancels a pending debounced save). Values that follow the system are left out. */
   save(): void {
+    if (this.saveTimer !== null) {
+      clearTimeout(this.saveTimer);
+      this.saveTimer = null;
+    }
+    const following = new Set<string>(SYSTEM_KEYS.filter((k) => !this.overrides.has(k)));
+    const out = Object.fromEntries(Object.entries(this.current).filter(([k]) => !following.has(k)));
     try {
-      this.storage?.setItem(this.key, JSON.stringify(this.current));
+      this.storage?.setItem(this.key, JSON.stringify(out));
     } catch {
       // Quota exceeded or storage blocked: settings still work for this session.
     }
+  }
+
+  /** Saves now if a debounced save is pending. */
+  flush(): void {
+    if (this.saveTimer !== null) this.save();
+  }
+
+  /** Flushes pending changes and stops following the system preferences. */
+  dispose(): void {
+    this.flush();
+    for (const c of this.cleanups.splice(0)) c();
   }
 
   /**
@@ -313,14 +436,47 @@ export class Settings {
     root.dataset['reducedMotion'] = String(d.reducedMotion);
   }
 
-  private replace(next: SettingsData, save = true): void {
+  private watchSystem(): void {
+    if (typeof matchMedia !== 'function') return;
+    for (const q of SYSTEM_QUERIES) {
+      try {
+        const mql = matchMedia(q);
+        const onChange = (): void => this.setEnvironment(detectEnvironment());
+        mql.addEventListener('change', onChange);
+        this.cleanups.push(() => mql.removeEventListener('change', onChange));
+      } catch {
+        // Old engines without MediaQueryList events: the preference is still read at startup.
+      }
+    }
+  }
+
+  private scheduleSave(): void {
+    if (!this.autoSave) return;
+    if (this.saveDelayMs === 0) {
+      this.save();
+      return;
+    }
+    if (this.saveTimer !== null) clearTimeout(this.saveTimer);
+    this.saveTimer = setTimeout(() => {
+      this.saveTimer = null;
+      this.save();
+    }, this.saveDelayMs);
+  }
+
+  /** Swaps in new data; returns whether anything changed. */
+  private replace(next: SettingsData, save = true): boolean {
     const prev = this.current;
     const changed = new Set<SettingsKey>();
     for (const k of Object.keys(next) as SettingsKey[]) if (!equalValue(prev[k], next[k])) changed.add(k);
-    if (changed.size === 0) return;
+    if (changed.size === 0) return false;
     this.current = deepFreeze(next);
     if (this.appliedRoot) this.applyToDocument(this.appliedRoot);
-    if (save && this.autoSave) this.save();
+    if (save) this.scheduleSave();
+    this.notify(changed);
+    return true;
+  }
+
+  private notify(changed: ReadonlySet<SettingsKey>): void {
     for (const cb of [...this.listeners]) {
       try {
         cb(this.current, changed);

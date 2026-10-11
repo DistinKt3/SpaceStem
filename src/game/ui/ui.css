@@ -69,9 +69,14 @@
   --ks-border-w: 2px;
   --ks-accent: #ffe600;
   --ks-focus: #ffe600;
-  --ks-measured: #66b8ff;
-  --ks-inferred: #ffb000;
-  --ks-generated: #ffffff;
+  /*
+   * Provenance: light blue, amber and violet, each distinct from plain white text (so Generated never reads as
+   * ordinary data) and from one another under protanopia, deuteranopia and tritanopia, with lightness steps that
+   * also keep them apart in greyscale. Violet is the darkest at 6.2:1 on black.
+   */
+  --ks-measured: #a0d8ff;
+  --ks-inferred: #ffa000;
+  --ks-generated: #b366ff;
   --ks-warn: #ffe600;
   --ks-danger: #ff7070;
   --ks-ok: #7cffb0;
@@ -207,33 +212,42 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
-/* Holographic corner brackets. */
-.ks-set-frame::before,
-.ks-set-frame::after {
+/*
+ * Holographic corner brackets, floating just outside the frame (on the dialog, not the frame) so scrolled content
+ * never runs under them. Their size is capped in px so large text does not grow them into the content area's view.
+ */
+.ks-settings::before,
+.ks-settings::after {
+  --ks-bracket-gap: 6px;
   content: '';
   position: absolute;
   z-index: 2;
-  width: 2.4rem;
-  height: 2.4rem;
+  width: min(2.4rem, 38px);
+  height: min(2.4rem, 38px);
   pointer-events: none;
   border: 2px solid var(--ks-accent);
   filter: drop-shadow(0 0 0.4rem color-mix(in srgb, var(--ks-accent) calc(var(--ks-glow) * 2), transparent));
 }
 
-.ks-set-frame::before {
-  top: 0;
-  left: 0;
+.ks-settings::before {
+  top: calc(-1 * var(--ks-bracket-gap));
+  left: calc(-1 * var(--ks-bracket-gap));
   border-right: 0;
   border-bottom: 0;
-  border-top-left-radius: calc(1rem - 1px);
+  border-top-left-radius: calc(1rem + var(--ks-bracket-gap));
 }
 
-.ks-set-frame::after {
-  right: 0;
-  bottom: 0;
+.ks-settings::after {
+  right: calc(-1 * var(--ks-bracket-gap));
+  bottom: calc(-1 * var(--ks-bracket-gap));
   border-left: 0;
   border-top: 0;
-  border-bottom-right-radius: calc(1rem - 1px);
+  border-bottom-right-radius: calc(1rem + var(--ks-bracket-gap));
+}
+
+.ks-settings[open]::before,
+.ks-settings[open]::after {
+  animation: ks-set-in 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .ks-set-brand {
@@ -973,11 +987,22 @@
   color: var(--ks-dim);
 }
 
-.ks-preview-badges {
+.ks-preview-legend {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 0.5em;
-  margin-top: 0.6em !important;
+  margin-top: 0.8em !important;
+  padding-top: 0.75em;
+  border-top: 1px dashed var(--ks-hairline);
+}
+
+.ks-preview-legend-k {
+  margin-right: 0.35em;
+  font: 600 0.7em/1 var(--ks-mono);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ks-dim);
 }
 
 .ks-prov {
@@ -1424,8 +1449,8 @@
   box-shadow: none;
 }
 
-:root[data-colorblind='high-contrast'] .ks-set-frame::before,
-:root[data-colorblind='high-contrast'] .ks-set-frame::after {
+:root[data-colorblind='high-contrast'] .ks-settings::before,
+:root[data-colorblind='high-contrast'] .ks-settings::after {
   display: none;
 }
 
@@ -1526,6 +1551,10 @@
     overflow-x: auto;
     border-bottom: 1px solid var(--ks-hairline);
     scrollbar-width: none;
+  }
+
+  /* Only when even icon-only tabs do not fit: fade the cut edge so it reads as scrollable. */
+  .ks-set-frame[data-tabs-overflow] .ks-set-tabs {
     mask-image: linear-gradient(90deg, #000 calc(100% - 2.5rem), transparent);
   }
 
@@ -1533,6 +1562,39 @@
     flex: none;
     gap: 0.5rem;
     padding: 0.45rem 0.75rem;
+  }
+
+  /*
+   * Tab labels collapse when the strip is too narrow (chosen in settingsPanel.ts by measuring): first the inactive
+   * tabs become icons, then all of them, with the active tab's name shown in the header while it has room. Hidden
+   * labels stay in the accessibility tree, and the icon-only tabs get a tooltip.
+   */
+  .ks-set-frame[data-tabs='active'] .ks-tab:not(.is-active) .ks-tab-label,
+  .ks-set-frame[data-tabs='icons'] .ks-tab-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .ks-set-frame[data-tabs='active'] .ks-tab:not(.is-active),
+  .ks-set-frame[data-tabs='icons'] .ks-tab {
+    padding-inline: 0.6rem;
+  }
+
+  .ks-set-frame[data-tabs='icons']:not([data-tabs-title]) .ks-set-tabs {
+    gap: 0.15rem;
+  }
+
+  .ks-set-frame[data-tabs='icons']:not([data-tabs-title]) .ks-tab {
+    padding-inline: 0.5rem;
+  }
+
+  .ks-set-frame[data-tabs-title] .ks-set-panetitle {
+    display: block;
+    white-space: nowrap;
   }
 
   .ks-tab.is-active::before {
@@ -1683,6 +1745,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .ks-settings[open] .ks-set-frame,
+  .ks-settings[open]::before,
+  .ks-settings[open]::after,
   .ks-settings[open]::backdrop,
   .ks-slot.is-listening,
   .ks-listen-dot,
