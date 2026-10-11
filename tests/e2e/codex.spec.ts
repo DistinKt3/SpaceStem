@@ -2,6 +2,7 @@
  * Codex, "How do we know this?" and provenance badges on codex.html (DOM only, no WebGPU canvas, so page screenshots
  * work). Screenshots are written to test-results/codex-shots/ for visual review.
  */
+import { readFileSync } from 'node:fs';
 import { test, expect, type Page } from '@playwright/test';
 
 const SHOTS = 'test-results/codex-shots';
@@ -184,7 +185,9 @@ test.describe('Codex panel', () => {
     await expect(dialog.getByRole('img', { name: /^Inferred: / }).first()).toBeVisible();
     await expect(dialog.getByRole('img', { name: /^Generated: / }).first()).toBeVisible();
     await expect(dialog.locator('.ks-hwk-tier')).toHaveCount(3);
-    await expect(dialog.locator('.ks-cx-unverified').first()).toHaveText(/Unverified/);
+    await expect(dialog.locator('.ks-cx-unverified')).toHaveCount(0); // every Earth source has been checked
+    // Opened from the entry itself, the dialog does not offer to open that same entry.
+    await expect(dialog.getByRole('button', { name: 'Read Codex entry' })).toHaveCount(0);
     await settle(page);
     await page.screenshot({ path: `${SHOTS}/how-we-know.png` });
 
@@ -219,6 +222,156 @@ test.describe('Codex panel', () => {
     // A locked entry's provenance is still explained, but its Codex page is not opened.
     await page.evaluate(() => (window as unknown as HookWindow).__ksCodex.ui.howWeKnow.showById('moon'));
     await expect(hwk(page).getByRole('button', { name: 'Codex entry not yet discovered' })).toBeDisabled();
+
+    // Sources not yet checked against the original are flagged.
+    await page.evaluate(() => (window as unknown as HookWindow).__ksCodex.ui.howWeKnow.showById('parallax'));
+    await expect(hwk(page).locator('.ks-hwk-item', { hasText: 'Bessel' }).locator('.ks-cx-unverified')).toHaveText(
+      /Unverified/,
+    );
+  });
+
+  test('a search result keeps tabs, list and entry consistent, before and after the search is cleared', async ({
+    page,
+  }) => {
+    await open(page, 'open=codex&entry=earth');
+    await expect(page.getByRole('tab', { name: /Bodies/ })).toHaveAttribute('aria-selected', 'true');
+    await page.keyboard.press('/');
+    await page.keyboard.type('parallax');
+    // Results span every category: no category is selected, and the panel is labelled as the results.
+    await expect(page.locator('[role="tab"][aria-selected="true"]')).toHaveCount(0);
+    await expect(page.getByRole('tabpanel', { name: 'Search results for “parallax”' })).toBeVisible();
+    await page.keyboard.press('Enter');
+    await expect(entryTitle(page)).toHaveText('Parallax');
+    await expect(entryTitle(page)).toBeFocused();
+
+    // Clearing the search returns to the entry's own category, with the entry active and selected.
+    await page.getByRole('searchbox').focus();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('searchbox')).toHaveValue('');
+    await expect(page.getByRole('tab', { name: /Concepts/ })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('tabpanel', { name: /^Concepts/ })).toBeVisible();
+    const listbox = page.getByRole('listbox');
+    const active = page.locator(`#${(await listbox.getAttribute('aria-activedescendant'))!}`);
+    await expect(active).toHaveAttribute('data-entry', 'parallax');
+    await expect(active).toHaveAttribute('aria-selected', 'true');
+    await expect(entryTitle(page)).toHaveText('Parallax');
+    await listbox.focus();
+    await page.keyboard.press('ArrowDown');
+    await expect(entryTitle(page)).toHaveText('The hyperspeed drive');
+  });
+
+  test('closing and reopening in the same task leaves the dialogs open and in sync', async ({ page }) => {
+    await open(page);
+    const state = () =>
+      page.evaluate(() => {
+        const ui = (window as unknown as { __ksCodex: { ui: { isOpen: boolean } } }).__ksCodex.ui;
+        return {
+          isOpen: ui.isOpen,
+          codex: document.querySelector<HTMLDialogElement>('dialog.ks-cx')!.open,
+          hwk: document.querySelector<HTMLDialogElement>('dialog.ks-hwk')!.open,
+        };
+      });
+    await page.evaluate(() => {
+      const ui = (window as unknown as HookWindow).__ksCodex.ui as unknown as {
+        panel: { open(id?: string): void; close(): void };
+      };
+      ui.panel.open('earth');
+      ui.panel.close();
+      ui.panel.open('earth');
+    });
+    await page.waitForTimeout(200); // let the queued "close" event fire
+    expect(await state()).toEqual({ isOpen: true, codex: true, hwk: false });
+    await page.keyboard.press('KeyC'); // toggles it closed
+    await expect(codex(page)).toBeHidden();
+    expect(await state()).toEqual({ isOpen: false, codex: false, hwk: false });
+
+    await page.evaluate(() => {
+      const hw = (window as unknown as HookWindow).__ksCodex.ui.howWeKnow as unknown as {
+        showById(id: string): boolean;
+        close(): void;
+      };
+      hw.showById('earth');
+      hw.close();
+      hw.showById('moon');
+    });
+    await page.waitForTimeout(200);
+    expect(await state()).toEqual({ isOpen: true, codex: false, hwk: true });
+    await page.keyboard.press('Escape');
+    await expect(hwk(page)).toBeHidden();
+    expect(await state()).toEqual({ isOpen: false, codex: false, hwk: false });
+  });
+
+  test('reports open changes to the game once per change and lets key releases through', async ({ page }) => {
+    await open(page);
+    await page.evaluate(() => {
+      const w = window as unknown as {
+        __ksCodex: { ui: { onOpenChange(cb: (open: boolean) => void): () => void } };
+        __opens: boolean[];
+        __keyups: string[];
+      };
+      w.__opens = [];
+      w.__keyups = [];
+      w.__ksCodex.ui.onOpenChange((o) => w.__opens.push(o));
+      addEventListener('keyup', (e) => w.__keyups.push(e.code));
+    });
+    const opens = () => page.evaluate(() => (window as unknown as { __opens: boolean[] }).__opens);
+
+    // A flight key held while the Codex opens is released inside it: the game still hears the release.
+    await page.keyboard.down('KeyW');
+    await page.keyboard.press('KeyC');
+    await expect(codex(page)).toBeVisible();
+    await page.keyboard.up('KeyW');
+    expect(await page.evaluate(() => (window as unknown as { __keyups: string[] }).__keyups)).toContain('KeyW');
+    await expect.poll(opens).toEqual([true]);
+
+    // Moving from the Codex into its "How do we know this?" dialog and back is not a change.
+    await page.getByRole('button', { name: 'How do we know this?' }).click();
+    await expect(hwk(page)).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(hwk(page)).toBeHidden();
+    await page.keyboard.press('Escape');
+    await expect(codex(page)).toBeHidden();
+    await expect.poll(opens).toEqual([true, false]);
+
+    // Nor is the hand-over from the dialog to the Codex ("Read Codex entry").
+    await page.keyboard.press('KeyI');
+    await expect(hwk(page)).toBeVisible();
+    await hwk(page).getByRole('button', { name: 'Read Codex entry' }).click();
+    await expect(codex(page)).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(codex(page)).toBeHidden();
+    await expect.poll(opens).toEqual([true, false, true, false]);
+  });
+
+  test('a load that fails while the Codex is open shows the error card, and "Try again" recovers', async ({ page }) => {
+    const codexJson = readFileSync('tests/fixtures/codex_sample.json', 'utf8');
+    const citationsJson = readFileSync('tests/fixtures/citations_sample.json', 'utf8');
+    let codexRequests = 0;
+    await page.route('**/data/codex/en.json', async (route) => {
+      codexRequests++;
+      if (codexRequests === 1) {
+        await new Promise((r) => setTimeout(r, 2500)); // slow enough to open the Codex first
+        await route.fulfill({ status: 404, body: 'Not found' });
+      } else await route.fulfill({ status: 200, contentType: 'application/json', body: codexJson });
+    });
+    await page.route('**/data/citations.json', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: citationsJson }),
+    );
+    await page.goto('/codex.html?reset=1&source=data');
+    await expect(page.locator('#lab-open')).toBeVisible();
+    await page.keyboard.press('KeyC');
+    await expect(codex(page)).toBeVisible();
+    await expect(page.locator('.ks-cx-entry')).toContainText('Loading the Codex');
+    // The failure lands while the Codex is open.
+    const card = page.getByRole('alert').filter({ hasText: 'Codex unavailable' });
+    await expect(card).toBeVisible();
+    await expect(page.locator('.ks-cx-list-empty')).toHaveText('No entries available.');
+    await settle(page);
+    await page.screenshot({ path: `${SHOTS}/panel-error.png` });
+    await card.getByRole('button', { name: 'Try again' }).click();
+    await expect(entryTitle(page)).toHaveText('Sun');
+    await expect(page.getByRole('listbox')).toBeFocused();
+    expect(codexRequests).toBe(2);
   });
 });
 
@@ -275,6 +428,42 @@ test.describe('provenance badges', () => {
     for (const p of ['measured', 'inferred', 'generated']) expect(by(p, true).border).toBe(by(p, false).border);
     await expect(page.getByRole('img', { name: 'Measured: directly observed and catalogued' }).first()).toBeVisible();
     await page.locator('.lab-badges').screenshot({ path: `${SHOTS}/badges.png` });
+  });
+
+  test('follow the system colours in a light Windows contrast theme, keeping their shapes', async ({ page }) => {
+    await page.emulateMedia({ forcedColors: 'active', colorScheme: 'light' });
+    await open(page, 'open=hwk&entry=trappist-1e');
+    await expect(hwk(page)).toBeVisible();
+    const info = await page.evaluate(() => {
+      const probe = document.createElement('span');
+      probe.style.color = 'CanvasText';
+      probe.style.backgroundColor = 'Canvas';
+      document.body.append(probe);
+      const text = getComputedStyle(probe).color;
+      const canvas = getComputedStyle(probe).backgroundColor;
+      probe.remove();
+      const badges = [...document.querySelectorAll<HTMLElement>('dialog.ks-hwk .ks-badge')].map((b) => {
+        const cs = getComputedStyle(b);
+        return { p: b.dataset['provenance'], color: cs.color, border: cs.borderTopColor, style: cs.borderTopStyle };
+      });
+      // Icons take the forced colour of the text around them, never the (pale) accent.
+      const icons = [...document.querySelectorAll<SVGElement>('dialog.ks-hwk svg.ks-cx-icon')].map(
+        (s) => getComputedStyle(s).color,
+      );
+      return { text, canvas, badges, icons };
+    });
+    expect(info.text).not.toBe(info.canvas);
+    expect(info.badges.length).toBeGreaterThan(6);
+    for (const b of info.badges) {
+      expect(b.color).toBe(info.text);
+      expect(b.border).toBe(info.text);
+    }
+    expect(info.icons.length).toBeGreaterThan(0);
+    for (const c of info.icons) expect(c).not.toBe('rgb(127, 212, 255)'); // the default --ks-accent
+    const styles = new Map(info.badges.map((b) => [b.p, b.style]));
+    expect(Object.fromEntries(styles)).toEqual({ measured: 'solid', inferred: 'dashed', generated: 'dotted' });
+    await settle(page);
+    await page.screenshot({ path: `${SHOTS}/forced-colors-light.png` });
   });
 
   test('take their colours from the palette tokens', async ({ page }) => {
@@ -442,11 +631,73 @@ test.describe('input and layout', () => {
     expect(errors).toEqual([]);
   });
 
+  test('on a phone all categories fit; when they cannot, the strip fades at the end that hides more', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 760 });
+    await open(page, 'open=codex&entry=earth');
+    const tabs = page.getByRole('tablist');
+    await expect(codex(page)).toHaveAttribute('data-view', 'entry');
+    await page.getByRole('button', { name: 'Back to list' }).click();
+    // The other categories show their icon only, so all five fit at phone width.
+    const fits = () =>
+      tabs.evaluate((el) => {
+        const r = el.getBoundingClientRect();
+        return [...el.querySelectorAll('[role="tab"]')].every((b) => b.getBoundingClientRect().right <= r.right + 1);
+      });
+    expect(await fits()).toBe(true);
+    await expect(tabs).not.toHaveAttribute('data-more', /.+/);
+    await expect(page.getByRole('tab', { name: /^Stars, 1 of 3 discovered/ })).toBeVisible();
+    await settle(page);
+    await page.screenshot({ path: `${SHOTS}/phone-tabs.png` });
+
+    // Larger text: the strip scrolls, and fades where more categories are hidden.
+    await page.evaluate(() => (document.documentElement.style.fontSize = '150%'));
+    await expect(tabs).toHaveAttribute('data-more', 'end');
+    expect(await tabs.evaluate((el) => getComputedStyle(el).maskImage)).toMatch(/gradient/);
+    await settle(page);
+    await page.screenshot({ path: `${SHOTS}/phone-tabs-large-text.png` });
+    // The last category scrolls into view when selected; the fade moves to the other end.
+    await page.getByRole('tab', { selected: true }).focus();
+    await page.keyboard.press('End');
+    const log = page.getByRole('tab', { name: /Discovery log/ });
+    await expect(log).toHaveAttribute('aria-selected', 'true');
+    await expect(tabs).toHaveAttribute('data-more', 'start');
+    const box = await log.boundingBox();
+    const strip = await tabs.boundingBox();
+    expect(box!.x + box!.width).toBeLessThanOrEqual(strip!.x + strip!.width + 1);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  });
+
   test('high-contrast palette', async ({ page }) => {
     await open(page, 'colorblind=high-contrast&open=codex&entry=earth');
     const border = await page.locator('.ks-cx-frame').evaluate((el) => getComputedStyle(el).borderTopWidth);
     expect(border).toBe('2px');
     await settle(page);
     await page.screenshot({ path: `${SHOTS}/panel-high-contrast.png` });
+  });
+
+  test('no visible text is smaller than 0.7rem (labels, markers, table heads, key hints)', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await open(page, 'textScale=0.8&discover=moon&open=codex&entry=earth');
+    /** Visible text smaller than 0.7 root em, as "class: size" strings. */
+    const tooSmall = (root: string) =>
+      page.evaluate((sel) => {
+        const min = 0.7 * parseFloat(getComputedStyle(document.documentElement).fontSize) - 0.05;
+        const out: string[] = [];
+        for (const el of document.querySelectorAll<HTMLElement>(`${sel} *`)) {
+          const text = [...el.childNodes].some((n) => n.nodeType === Node.TEXT_NODE && n.textContent?.trim());
+          const r = el.getBoundingClientRect();
+          if (!text || r.width < 2 || el.closest('.ks-cx-sr, .ks-badge-sr')) continue;
+          const size = parseFloat(getComputedStyle(el).fontSize);
+          if (size < min) out.push(`${el.className || el.tagName}: ${size}px`);
+        }
+        return out;
+      }, root);
+    await expect(page.locator('.ks-cx-table thead th').first()).toBeVisible();
+    expect(await tooSmall('dialog.ks-cx')).toEqual([]);
+    await page.evaluate(() => (window as unknown as HookWindow).__ksCodex.ui.howWeKnow.showById('parallax'));
+    await expect(hwk(page).locator('.ks-cx-unverified').first()).toBeVisible();
+    expect(await tooSmall('dialog.ks-hwk')).toEqual([]);
   });
 });

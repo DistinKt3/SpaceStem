@@ -58,6 +58,7 @@ export class HowWeKnowPanel implements CodexNavTarget {
   private openState = false;
   private escAt = -Infinity;
   private readonly closeCbs = new Set<() => void>();
+  private readonly openCbs = new Set<() => void>();
   private readonly id = `ks-hwk-${++uid}`;
   /** Citations already shown in full in the current rendering. */
   private readonly cited = new Set<string>();
@@ -101,16 +102,17 @@ export class HowWeKnowPanel implements CodexNavTarget {
       },
       this.frame,
     );
+    // Key presses typed in the dialog belong to it, not to the game behind it (see onKey). Releases do reach the game,
+    // so a key held when the dialog opened is not left "held" after it closes.
     this.element.addEventListener('keydown', (e) => this.onKey(e));
-    // Keys typed in the dialog belong to it, not to the game behind it.
-    this.element.addEventListener('keyup', (e) => e.stopPropagation());
     this.element.addEventListener('cancel', (e) => {
       // Esc is handled on keydown; this covers other close requests (and ignores the one Esc may also raise).
       e.preventDefault();
       if (performance.now() - this.escAt > 100) this.close();
     });
     this.element.addEventListener('close', () => {
-      if (!this.openState) return;
+      // The event is queued: by the time it fires, close() may have run and the dialog been shown again.
+      if (!this.openState || this.element.open) return;
       this.openState = false;
       this.finishClose(true);
     });
@@ -129,10 +131,14 @@ export class HowWeKnowPanel implements CodexNavTarget {
     return this.current;
   }
 
-  /** Opens the dialog for an entry. Focus returns to `opener` (default: the focused element) on close. */
-  show(entry: CodexEntry, opener?: HTMLElement | null): void {
+  /**
+   * Opens the dialog for an entry. Focus returns to `opener` (default: the focused element) on close. `inCodex` hides
+   * "Read Codex entry" when the dialog is opened from that entry's own Codex page.
+   */
+  show(entry: CodexEntry, opener?: HTMLElement | null, opts: { inCodex?: boolean } = {}): void {
     this.current = entry;
     this.render(entry);
+    this.readBtn.hidden = opts.inCodex === true;
     if (!this.openState) {
       const active = opener ?? document.activeElement;
       this.returnFocus = active instanceof HTMLElement && active !== document.body ? active : null;
@@ -140,6 +146,7 @@ export class HowWeKnowPanel implements CodexNavTarget {
       showDialog(this.element);
       pushNavTarget(this);
       window.addEventListener('resize', this.onResize);
+      for (const cb of [...this.openCbs]) cb();
     }
     this.updateCompact();
     this.scroller.scrollTop = 0;
@@ -176,6 +183,14 @@ export class HowWeKnowPanel implements CodexNavTarget {
     return true;
   }
 
+  /** Opens the dialog for a star by name ("Proxima Centauri"); false when it has no Codex entry. */
+  showForStar(name: string, opener?: HTMLElement | null): boolean {
+    const e = this.store.byStarName(name);
+    if (!e) return false;
+    this.show(e, opener);
+    return true;
+  }
+
   close(restoreFocus = true): void {
     if (!this.openState) return;
     this.openState = false;
@@ -187,6 +202,12 @@ export class HowWeKnowPanel implements CodexNavTarget {
   onClose(cb: () => void): () => void {
     this.closeCbs.add(cb);
     return () => this.closeCbs.delete(cb);
+  }
+
+  /** Called when the dialog opens (not when an open dialog switches entry). */
+  onOpen(cb: () => void): () => void {
+    this.openCbs.add(cb);
+    return () => this.openCbs.delete(cb);
   }
 
   dispose(): void {

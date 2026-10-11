@@ -105,8 +105,8 @@
 
 .ks-cx-eyebrow {
   margin: 0;
-  font: 600 0.68rem/1.35 var(--ks-mono);
-  letter-spacing: 0.18em;
+  font: 600 0.72rem/1.35 var(--ks-mono);
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--ks-accent);
 }
@@ -116,8 +116,8 @@
   align-items: center;
   gap: 0.75rem;
   margin: 0 0 0.75rem;
-  font: 600 0.68rem/1 var(--ks-mono);
-  letter-spacing: 0.2em;
+  font: 600 0.72rem/1 var(--ks-mono);
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--ks-dim);
 }
@@ -134,7 +134,7 @@
   border: 1px solid var(--cx-hair);
   border-bottom-width: 2px;
   border-radius: 0.28rem;
-  font: 500 0.62rem/1.2 var(--ks-mono);
+  font: 500 0.7rem/1.2 var(--ks-mono);
   color: var(--ks-dim);
 }
 
@@ -183,6 +183,10 @@
 }
 .ks-cx-btn:disabled .ks-cx-icon {
   color: var(--ks-dim);
+}
+.ks-cx-btn[hidden],
+.ks-cx-iconbtn[hidden] {
+  display: none;
 }
 
 .ks-cx-iconbtn {
@@ -239,7 +243,7 @@
   display: inline-flex;
   flex-direction: column;
   vertical-align: -0.42em;
-  font-size: 0.7em;
+  font-size: 0.8em;
   line-height: 1.12;
   text-align: left;
 }
@@ -280,8 +284,8 @@
   padding: 0.02rem 0.34rem;
   border: 1px dashed currentColor;
   border-radius: 0.3rem;
-  font: 600 0.6rem/1.4 var(--ks-mono);
-  letter-spacing: 0.08em;
+  font: 600 0.7rem/1.4 var(--ks-mono);
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--cx-warn);
   vertical-align: 0.06em;
@@ -427,8 +431,8 @@ dialog.ks-hwk::after {
 }
 .ks-cx-sub {
   margin: 0.2rem 0 0;
-  font: 0.64rem/1.2 var(--ks-mono);
-  letter-spacing: 0.06em;
+  font: 0.72rem/1.2 var(--ks-mono);
+  letter-spacing: 0.03em;
   color: var(--ks-dim);
   white-space: nowrap;
 }
@@ -442,6 +446,40 @@ dialog.ks-hwk::after {
   overflow-x: auto;
   scrollbar-width: none;
   padding: 0.15rem;
+  /* Tabs scrolled into view stop clear of the edge fades below. */
+  scroll-padding-inline: 2.5rem;
+}
+/* When the categories do not fit, the panel steps down (data-fit, set from script): tighter spacing, then icon and
+   count for the categories not selected, then icon alone. Names and counts stay in each tab's accessible name and
+   tooltip. */
+.ks-cx-tabs[data-fit] {
+  gap: 0.15rem;
+}
+.ks-cx-tabs[data-fit] .ks-cx-tab {
+  gap: 0.35rem;
+  padding-inline: 0.5rem;
+}
+.ks-cx-tabs:is([data-fit='compact'], [data-fit='icons']) .ks-cx-tab:not(.is-active) .ks-cx-tab-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.ks-cx-tabs[data-fit='icons'] .ks-cx-tab:not(.is-active) .ks-cx-tab-count {
+  display: none;
+}
+/* If even that does not fit (very large text on a phone), the strip scrolls, and the end that hides more tabs fades
+   out, so a cut-off tab shows there is more to reach. */
+.ks-cx-tabs[data-more='end'] {
+  mask-image: linear-gradient(90deg, #000 calc(100% - 3rem), transparent);
+}
+.ks-cx-tabs[data-more='start'] {
+  mask-image: linear-gradient(90deg, transparent, #000 3rem);
+}
+.ks-cx-tabs[data-more='both'] {
+  mask-image: linear-gradient(90deg, transparent, #000 3rem, #000 calc(100% - 3rem), transparent);
 }
 .ks-cx-tab {
   position: relative;
@@ -487,7 +525,7 @@ dialog.ks-hwk::after {
   padding: 0.1rem 0.32rem;
   border-radius: 0.3rem;
   background: rgba(255, 255, 255, 0.06);
-  font: 500 0.66rem/1.2 var(--ks-mono);
+  font: 500 0.72rem/1.2 var(--ks-mono);
   color: var(--ks-dim);
   font-variant-numeric: tabular-nums;
 }
@@ -505,7 +543,7 @@ dialog.ks-hwk::after {
   flex-direction: column;
   align-items: flex-end;
   gap: 0.32rem;
-  font: 500 0.68rem/1.2 var(--ks-mono);
+  font: 500 0.72rem/1.2 var(--ks-mono);
   color: var(--ks-dim);
   white-space: nowrap;
 }
@@ -708,8 +746,8 @@ dialog.ks-hwk::after {
   border-radius: 0.3rem;
   background: var(--ks-accent);
   color: var(--ks-bg, #02040a);
-  font: 700 0.6rem/1.2 var(--ks-mono);
-  letter-spacing: 0.12em;
+  font: 700 0.7rem/1.2 var(--ks-mono);
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   box-shadow: 0 0 0.7rem var(--cx-glow-color);
 }
@@ -726,15 +764,17 @@ dialog.ks-hwk::after {
 }
 .ks-cx-legend .ks-cx-eyebrow {
   color: var(--ks-dim);
-  font-size: 0.6rem;
+  font-size: 0.7rem;
 }
 .ks-cx-legend-badges {
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
 }
+/* Slightly tighter than a standalone badge, so the three fit on one row of the sidebar. */
 .ks-cx-legend .ks-badge {
-  font-size: 0.62rem;
+  padding-inline: 0.36em 0.5em;
+  letter-spacing: 0.04em;
 }
 
 /* Entry view. */
@@ -866,8 +906,8 @@ dialog.ks-hwk::after {
 .ks-cx-table thead th {
   padding: 0 0.65rem 0.5rem;
   border-bottom: 1px solid var(--cx-hair);
-  font: 600 0.6rem/1 var(--ks-mono);
-  letter-spacing: 0.14em;
+  font: 600 0.7rem/1 var(--ks-mono);
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--ks-dim);
   text-align: left;
@@ -1105,19 +1145,6 @@ button.ks-cx-chip:hover {
   .ks-cx-entry-title {
     font-size: 1.85rem;
   }
-  /* Icons and counts for the other categories; the full name stays available to screen readers and as a tooltip. */
-  .ks-cx-tab:not(.is-active) .ks-cx-tab-label {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
-  .ks-cx-tab {
-    gap: 0.35rem;
-    padding: 0.42rem 0.55rem;
-  }
 }
 /* Very short (small window or very large text): brand, tabs and close share one row. */
 @container ks-codex (max-height: 24rem) {
@@ -1157,11 +1184,36 @@ button.ks-cx-chip:hover {
   .ks-cx-title {
     letter-spacing: 0.22em;
   }
-  .ks-cx-tab {
-    padding: 0.42rem 0.55rem;
+}
+/* Header too narrow for "4 of 8 discovered" beside the title: "4/8" (the sentence stays for screen readers). */
+.ks-cx-progress-short {
+  display: none;
+}
+@container ks-codex (max-width: 21rem) {
+  .ks-cx-progress-full {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .ks-cx-progress-short {
+    display: inline;
+  }
+}
+/* Narrower still (very large text on a phone): the brand mark stands in for the title. */
+@container ks-codex (max-width: 15.5rem) {
+  .ks-cx-title {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
   .ks-cx-progress {
-    font-size: 0.62rem;
+    font-size: 0.7rem;
   }
 }
 
@@ -1180,6 +1232,13 @@ button.ks-cx-chip:hover {
 .ks-cx-errorcard .ks-cx-lockcard-icon {
   color: var(--cx-warn);
   border-color: currentColor;
+}
+.ks-cx-lockcard-action {
+  margin: 1.2rem 0 0;
+}
+.ks-cx-retry[aria-busy='true'] {
+  cursor: progress;
+  opacity: 0.75;
 }
 
 /* --- "How do we know this?" ------------------------------------------------------------------------------------ */
@@ -1335,8 +1394,8 @@ dialog.ks-hwk::backdrop {
 }
 .ks-hwk-meta dt {
   padding-top: 0.22rem;
-  font: 600 0.58rem/1.2 var(--ks-mono);
-  letter-spacing: 0.14em;
+  font: 600 0.7rem/1.2 var(--ks-mono);
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--ks-dim);
 }
@@ -1519,7 +1578,7 @@ dialog.ks-hwk[data-compact='true'] .ks-hwk-foot {
   min-width: 0;
 }
 .ks-cx-toast-text .ks-cx-eyebrow {
-  font-size: 0.6rem;
+  font-size: 0.7rem;
 }
 .ks-cx-toast-title {
   margin: 0.2rem 0 0;
@@ -1623,6 +1682,9 @@ dialog.ks-hwk[open] .ks-hwk-frame {
   display: none;
 }
 
+/* Forced colours (Windows contrast themes): everything takes the system colours, light or dark. Badges keep their
+   tier through shape alone (border style and glyph, both drawn in currentColor), and the few marks drawn only with
+   backgrounds (progress, "new" markers, selection bar, toast timer) use Highlight so they do not vanish. */
 @media (forced-colors: active) {
   .ks-cx-entry-title {
     background: none;
@@ -1630,6 +1692,31 @@ dialog.ks-hwk[open] .ks-hwk-frame {
     color: CanvasText;
   }
   .ks-badge {
+    color: CanvasText;
+    border-color: CanvasText;
+    background: Canvas;
+  }
+  .ks-cx-tally-item {
+    color: CanvasText;
+  }
+  /* SVG icons are not recoloured by the browser: they take the forced colour of the text around them (ButtonText,
+     LinkText, CanvasText). !important outranks the many accent-coloured icon rules above. */
+  svg.ks-cx-icon {
+    color: inherit !important;
+  }
+  .ks-cx-progress-fill,
+  .ks-cx-dot,
+  .ks-cx-opt[aria-selected='true']::before,
+  .ks-cx-toast-timer {
     forced-color-adjust: none;
+    background: Highlight;
+  }
+  .ks-cx-new {
+    forced-color-adjust: none;
+    background: Highlight;
+    color: HighlightText;
+  }
+  .ks-cx-tabs[data-more] {
+    mask-image: none;
   }
 }

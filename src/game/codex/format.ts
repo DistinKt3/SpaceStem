@@ -148,12 +148,12 @@ export function kindLabel(kind: CodexKind): string {
   return t(`codex.kind.${kind}`);
 }
 
-/** Display name of a system id, e.g. "the Solar System" or "the TRAPPIST-1 system"; null when unknown. */
 /** The entry's system id; a Solar System body (NAIF body id, no system given) belongs to "sol". */
 export function entrySystem(e: Pick<CodexEntry, 'systemId' | 'bodyId'>): string | undefined {
   return e.systemId ?? (e.bodyId !== undefined ? 'sol' : undefined);
 }
 
+/** Display name of a system id, e.g. "the Solar System" or "the TRAPPIST-1 system"; null when unknown. */
 export function systemName(systemId: string | undefined, entries: readonly CodexEntry[]): string | null {
   if (!systemId) return null;
   const key = `codex.system.${systemId}`;
@@ -166,7 +166,9 @@ export function systemName(systemId: string | undefined, entries: readonly Codex
 export function lockedHint(e: CodexEntry, entries: readonly CodexEntry[]): string {
   // Ideas are learned along the way, however they unlock; objects say where to go.
   if (e.kind === 'concept') return t('codex.locked.hint.concept');
-  const sys = systemName(entrySystem(e), entries);
+  // Without a known system id, an entry that names its star still says where to go ("the Proxima Centauri system").
+  const sys =
+    systemName(entrySystem(e), entries) ?? (e.starName ? t('codex.system.named', { star: e.starName }) : null);
   if (e.unlock === 'scan') return sys ? t('codex.locked.hint.scanIn', { system: sys }) : t('codex.locked.hint.scan');
   switch (e.kind) {
     case 'body':

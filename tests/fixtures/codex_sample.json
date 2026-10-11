@@ -17,27 +17,29 @@
       "facts": [
         {
           "label": "Effective temperature",
-          "value": 5772,
+          "value": 5772.0,
           "unit": "K",
           "uncertainty": 0.8,
           "provenance": "measured",
-          "method": "Total solar irradiance and the solar radius, through the Stefan–Boltzmann law",
+          "method": "Stefan–Boltzmann law applied to the measured luminosity and photospheric radius",
           "citation": "iau2015_b3"
         },
         {
-          "label": "Radius (IAU nominal)",
-          "value": 695700,
+          "label": "Photospheric radius",
+          "value": 695658,
           "unit": "km",
+          "uncertainty": 140,
           "provenance": "measured",
-          "method": "Conversion constant adopted by the IAU from photospheric radius measurements",
-          "citation": "iau2015_b3"
+          "method": "Solar limb measurements referred to the photosphere (where the gas becomes opaque); the IAU nominal radius, 695,700 km, is this value rounded",
+          "citation": "haberreiter2008"
         },
         {
-          "label": "Luminosity (IAU nominal)",
-          "value": 3.828e26,
+          "label": "Luminosity",
+          "value": 3.8275e26,
           "unit": "W",
+          "uncertainty": 1.4e23,
           "provenance": "measured",
-          "method": "Conversion constant adopted by the IAU from total solar irradiance measurements",
+          "method": "Total solar irradiance measured from space (1361 W/m², averaged over solar cycle 23) over a sphere 1 au in radius",
           "citation": "iau2015_b3"
         },
         {
@@ -59,8 +61,8 @@
       ],
       "howWeKnow": [
         {
-          "claim": "The Sun's size, temperature and power output are **measured**: satellites record its total irradiance, and solar astrometry gives its radius.",
-          "method": "Space radiometry and solar astrometry",
+          "claim": "The Sun's size, temperature and power output are **measured**: satellites record its total irradiance, and observations of its limb give its radius.",
+          "method": "Space radiometry and solar limb observations",
           "provenance": "measured",
           "citation": "iau2015_b3"
         },
@@ -83,7 +85,7 @@
       "summary": "Our home world, the third planet from the Sun and the only place known to host life.",
       "body": [
         "Earth is the yardstick for every rocky planet in the Codex: when an exoplanet's radius is given as **0.92 Earth radii**, this is the planet being compared.",
-        "Its shape is measured to millimetres by satellite geodesy. Its mass enters through **GM**, the product of the gravitational constant and the mass, which spacecraft tracking pins down far better than either factor alone.",
+        "Its shape is measured to about ten centimetres by satellite geodesy. Its mass enters through **GM**, the product of the gravitational constant and the mass, which spacecraft tracking pins down far better than either factor alone.",
         "In Known Sky, Earth's colours come from NASA's Blue Marble imagery and its relief from ETOPO1 elevation data. Detail finer than the data is **generated**: seeded noise that looks plausible but is invented."
       ],
       "facts": [
@@ -309,21 +311,12 @@
       ],
       "facts": [
         {
-          "label": "Effective temperature",
-          "value": 2566,
-          "unit": "K",
-          "uncertainty": 26,
+          "label": "Luminosity",
+          "value": 0.000553,
+          "unit": "L☉",
+          "uncertainty": 0.000019,
           "provenance": "measured",
-          "method": "Fit to the star's spectral energy distribution",
-          "citation": "agol2021"
-        },
-        {
-          "label": "Radius",
-          "value": 0.1192,
-          "unit": "R☉",
-          "uncertainty": 0.0013,
-          "provenance": "measured",
-          "method": "Transit photometry with the stellar density from the planets' orbits",
+          "method": "Bolometric flux and distance (Ducrot et al. 2020, as adopted by Agol et al.)",
           "citation": "agol2021"
         },
         {
@@ -332,16 +325,25 @@
           "unit": "M☉",
           "uncertainty": 0.0023,
           "provenance": "inferred",
-          "method": "Empirical mass–luminosity relation for M dwarfs",
+          "method": "Empirical relation between near-infrared brightness and mass for M dwarfs (Mann et al. 2019), as adopted by Agol et al.",
           "citation": "agol2021"
         },
         {
-          "label": "Luminosity",
-          "value": 0.000553,
-          "unit": "L☉",
-          "uncertainty": 0.000019,
-          "provenance": "measured",
-          "method": "Bolometric flux and distance",
+          "label": "Radius",
+          "value": 0.1192,
+          "unit": "R☉",
+          "uncertainty": 0.0013,
+          "provenance": "inferred",
+          "method": "Stellar density from the planets' transits, combined with the inferred mass",
+          "citation": "agol2021"
+        },
+        {
+          "label": "Effective temperature",
+          "value": 2566,
+          "unit": "K",
+          "uncertainty": 26,
+          "provenance": "inferred",
+          "method": "Stefan–Boltzmann law from the luminosity and the inferred radius",
           "citation": "agol2021"
         },
         {
@@ -363,14 +365,20 @@
       ],
       "howWeKnow": [
         {
-          "claim": "The star's radius and temperature are **measured** from transits and its spectrum.",
-          "method": "Transit photometry and spectroscopy",
+          "claim": "The star's **luminosity** is measured: its total brightness across all wavelengths, scaled by its distance.",
+          "method": "Bolometric flux and parallax distance",
           "provenance": "measured",
           "citation": "agol2021"
         },
         {
           "claim": "Its mass is **inferred** from its brightness, using a relation calibrated on M dwarfs in binary systems.",
           "method": "Mass–luminosity relation",
+          "provenance": "inferred",
+          "citation": "agol2021"
+        },
+        {
+          "claim": "Its radius and temperature are **inferred** too: the transits give the star's density, the inferred mass turns that into a radius, and the luminosity and radius give the temperature.",
+          "method": "Transit photometry and the Stefan–Boltzmann law",
           "provenance": "inferred",
           "citation": "agol2021"
         }
@@ -509,11 +517,13 @@
           "citation": "hipparcos2007"
         },
         {
-          "label": "Light-years in one parsec",
-          "value": 3.2616,
+          "label": "Distance of Proxima Centauri",
+          "value": 4.2465,
+          "unit": "ly",
+          "uncertainty": 0.0003,
           "provenance": "measured",
-          "method": "From the definitions of the parsec and the astronomical unit",
-          "citation": "esa_gaia_parallax"
+          "method": "One over the parallax in arcseconds gives the distance in parsecs (1.302); one parsec is about 3.26 light-years",
+          "citation": "gaia_dr3"
         }
       ],
       "howWeKnow": [
@@ -551,12 +561,13 @@
           "citation": "ks_generation"
         },
         {
-          "label": "Speed of light",
-          "value": 299792.458,
-          "unit": "km/s",
+          "label": "Distance to the nearest star",
+          "value": 4.2465,
+          "unit": "ly",
+          "uncertainty": 0.0003,
           "provenance": "measured",
-          "method": "Exact by the SI definition of the metre",
-          "citation": "bipm_si"
+          "method": "Gaia parallax of Proxima Centauri: light needs more than four years to cover it",
+          "citation": "gaia_dr3"
         }
       ],
       "howWeKnow": [],

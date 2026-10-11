@@ -5,8 +5,10 @@
  * Typical game integration:
  *   const codex = createCodexUI(new CodexStore(), { closeKeys: ['KeyC'] });
  *   void codex.store.load();
+ *   codex.onOpenChange((open) => { input.enabled = !open; });  // the Codex can also open itself (toast "View")
  *   // C toggles the Codex, I explains the current target, arrivals unlock entries:
- *   codex.panel.toggle();  codex.howWeKnow.showForBody(targetId);  codex.store.discover(entryId);
+ *   codex.panel.toggle();  codex.howWeKnow.showForBody(targetId);  codex.howWeKnow.showForStar(starName);
+ *   codex.store.discover(entryId);  // or store.byBodyId(id) / store.byStarName(name) / store.bySystem(id) first
  */
 import { CodexPanel } from './codexPanel';
 import type { CodexStore } from './codexStore';
@@ -20,6 +22,12 @@ export interface CodexUI {
   readonly toast: CodexToast;
   /** True while the Codex or the "How do we know this?" dialog is open (game input should pause). */
   readonly isOpen: boolean;
+  /**
+   * Called with the new isOpen whenever it changes, however the dialogs were opened or closed (keys, buttons, toasts,
+   * gamepad). Handing over from one dialog to the other ("Read Codex entry") does not report a brief close. Called
+   * in a microtask after the change, so before the next frame. Returns an unsubscribe function.
+   */
+  onOpenChange(cb: (open: boolean) => void): () => void;
   dispose(): void;
 }
 
@@ -45,17 +53,51 @@ export function createCodexUI(store: CodexStore, opts: CodexUIOptions = {}): Cod
     ...(opts.toastDurationMs ? { durationMs: opts.toastDurationMs } : {}),
     ...parent,
   });
-  const off = store.onDiscover((e) => toast.show(e));
+
+  const isOpen = (): boolean => panel.isOpen || howWeKnow.isOpen;
+  const openCbs = new Set<(open: boolean) => void>();
+  let reported = false;
+  let pending = false;
+  const sync = (): void => {
+    if (pending) return;
+    pending = true;
+    queueMicrotask(() => {
+      pending = false;
+      const now = isOpen();
+      if (now === reported) return;
+      reported = now;
+      for (const cb of [...openCbs]) {
+        try {
+          cb(now);
+        } catch (err) {
+          console.error('Codex open-change listener failed', err);
+        }
+      }
+    });
+  };
+  const offs = [
+    store.onDiscover((e) => toast.show(e)),
+    panel.onOpen(sync),
+    panel.onClose(sync),
+    howWeKnow.onOpen(sync),
+    howWeKnow.onClose(sync),
+  ];
+
   return {
     store,
     panel,
     howWeKnow,
     toast,
     get isOpen() {
-      return panel.isOpen || howWeKnow.isOpen;
+      return isOpen();
+    },
+    onOpenChange(cb) {
+      openCbs.add(cb);
+      return () => openCbs.delete(cb);
     },
     dispose() {
-      off();
+      for (const off of offs) off();
+      openCbs.clear();
       toast.dispose();
       panel.dispose();
       howWeKnow.dispose();
