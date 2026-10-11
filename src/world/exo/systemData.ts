@@ -249,10 +249,28 @@ export const INFERRED_FIELDS: readonly (keyof ExoPlanetInferred)[] = [
   'atmosphere',
 ];
 
+/** `.value` of a Sourced-shaped object, if it is a finite number. */
+function numericValue(v: unknown): number | undefined {
+  if (!isObj(v)) return undefined;
+  const x = v['value'];
+  return typeof x === 'number' && Number.isFinite(x) ? x : undefined;
+}
+
+/** Flags a present numeric value that is not > 0 (a missing value is reported by checkSourced). */
+function checkPositive(v: unknown, path: string, out: string[]): void {
+  const x = numericValue(v);
+  if (x !== undefined && !(x > 0)) out.push(`${path}.value must be > 0`);
+}
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
 /**
  * Schema and provenance checks: every displayed value has a provenance, a non-empty source and a citation that
- * resolves in the file's citation list; measured/inferred/generated blocks hold only their own tier. Returns a list of
- * problems (empty when valid).
+ * resolves in the file's citation list (including the planet count and each default parameter set);
+ * measured/inferred/generated blocks hold only their own tier. Also checks what the helpers rely on: planet ids are
+ * unique and equal `${system.id}${letter}`, planets are sorted by strictly increasing period (both the catalogued and
+ * the mean-ephemeris period), and periods, semi-major axes, radii, masses and the stellar values the formulas use
+ * are positive. Returns a list of problems (empty when valid).
  */
 export function validateSystem(data: unknown): string[] {
   const out: string[] = [];
@@ -260,7 +278,7 @@ export function validateSystem(data: unknown): string[] {
   for (const k of ['id', 'name', 'retrieved', 'source'] as const) {
     if (typeof data[k] !== 'string' || data[k] === '') out.push(`${k} is missing`);
   }
-  if (typeof data['retrieved'] === 'string' && !/^\d{4}-\d{2}-\d{2}$/.test(data['retrieved'])) out.push('retrieved must be YYYY-MM-DD');
+  if (typeof data['retrieved'] === 'string' && !DATE_RE.test(data['retrieved'])) out.push('retrieved must be YYYY-MM-DD');
   const citations = data['citations'];
   if (!isObj(citations)) return [...out, 'citations is missing'];
   for (const [key, c] of Object.entries(citations)) {
@@ -269,16 +287,27 @@ export function validateSystem(data: unknown): string[] {
     } else if (typeof c['year'] !== 'number') out.push(`citations.${key}.year must be a number`);
     else if (typeof c['doi'] !== 'string' && typeof c['url'] !== 'string') out.push(`citations.${key} needs a DOI or URL`);
   }
+  const resolves = (c: unknown): boolean => typeof c === 'string' && c !== '' && Object.hasOwn(citations, c);
   const count = data['exoplanetCount'];
   if (!isObj(count) || typeof count['value'] !== 'number' || typeof count['asOf'] !== 'string' || typeof count['source'] !== 'string') {
     out.push('exoplanetCount needs value, asOf and source');
+  } else {
+    if (!(Number.isInteger(count['value']) && count['value'] > 0)) out.push('exoplanetCount.value must be a positive integer');
+    if (!DATE_RE.test(count['asOf'])) out.push('exoplanetCount.asOf must be YYYY-MM-DD');
+    if (!resolves(count['citation'])) out.push('exoplanetCount.citation does not resolve');
   }
   const star = data['star'];
   if (!isObj(star)) out.push('star is missing');
-  else for (const [k, kind] of STAR_FIELDS) checkSourced(star[k], `star.${k}`, kind, 'measured', citations, out);
+  else {
+    for (const [k, kind] of STAR_FIELDS) checkSourced(star[k], `star.${k}`, kind, 'measured', citations, out);
+    for (const k of ['teffK', 'radiusSun', 'massSun', 'luminositySun'] as const) checkPositive(star[k], `star.${k}`, out);
+  }
   const pos = data['position'];
   if (!isObj(pos)) out.push('position is missing');
-  else for (const k of ['raDeg', 'decDeg', 'distancePc']) checkSourced(pos[k], `position.${k}`, 'number', 'measured', citations, out);
+  else {
+    for (const k of ['raDeg', 'decDeg', 'distancePc']) checkSourced(pos[k], `position.${k}`, 'number', 'measured', citations, out);
+    checkPositive(pos['distancePc'], 'position.distancePc', out);
+  }
   const plane = data['orbitalPlane'];
   if (!isObj(plane)) out.push('orbitalPlane is missing');
   else {
@@ -287,6 +316,8 @@ export function validateSystem(data: unknown): string[] {
   }
   const planets = data['planets'];
   if (!Array.isArray(planets) || planets.length === 0) return [...out, 'planets is missing'];
+  const ids = new Set<string>();
+  const prevPeriod = { measured: -Infinity, mean: -Infinity };
   planets.forEach((p: unknown, i) => {
     const at = `planets[${i}]`;
     if (!isObj(p)) {
@@ -294,6 +325,18 @@ export function validateSystem(data: unknown): string[] {
       return;
     }
     for (const k of ['id', 'name', 'letter'] as const) if (typeof p[k] !== 'string' || p[k] === '') out.push(`${at}.${k} is missing`);
+    const id = p['id'];
+    if (typeof id === 'string' && id !== '') {
+      if (ids.has(id)) out.push(`${at}.id '${id}' is not unique`);
+      ids.add(id);
+      if (typeof data['id'] === 'string' && typeof p['letter'] === 'string' && id !== `${data['id']}${p['letter']}`) {
+        out.push(`${at}.id must be '${data['id']}${p['letter']}'`);
+      }
+    }
+    const dps = p['defaultParameterSet'];
+    if (!isObj(dps) || typeof dps['label'] !== 'string' || typeof dps['published'] !== 'string') {
+      out.push(`${at}.defaultParameterSet needs label, citation and published`);
+    } else if (!resolves(dps['citation'])) out.push(`${at}.defaultParameterSet.citation does not resolve`);
     const m = p['measured'];
     const inf = p['inferred'];
     const g = p['generated'];
@@ -302,9 +345,20 @@ export function validateSystem(data: unknown): string[] {
       return;
     }
     for (const k of MEASURED_FIELDS) checkSourced(m[k], `${at}.measured.${k}`, 'number', 'measured', citations, out);
+    for (const k of ['periodDays', 'semiMajorAxisAu', 'radiusEarth', 'massEarth'] as const) checkPositive(m[k], `${at}.measured.${k}`, out);
     for (const k of INFERRED_FIELDS) {
       const kind = k === 'tidallyLocked' ? 'boolean' : k === 'composition' || k === 'atmosphere' ? 'string' : 'number';
       checkSourced(inf[k], `${at}.inferred.${k}`, kind, 'inferred', citations, out);
+    }
+    checkPositive(inf['ephemerisPeriodDays'], `${at}.inferred.ephemerisPeriodDays`, out);
+    // Sorted by period: both the catalogued period and the mean period that places the planet must increase.
+    for (const [key, v] of [
+      ['measured', numericValue(m['periodDays'])],
+      ['mean', numericValue(inf['ephemerisPeriodDays'])],
+    ] as const) {
+      if (v === undefined) continue;
+      if (!(v > prevPeriod[key])) out.push(`${at}: planets must be sorted by strictly increasing ${key === 'mean' ? 'mean ' : ''}period`);
+      prevPeriod[key] = v;
     }
     const comp = isObj(inf['composition']) ? inf['composition']['value'] : undefined;
     if (!(COMPOSITIONS as readonly unknown[]).includes(comp)) out.push(`${at}.inferred.composition has an unknown class`);
