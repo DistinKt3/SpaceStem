@@ -267,8 +267,9 @@ export class ScreenshotMode {
   private async captureFromOverlay(): Promise<void> {
     if (this.busy) return;
     this.busy = true;
+    // Busy, not disabled: a disabled button would drop keyboard focus.
     this.captureBtn.setAttribute('aria-busy', 'true');
-    this.captureBtn.disabled = true;
+    this.captureBtn.setAttribute('aria-disabled', 'true');
     this.captureLabel.textContent = t('share.shot.capturing');
     this.flashOnce();
     try {
@@ -280,7 +281,7 @@ export class ScreenshotMode {
     } finally {
       this.busy = false;
       this.captureBtn.removeAttribute('aria-busy');
-      this.captureBtn.disabled = false;
+      this.captureBtn.removeAttribute('aria-disabled');
       this.captureLabel.textContent = t('share.shot.capture');
     }
   }

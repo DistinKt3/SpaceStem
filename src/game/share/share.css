@@ -186,7 +186,7 @@ body.ks-screenshot .ks-captions {
   box-shadow: 0 0 0 5px color-mix(in srgb, var(--ks-focus, var(--ks-accent)) 22%, transparent);
 }
 
-.ks-shot-btn:disabled {
+.ks-shot-btn[aria-busy='true'] {
   cursor: progress;
   opacity: 0.75;
 }
