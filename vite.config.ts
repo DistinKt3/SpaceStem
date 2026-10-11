@@ -20,6 +20,7 @@ export default defineConfig({
         codexdata: resolve(import.meta.dirname, 'codexdata.html'),
         exo: resolve(import.meta.dirname, 'exo.html'),
         codex: resolve(import.meta.dirname, 'codex.html'),
+        fuel: resolve(import.meta.dirname, 'fuel.html'),
       },
     },
   },

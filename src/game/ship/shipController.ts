@@ -18,6 +18,7 @@ import { AU_M, PARSEC_M, SUN_RADIUS_M } from '../../core/constants';
 import type { Provenance } from '../../core/provenance';
 import { inferStar } from '../../world/starCatalog';
 import { MapView } from '../map/mapView';
+import { ShipFuel } from './shipFuel';
 
 /** Head look: radians per CSS pixel, and limits (the eye sits close to the headrest beyond ~140 degrees). */
 const HEAD_LOOK_RAD_PER_PX = 0.003;
@@ -35,6 +36,8 @@ export class ShipController implements Controller {
   readonly hud: Hud;
   targetId: string | null = '301';
   readonly hyper = new Hyperspeed();
+  /** Hyper-fuel, star scooping and hull heat (game mechanic, docs/FUEL.md). */
+  readonly fuel: ShipFuel;
   readonly managesAnchor = true;
   /** Transient message (i18n key) shown in the HUD warning area. */
   private message: { key: string; until: number; params?: Record<string, string> } | null = null;
@@ -57,6 +60,7 @@ export class ShipController implements Controller {
     const anchor = app.sys.byId.get(this.ship.pos.anchor);
     if (anchor && anchor.def.kind !== 'star') this.ship.vel.copy(Ship.bodyOmega(anchor, app.simTime).cross(this.ship.pos.offset));
     this.hud = new Hud(document.body);
+    this.fuel = new ShipFuel(app, this.ship, this.hyper, this.hud.root);
     this.resetCueState();
     const map = new MapView(app);
     map.onSelect = (id) => {
@@ -97,6 +101,7 @@ export class ShipController implements Controller {
     this.headYaw = 0;
     this.headPitch = 0;
     this.resetCueState();
+    this.fuel.onPlace();
   }
 
   /** Camera-relative info for a body ("399") or catalog star ("*<index>"). */
@@ -179,6 +184,7 @@ export class ShipController implements Controller {
     const arrival = Math.max(1.6 * Math.sqrt(lum) * AU_M, info.radius * 120);
     const err = this.hyper.engage(app.sys, this.ship, app.simTime, id, info.name, targetSsb, arrival);
     if (err) this.flash(err);
+    else if (!this.fuel.chargeJump(info.rel.length())) this.flash('fuel.error.insufficient', 4);
   }
 
   /** Auto-align: rotate the nose toward the target (toggle with Y). */
@@ -249,6 +255,8 @@ export class ShipController implements Controller {
     if (inp.justPressed('hyperspeed')) this.engageHyperspeed();
     if (inp.justPressed('toggleHud')) this.hud.setVisible(!this.hud.isVisible);
     if (inp.justPressed('toggleView')) app.setCockpitVisible(!app.frame.cockpitEnabled);
+    // Hull at its heat limit (game mechanic): the ship takes the controls and climbs away from the star.
+    if (this.fuel.steerClimb(dt, c)) this.autoAlign = false;
     if (this.autoAlign || this.hyper.active) {
       c.pitch = 0;
       c.yaw = 0;
@@ -264,6 +272,7 @@ export class ShipController implements Controller {
       ship.update(dt, c, app.sys, app.simTime);
       this.hyper.update(dt, app.sys, ship, app.simTime);
     }
+    this.fuel.update(dt);
     const reduce = app.reducedMotion;
     app.stars.streak.value = this.hyper.streak * (reduce ? 0.15 : 1);
     // Streaks radiate from the direction of travel.
@@ -325,7 +334,7 @@ export class ShipController implements Controller {
       hyperspeed: this.hyper.spoolProgress,
       atmosphereDensity: density,
       airspeed: neutral ? 0 : tel.surfaceSpeed,
-      scoopHeat: 0,
+      scoopHeat: this.fuel.system.heat,
       landed: ship.landed,
     };
     app.audio.update(dt, state);
@@ -370,6 +379,7 @@ export class ShipController implements Controller {
     if (performance.now() < this.dropMsgUntil) warnings.push(t('hud.warn.droppedOut'));
     if (this.message && performance.now() < this.message.until) warnings.push(t(this.message.key, this.message.params));
     if (this.hyper.phase === 'spool') warnings.push(t('hyper.spooling', { name: this.hyper.targetName }));
+    if (this.fuel.climbing) warnings.push(t('fuel.warn.emergencyClimb'));
     // In transit the ship model is not stepped, so read the nearest body directly.
     const inJump = this.hyper.phase === 'jump';
     const [jumpNear, jumpAlt] = inJump ? sys.nearest(ship.pos, app.simTime) : [null, 0];
@@ -396,6 +406,7 @@ export class ShipController implements Controller {
       footer: this.hyper.phase === 'jump' ? t('hyper.eta', { s: Math.ceil(this.hyper.etaSeconds) }) : '',
     };
     this.hud.update(state, app.frame.camera);
+    this.fuel.updateHud(this.targetId, info ? info.rel.length() : null);
     this.updateCockpit(app, sun.rel, sun.def.luminositySun ?? 1, sun.def.radiusM);
   }
 
@@ -445,7 +456,7 @@ export class ShipController implements Controller {
       sunDirLocal: local(sunRel),
       sunIntensity: Math.min(3, irr * exposure * sunVis),
       planetGlow,
-      alert: this.alert,
+      alert: Math.max(this.alert, this.fuel.cockpitAlert),
       reducedMotion: app.reducedMotion,
     });
   }
