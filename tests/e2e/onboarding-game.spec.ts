@@ -245,14 +245,17 @@ test.describe('guided opening in the game', () => {
       return { arrival, agl0, strafeAgl, down, landed, afterLiftOff: { landed: ship.landed, agl: ship.telemetry.agl } };
     });
     expect(r.arrival).toMatchObject({ mode: 'thrusters', throttle: 0, droppedOut: true });
+    // At the edge of the 20 km drop-out band (above the mean radius; the terrain is within about 11 km of it), not
+    // stopped hundreds of km out and not in the ground.
     expect(r.arrival.agl).toBeGreaterThan(1_000);
+    expect(r.arrival.agl).toBeLessThan(35_000);
     expect(r.arrival.speed).toBeLessThan(100); // at rest in the Moon's surface frame (~4.6 m/s at the equator)
     expect(r.strafeAgl).toBeGreaterThan(r.agl0 - 100); // strafing does not bring it down
     expect(r.down).toMatchObject({ landed: false, mode: 'thrusters' }); // on the ground, still under thrust
     expect(r.down.agl).toBeLessThan(3);
     expect(r.landed).toBe(true);
     expect(r.afterLiftOff.landed).toBe(false);
-    expect(r.afterLiftOff.agl).toBeGreaterThan(3);
+    expect(r.afterLiftOff.agl).toBeGreaterThanOrEqual(2.5); // airborne (the terrain clearance), drifting over terrain
     expect(errors).toEqual([]);
   });
 });

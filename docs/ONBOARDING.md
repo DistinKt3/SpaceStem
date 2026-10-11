@@ -31,9 +31,10 @@ Keyboard and gamepad players restart or end it from Settings > Accessibility > G
 still restart it in any ship session (not the free camera, which has no ship).
 
 When the tour will show (new or in progress), the game starts at `tourStart()` instead of `App.view('leo')`: 420 km
-above the point of Earth where the Moon stands about 12 degrees or more above the horizon (13 from Earth's centre), with the Sun as high as that
-allows (55 degrees from the zenith, the lighting of the `leo` view, whenever the Moon's position permits; at full Moon
-the Sun is just below the local horizon but still above the visible limb). The point lies on the great circle from
+above the point of Earth where the Moon stands 13 degrees or more above the horizon as seen from Earth's centre (about
+12 from the ship, after the Moon's parallax), with the Sun as high as that allows (55 degrees from the zenith, the
+lighting of the `leo` view, whenever the Moon's position permits; at full Moon the Sun is just below the local horizon
+but still above the visible limb). The point lies on the great circle from
 the sub-solar point toward the sub-lunar point (`openingUp()` in `snapshot.ts`). The view looks along the horizon 20
 degrees left of the Sun's direction, pitched down 18 degrees, like `leo`. The named `leo` view is unchanged (tests and
 screenshots use it).
@@ -41,8 +42,8 @@ screenshots use it).
 Why: from `leo` the Moon is behind Earth on about a third of all dates (the review sampled 60 half-days from
 2026-10-11 and found 23 blocked). A pilot following the tour then pointed at the hidden Moon, switched to cruise and
 flew into Earth; the drive dropped to thrusters 64 km up and the nudges went round in a loop.
-`tests/e2e/onboarding-game.spec.ts` replays those 60 dates in the real game: the tour start always has the Moon more
-than 11 degrees up and nothing in the way, while `leo` has Earth in the way on several of them.
+`tests/e2e/onboarding-game.spec.ts` replays those 60 dates in the real game: the tour start always has the Moon about
+12 degrees or more up and nothing in the way, while `leo` has Earth in the way on several of them.
 
 Restart (Settings) returns the ship to `tourStart()`, targets the Moon, turns auto-align off and replays from step 1.
 
@@ -73,11 +74,12 @@ cutting the throttle in mid-air makes flight assist hover, and the card then say
 Playing the tour in the real game exposed two flight-model gaps that made this advice false, fixed in `ship.ts` (two
 small hunks):
 
-- **Drop-out look-ahead.** The cruise drive's velocity lags its governor (time constant 0.4 s against 1.1 s), so a
-  full-throttle arrival still closes at about 1,300 km/s near the surface. The drop-out test used the altitude before
-  the step, so at 30 frames per second or fewer one step carried the ship through the 20 km band and into the ground
-  (at 60 fps it dropped out about 2 km up). The test now looks one step ahead (altitude minus closing speed times the
-  frame time), so the ship drops out above the surface at any frame rate (about 40 km up at 60 fps, 90 km at 10 fps).
+- **Drop-out at the band edge.** The cruise drive's velocity lags its governor (time constant 0.4 s against 1.1 s),
+  so a full-throttle arrival still closes at 1,000 to 5,000 km/s in the last frames. The drop-out test used the
+  altitude before the step, so at 30 frames per second or fewer one step carried the ship through the 20 km band and
+  into the ground (at 60 fps it dropped out about 2 km up). Now, when a step would cross the band, the ship travels
+  only up to its edge and drops out there, at any frame rate. (Merely stopping one step early, tried first, left the
+  ship up to 560 km out at 10 fps.)
 - **Settled touchdown.** A ship pressed onto the ground that cuts its throttle is held by flight assist exactly at the
   2.5 m clearance, where it never touched again and never counted as landed. Within half a second of a ground contact,
   resting below 3 m with the throttle cut and under 4 m/s now lands. A lift-off is not caught by it (no contact).
@@ -144,7 +146,8 @@ reload; a skipped or finished tour stays off until Settings > Restart guided tou
 - Top left, below the cockpit-mode HUD footer line. Width: up to 28 rem, but never past the HUD's top panel (about
   9 rem either side of centre) and never across the reticle.
 - **Short windows**: with at least 27 rem of height, the card ends half a rem above the HUD's left panel (centred at
-  the left edge, 8.24 rem tall in thrusters mode) and scrolls when its content is taller. The goal and hint come first;
+  the left edge, 8.24 rem tall in thrusters mode) and scrolls when its content is taller. The goal, any nudge and the
+  hint come first;
   a soft fade at the bottom edge shows there is more (`data-more`, updated by a ResizeObserver and scrolling, never
   measured per frame). The science line steps aside while a nudge shows below 50 rem of height; spacing tightens below
   44 rem; below 32 rem the header leaves the flow (the minimise button at the end of the goal row, the eyebrow and

@@ -265,13 +265,15 @@ export class Ship {
     this.vel.lerp(target, blend);
     tel.thrust = this.throttle;
     tel.surfaceSpeed = this.vel.length();
-    // Drop out to thrusters when close to a surface. The test looks one step ahead: the velocity lags the governor,
-    // so a full-throttle arrival still closes at ~1,000 km/s near the surface, and at 30 fps or less a single step
-    // would carry the ship through the drop-out band into the ground (docs/ONBOARDING.md, "Landing").
+    // Drop out to thrusters when close to a surface. The velocity lags the governor, so a full-throttle arrival still
+    // closes at 1,000+ km/s near the surface and one frame can carry the ship through the drop-out band into the
+    // ground: when this step would cross the band, the ship travels only up to its edge and drops out there
+    // (docs/ONBOARDING.md, "Landing").
     const dropAlt = Math.max(20_000, near.def.radiusM * FLIGHT.dropOutAltitudeFraction);
     const toBody = sys.bodyRelative(near.def.id, this.pos, t, new Vec3d());
     const closing = this.vel.dot(toBody) / Math.max(toBody.length(), 1);
     if (closing > 0 && alt - closing * dt < dropAlt) {
+      if (alt > dropAlt) this.pos.offset.addScaled(this.vel, (alt - dropAlt) / closing);
       this.mode = 'thrusters';
       this.throttle = 0;
       // Match the surface frame of the body we dropped out at (not the anchor's, e.g. Mars at Deimos).
