@@ -120,7 +120,7 @@ export class Cockpit {
     add(g.frame, surfaceMaterial({ color: [0.06, 0.065, 0.075], roughness: 0.32, metalness: 0.65, f0: 0.5 }, u, this.lights.frame, anchor), 'frame');
     add(g.trim, surfaceMaterial({ color: [0.36, 0.38, 0.42], roughness: 0.3, metalness: 0.9, f0: 0.6 }, u, interior, anchor), 'trim');
     add(g.glassBand, surfaceMaterial({ color: [0.006, 0.007, 0.009], roughness: 0.09, metalness: 0, f0: 0.045 }, u, this.lights.screens, anchor), 'glassband');
-    add(g.controls, surfaceMaterial({ color: [0.03, 0.032, 0.036], roughness: 0.55, metalness: 0.1, f0: 0.04 }, u, interior, anchor), 'controls');
+    add(g.controls, surfaceMaterial({ color: [0.018, 0.019, 0.022], roughness: 0.6, metalness: 0.05, f0: 0.04 }, u, interior, anchor), 'controls');
     add(g.buttons, keyMaterial(u, interior, anchor), 'buttons');
     add(g.lights, glowMaterial(u), 'lights');
     for (const p of g.panels) {

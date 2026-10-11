@@ -8,7 +8,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument */
 import '../game/styles.css';
 import * as THREE from 'three/webgpu';
-import { attribute, cameraPosition, clamp, dot, exp, float, max, mix, mx_fractal_noise_float, normalWorld, normalize, positionWorld, pow, smoothstep, uniform, uv, vec3, vec4, length } from 'three/tsl';
+import { attribute, cameraPosition, clamp, dot, exp, float, max, mix, mx_fractal_noise_float, normalWorld, normalize, positionWorld, pow, smoothstep, uniform, uv, vec3, length } from 'three/tsl';
 import { createRenderer, effectiveDepthMode, type BackendRequest, type DepthMode } from '../render/bootstrap';
 import { FrameRenderer } from '../render/frameRenderer';
 import { Cockpit, type CockpitState, type FlightMode } from '../render/cockpit/cockpit';
@@ -40,10 +40,12 @@ interface DemoSettings {
   lookPitch: number;
   /** Freeze animation time (for deterministic captures). */
   time: number | null;
+  /** Show the cockpit (off shows the backdrop alone). */
+  cockpitOn: boolean;
 }
 
 const PRESETS: Record<string, Partial<DemoSettings>> = {
-  ahead: { sunAz: -21, sunEl: 15, sunIntensity: 1.6, planetAz: 22, planetEl: -38, planetOn: true, throttle: 0.62, speed: 0.48, alert: 0, mode: 'impulse' },
+  ahead: { sunAz: -25.3, sunEl: 13.5, sunIntensity: 1.6, planetAz: 22, planetEl: -38, planetOn: true, throttle: 0.62, speed: 0.48, alert: 0, mode: 'impulse' },
   side: { sunAz: 74, sunEl: 22, sunIntensity: 1.4, planetAz: -18, planetEl: -40, planetOn: true, throttle: 0.35, speed: 0.81, alert: 0, mode: 'cruise' },
   night: { sunAz: 180, sunEl: -35, sunIntensity: 1.2, planetAz: 0, planetEl: -120, planetOn: false, throttle: 0.18, speed: 0.12, alert: 0, mode: 'thrusters' },
   alert: { sunAz: -60, sunEl: 35, sunIntensity: 1.0, planetAz: 15, planetEl: -36, planetOn: true, throttle: 0.94, speed: 0.97, alert: 0.85, mode: 'hyperspeed' },
@@ -64,6 +66,7 @@ const settings: DemoSettings = {
   lookYaw: 0,
   lookPitch: 0,
   time: null,
+  cockpitOn: true,
 };
 
 /** A few hundred stars as one mesh of small camera-facing quads in the background pass. */
@@ -145,7 +148,7 @@ function buildSun(): { mesh: THREE.Mesh; dir: N } {
   const r: N = length(uv().sub(0.5)).mul(2);
   // Disc (~0.53 deg) plus a soft halo; HDR so the bloom pass blooms it.
   const disc = smoothstep(0.034, 0.026, r).mul(60);
-  const halo = exp(r.mul(-9)).mul(1.4).add(exp(r.mul(-3.2)).mul(0.12));
+  const halo = exp(r.mul(-9)).mul(1.4).add(exp(r.mul(-3.2)).mul(0.12)).mul(smoothstep(1.0, 0.6, r));
   m.colorNode = vec3(1.0, 0.95, 0.86).mul(disc.add(halo));
   const mesh = new THREE.Mesh(g, m);
   mesh.frustumCulled = false;
@@ -168,18 +171,16 @@ function buildPlanet(radius: number, sunDir: N): THREE.Mesh {
   const surface = mix(ocean, ground, land);
   const albedo = mix(surface, vec3(0.85, 0.87, 0.9), clouds);
   const ndl = dot(n, sunDir);
-  const day = smoothstep(-0.08, 0.25, ndl);
   const lambert = clamp(ndl, 0, 1);
   const lit = albedo.mul(lambert.mul(1.25)).add(albedo.mul(0.004));
-  // Atmosphere: Rayleigh-blue limb glow on the day side, warm at the terminator.
-  const rim = pow(float(1).sub(clamp(dot(n, V.negate()), 0, 1)), 3.5);
-  const sunsetMix = smoothstep(0.35, -0.05, ndl);
-  const atmCol = mix(vec3(0.25, 0.5, 1.0), vec3(1.0, 0.45, 0.2), sunsetMix.mul(0.6));
-  const atm = atmCol.mul(rim.mul(1.6)).mul(day).mul(smoothstep(-0.2, 0.1, ndl));
+  // Atmosphere: a thin Rayleigh-blue limb on the day side, warming slightly toward the terminator.
+  const rim = pow(float(1).sub(clamp(dot(n, V.negate()), 0, 1)), 6);
+  const atmCol = mix(vec3(0.3, 0.55, 1.0), vec3(1.0, 0.55, 0.3), smoothstep(0.25, -0.05, ndl).mul(0.4));
+  const atm = atmCol.mul(rim.mul(1.3)).mul(smoothstep(-0.12, 0.25, ndl));
   // Specular sun glint on the ocean.
   const H = normalize(sunDir.sub(V));
-  const glint = pow(max(dot(n, H), 0), 140).mul(float(1).sub(land)).mul(float(1).sub(clouds)).mul(day).mul(3.0);
-  m.colorNode = vec4(lit.add(atm).add(vec3(1.0, 0.92, 0.8).mul(glint)), 1).rgb;
+  const glint = pow(max(dot(n, H), 0), 140).mul(float(1).sub(land)).mul(float(1).sub(clouds)).mul(smoothstep(0.0, 0.2, ndl)).mul(3.0);
+  m.colorNode = lit.add(atm).add(vec3(1.0, 0.92, 0.8).mul(glint));
   const mesh = new THREE.Mesh(g, m);
   mesh.frustumCulled = false;
   return mesh;
@@ -260,6 +261,7 @@ function buildUi(apply: () => void, setPreset: (name: string) => void): void {
   slider('speed', 'cockpit.demo.speed', 0, 1, 0.01, 2);
   slider('alert', 'cockpit.demo.alert', 0, 1, 0.01, 2);
   const ml = document.createElement('label');
+  ml.className = 'wide';
   const mspan = document.createElement('span');
   mspan.textContent = t('cockpit.demo.mode');
   const sel = document.createElement('select');
@@ -277,21 +279,25 @@ function buildUi(apply: () => void, setPreset: (name: string) => void): void {
   sel.value = settings.mode;
   ml.append(mspan, sel);
   ui.append(ml);
-  const cl = document.createElement('label');
-  cl.className = 'check';
-  const cb = document.createElement('input');
-  cb.type = 'checkbox';
-  cb.checked = settings.reducedMotion;
-  cb.addEventListener('change', () => {
-    settings.reducedMotion = cb.checked;
-    apply();
-  });
-  syncers.push(() => (cb.checked = settings.reducedMotion));
-  const cs = document.createElement('span');
-  cs.textContent = t('cockpit.demo.reducedMotion');
-  cl.append(cb, cs);
-  ui.append(cl);
-  sec('cockpit.attitude');
+  const check = (key: 'reducedMotion' | 'planetOn', label: string): void => {
+    const cl = document.createElement('label');
+    cl.className = 'check';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = settings[key];
+    cb.addEventListener('change', () => {
+      settings[key] = cb.checked;
+      apply();
+    });
+    syncers.push(() => (cb.checked = settings[key]));
+    const cs = document.createElement('span');
+    cs.textContent = t(label);
+    cl.append(cb, cs);
+    ui.append(cl);
+  };
+  check('reducedMotion', 'cockpit.demo.reducedMotion');
+  check('planetOn', 'cockpit.demo.planet');
+  sec('cockpit.demo.view');
   slider('lookYaw', 'cockpit.demo.lookYaw', -150, 150, 1);
   slider('lookPitch', 'cockpit.demo.lookPitch', -70, 70, 1);
   const note = document.createElement('div');
@@ -371,6 +377,7 @@ async function main(): Promise<void> {
     } else {
       state.planetGlow = null;
     }
+    cockpit.setVisible(settings.cockpitOn);
     look.setFromEuler(new THREE.Euler(settings.lookPitch * DEG, -settings.lookYaw * DEG, 0, 'YXZ'));
     fr.camera.quaternion.copy(look);
     fr.cockpitCamera.quaternion.copy(look);

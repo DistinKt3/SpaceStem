@@ -5,6 +5,7 @@
  */
 import * as THREE from 'three/webgpu';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { CANOPY, DEG, FRAME, LIP_PATH, PILLAR, azElOf, canopyExit, canopyNormal, canopyPoint, dirAzEl, pillarAz, type V3 } from './layout';
 
 const v3 = (p: V3): THREE.Vector3 => new THREE.Vector3(p[0], p[1], p[2]);
@@ -454,6 +455,25 @@ export function buildFloor(): THREE.BufferGeometry {
   return g;
 }
 
+/** Pilot seat behind the eye: headrest, reclined back and side bolsters (seen on head look). */
+export function buildSeat(hi: boolean): THREE.BufferGeometry[] {
+  const seg = hi ? 4 : 2;
+  const part = (w: number, h: number, d: number, r: number, at: [number, number, number], tiltX = 0, yaw = 0): THREE.BufferGeometry => {
+    const g = new RoundedBoxGeometry(w, h, d, seg, r);
+    g.rotateX(tiltX * DEG);
+    g.rotateY(yaw * DEG);
+    g.translate(...at);
+    return g;
+  };
+  // The pilot's head fills ~12 cm around the eye, so the headrest starts behind that.
+  return [
+    part(0.17, 0.17, 0.06, 0.025, [0, -0.04, 0.2], -8),
+    part(0.4, 0.56, 0.09, 0.04, [0, -0.46, 0.3], 14),
+    part(0.06, 0.46, 0.14, 0.028, [-0.215, -0.48, 0.25], 14, 10),
+    part(0.06, 0.46, 0.14, 0.028, [0.215, -0.48, 0.25], 14, -10),
+  ];
+}
+
 // ---------------------------------------------------------------------------------------------------------------
 // Panels.
 
@@ -695,8 +715,8 @@ export function buildCockpitGeometry(quality: 'low' | 'high' = 'high'): CockpitG
     const v = dash.vOf(PROFILE_LIP) + inset;
     return { at: dash.point(u, v), up: dash.normal(u, v).lerp(new THREE.Vector3(0, 1, 0), 0.6).normalize() };
   };
-  const tPos = consoleTop(-0.455, 0.03);
-  const sPos = consoleTop(0.455, 0.03);
+  const tPos = consoleTop(-0.468, 0.034);
+  const sPos = consoleTop(0.468, 0.034);
   const throttle = buildThrottle(tPos.at, tPos.up, hi);
   const stick = buildStick(sPos.at, sPos.up, hi);
 
@@ -739,7 +759,7 @@ export function buildCockpitGeometry(quality: 'low' | 'high' = 'high'): CockpitG
     glass: canopyEllipsoid(1.0, quality),
     trim: mergeOrThrow([...trimParts, ...throttle.trim, ...stick.trim]),
     lights: mergeOrThrow([lipStrip, ...emitters, ...pillarLightStrips(), ...throttle.glow, ...stick.glow]),
-    controls: mergeOrThrow([...throttle.body, ...stick.body]),
+    controls: mergeOrThrow([...throttle.body, ...stick.body, ...buildSeat(hi)]),
     buttons: mergeOrThrow(buttons),
     glassBand: band,
     panels,

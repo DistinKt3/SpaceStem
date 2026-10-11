@@ -1,7 +1,8 @@
 /**
  * Cockpit demo on both backends: boots without console errors, stays within the cockpit budget (<= 40 draw calls,
  * <= 60k triangles, measured by rendering the same frame with and without the cockpit pass), produces a non-black
- * in-page capture, and the displays respond to CockpitState (an alert turns the instrument cluster warm).
+ * in-page capture, and the displays respond to CockpitState (an alert turns the instrument cluster warm and pulses,
+ * except under reduced motion).
  */
 import { test, expect, type Page } from '@playwright/test';
 
@@ -102,6 +103,19 @@ for (const backend of ['webgpu', 'webgl2'] as const) {
     // Alert pulls the instrument colour to amber/red.
     expect(alarm.part.r).toBeGreaterThan(alarm.part.b + 8);
     expect(alarm.part.r).toBeGreaterThan(calm.part.r + 8);
+
+    // Reduced motion: the alert holds a steady colour (two different times render the same cluster)...
+    await page.evaluate(() => (window as unknown as { __ks: CockpitKs }).__ks.set({ alert: 0.9, reducedMotion: true, time: 1.0 }));
+    const still1 = await measure(page, CLUSTER);
+    await page.evaluate(() => (window as unknown as { __ks: CockpitKs }).__ks.set({ time: 1.45 }));
+    const still2 = await measure(page, CLUSTER);
+    expect(Math.abs(still1.part.r - still2.part.r)).toBeLessThan(0.5);
+    // ...while with motion allowed the alert pulses.
+    await page.evaluate(() => (window as unknown as { __ks: CockpitKs }).__ks.set({ reducedMotion: false, time: 1.0 }));
+    const pulse1 = await measure(page, CLUSTER);
+    await page.evaluate(() => (window as unknown as { __ks: CockpitKs }).__ks.set({ time: 1.45 }));
+    const pulse2 = await measure(page, CLUSTER);
+    expect(Math.abs(pulse1.part.r - pulse2.part.r)).toBeGreaterThan(2);
 
     expect(errors).toEqual([]);
   });

@@ -282,18 +282,29 @@ export function surfaceMaterial(spec: SurfaceSpec, u: CockpitUniforms, lightsNod
   return m;
 }
 
-/** Hull interior skin: the part of the canopy ellipsoid that is not glass. */
+/** Hull interior skin: the part of the canopy ellipsoid that is not glass, panelled, with a lit band at the rear. */
 export function skinMaterial(u: CockpitUniforms, lightsNode: THREE.LightsNode, glowAnchor: THREE.Vector3): THREE.MeshStandardNodeMaterial {
-  const m = surfaceMaterial({ color: [0.03, 0.034, 0.04], roughness: 0.7, metalness: 0, f0: 0.03 }, u, lightsNode, glowAnchor);
+  const base: [number, number, number] = [0.045, 0.049, 0.056];
+  const m = surfaceMaterial({ color: base, roughness: 0.65, metalness: 0, f0: 0.03 }, u, lightsNode, glowAnchor);
   m.side = THREE.BackSide;
   const P = positionWorld;
+  const { az, el } = azEl(P);
+  const line = (x: N, pitch: number): N => {
+    const f = abs(fract(x.div(pitch)).sub(0.5)).mul(pitch);
+    return smoothstep(float(pitch / 2).sub(fwidth(x).mul(1.5).add(0.02)), pitch / 2, f);
+  };
   m.colorNode = Fn(() => {
-    const { el } = azEl(P);
     If(el.greaterThan(CANOPY.sillEl + 0.3).and(P.z.lessThan(CANOPY.bowZ - FRAME.bowWidth * 0.3)), () => {
       Discard();
     });
-    return vec3(0.03, 0.034, 0.04);
+    // Panel seams on an azimuth / elevation grid.
+    const seam = max(line(az.add(180), 22.5), line(el.add(90), 15));
+    return vec3(...base).mul(float(1).sub(seam.mul(0.55)));
   })();
+  // A soft light band across the rear bulkhead, following the instrument accent.
+  const rear = smoothstep(105, 125, abs(az));
+  const band = exp(el.sub(14).div(1.2).pow(2).negate()).mul(rear);
+  m.emissiveNode = col(u.accent).mul(u.panelGain).mul(band.mul(0.35)).add(m.emissiveNode);
   return m;
 }
 
@@ -371,14 +382,14 @@ export function glassMaterial(u: CockpitUniforms, wear: THREE.Texture, sources: 
       return exp(dx.mul(dx).add(dz.mul(dz)).div(-soft * soft));
     };
     let screens: N = float(0);
-    for (const g of sources) screens = screens.add(box(g.x, g.z, g.halfW, g.halfD, 0.025).mul(g.weight));
+    for (const g of sources) screens = screens.add(box(g.x, g.z, g.halfW, g.halfD, 0.04).mul(g.weight));
     const lipD = abs(length(vec2(hx, hz)).sub(LIP_DISTANCE - 0.01));
     const lip = exp(lipD.mul(lipD).div(-0.0035 * 0.0035)).mul(step(abs(hx), 0.47)).mul(0.9);
     const valid = step(Rv.y, -0.02).mul(step(0, tP));
     const panelLight = col(u.accent).mul(u.panelGain).mul(screens.mul(0.55).add(lip)).mul(valid);
     // The cabin itself, faintly lit by the displays, mirrored at grazing angles near the frame.
     const cabin = vec3(0.006, 0.007, 0.009).mul(u.gain).add(col(u.accent).mul(u.panelGain).mul(0.03));
-    const refl = panelLight.mul(1.6).add(cabin).mul(fres).mul(float(1).add(smudge.mul(0.6)));
+    const refl = panelLight.mul(1.1).add(cabin).mul(fres).mul(float(1).add(smudge.mul(0.6)));
 
     // --- Sun glare: scratches perpendicular to the direction toward the Sun light up; forward-scattering haze.
     const sd = u.sunDir;
@@ -406,11 +417,11 @@ export function glassMaterial(u: CockpitUniforms, wear: THREE.Texture, sources: 
 
     // --- Edge tint near the frame: a thin darker, slightly cyan band where the glass meets the struts.
     const dEdge = frameDistance(P);
-    const edge = float(1).sub(smoothstep(0.0, 0.07, dEdge));
-    const tintCol = vec3(0.002, 0.005, 0.006).mul(u.gain);
+    const edge = float(1).sub(smoothstep(0.0, 0.055, dEdge));
+    const tintCol = vec3(0.003, 0.009, 0.011).mul(u.gain);
 
     const rgb = refl.add(glare).add(planetScatter).add(tintCol.mul(edge));
-    const alpha = clamp(float(0.035).add(fres.mul(0.6)).add(edge.mul(0.12)).add(smudge.mul(0.03)), 0, 1);
+    const alpha = clamp(float(0.035).add(fres.mul(0.6)).add(edge.mul(0.2)).add(smudge.mul(0.03)), 0, 1);
     return vec4(rgb, alpha);
   })();
   return m;
@@ -658,6 +669,6 @@ export function holoMaterial(kind: PanelKind, atlas: THREE.Texture, u: CockpitUn
   // sunlit planet. Fades out at the bottom edge where the pane rises from its projector.
   const fadeIn = smoothstep(1.0, 0.86, t.y);
   const e = panelEmission(kind, atlas, u, true);
-  m.outputNode = vec4(e.color.mul(fadeIn), clamp(e.fill.mul(0.62), 0, 0.5).mul(fadeIn));
+  m.outputNode = vec4(e.color.mul(fadeIn), clamp(e.fill.mul(1.0), 0, 0.62).mul(fadeIn));
   return m;
 }

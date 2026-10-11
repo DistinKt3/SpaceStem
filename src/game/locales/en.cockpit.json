@@ -31,6 +31,7 @@
   "cockpit.demo.alert": "Alert",
   "cockpit.demo.mode": "Mode",
   "cockpit.demo.reducedMotion": "Reduced motion",
+  "cockpit.demo.view": "Head look",
   "cockpit.demo.lookYaw": "Look left/right",
   "cockpit.demo.lookPitch": "Look up/down",
   "cockpit.demo.planet": "Planet",
