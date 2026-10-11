@@ -243,10 +243,16 @@ export class PlanetTerrain {
     }
   }
 
-  /** The index buffer is shared by all chunks; detach it first so three does not free it with the geometry. */
+  /**
+   * Free a chunk mesh. The index buffer is shared by all chunks; detach it first so three does not free it with the
+   * geometry. Disposing the geometry frees its GPU buffers but not the renderer's per-draw state: three keeps one
+   * RenderObject per (mesh, material) drawn, holding the mesh, its vertex arrays, a uniform buffer and bind groups,
+   * until the mesh or material fires 'dispose'. The mesh's own dispose releases all of them (any tile materials too).
+   */
   private disposeMesh(mesh: THREE.Mesh): void {
     mesh.geometry.setIndex(null);
     mesh.geometry.dispose();
+    mesh.dispose();
     mesh.removeFromParent();
   }
 

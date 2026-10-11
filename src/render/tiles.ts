@@ -2,9 +2,14 @@
  * Streams cube-face imagery tiles (tools/pipeline/textures.py) on demand and hands out per-tile materials.
  * Level 0 (6 tiles) is loaded up front so every chunk always has imagery; finer tiles load near the camera and the
  * least recently used ones are evicted to bound GPU memory.
+ *
+ * The body's surface material is built once (makeMaterial, with tileAlbedo as its albedo). Each tile's material is a
+ * clone that shares its node graph and only names the tile (setTileSource), so three builds the nodes and compiles the
+ * GPU program once per body instead of once per tile.
  */
 import * as THREE from 'three/webgpu';
 import { dataUrl } from '../data/assets';
+import { setTileSource } from './materials/planetShading';
 
 interface Tile {
   key: string;
@@ -23,11 +28,14 @@ export class TileSet {
   private readonly loader = new THREE.TextureLoader();
   private inflight = 0;
   private frame = 0;
+  /** The body's surface material; never drawn itself, tiles draw clones of it. */
+  private template: THREE.Material | undefined;
   static MAX_INFLIGHT = 6;
 
   constructor(
     readonly body: string,
     readonly maxLevel: number,
+    /** Builds the body's surface material with tileAlbedo(tex, level, x, y); called once, for the first tile. */
     private readonly makeMaterial: (tex: THREE.Texture, level: number, x: number, y: number) => THREE.Material,
     private readonly maxTiles = 96,
     private readonly anisotropy = 8,
@@ -39,6 +47,14 @@ export class TileSet {
 
   private key(level: number, face: number, x: number, y: number): string {
     return `${level}/${face}/${x}_${y}`;
+  }
+
+  /** A tile's material: a clone of the template that shares its compiled shader and binds this tile's imagery. */
+  private tileMaterial(tex: THREE.Texture, level: number, x: number, y: number): THREE.Material {
+    this.template ??= this.makeMaterial(tex, level, x, y);
+    const m = this.template.clone();
+    setTileSource(m, tex, level, x, y);
+    return m;
   }
 
   private load(level: number, face: number, x: number, y: number): Promise<void> {
@@ -55,7 +71,7 @@ export class TileSet {
           tex.wrapS = THREE.ClampToEdgeWrapping;
           tex.wrapT = THREE.ClampToEdgeWrapping;
           t.texture = tex;
-          t.material = this.makeMaterial(tex, level, x, y);
+          t.material = this.tileMaterial(tex, level, x, y);
           t.state = 'ready';
           this.inflight--;
           resolve();

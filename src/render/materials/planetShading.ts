@@ -415,12 +415,44 @@ export function createRingMaterial(tex: THREE.Texture, innerM: number, outerM: n
   return m;
 }
 
-/** Albedo from a cube-face tile with a per-material transform (scale = 2^L, offset = tile x,y). */
+/** An imagery tile: its texture and face transform (x = scale 2^L, y/z = tile x/y). */
+interface TileSource {
+  texture: THREE.Texture;
+  transform: THREE.Vector3;
+}
+const tileSources = new WeakMap<THREE.Material, TileSource>();
+
+/**
+ * Point a material built with tileAlbedo, or a clone of one, at tile (level, tx, ty). Clones share the node graph, so
+ * every tile of a body uses one node build and one GPU program; each draw binds its own material's tile.
+ */
+export function setTileSource(
+  material: THREE.Material,
+  tex: THREE.Texture,
+  level: number,
+  tx: number,
+  ty: number,
+): void {
+  tileSources.set(material, { texture: tex, transform: new THREE.Vector3(1 << level, tx, ty) });
+}
+
+/**
+ * Albedo from a cube-face tile: tile uv = fuv * 2^L - (x, y). The tile is a per-draw input rather than a shader
+ * constant (a uniform transform and a texture binding switched per draw, see setTileSource), so the shader code is the
+ * same for every tile. A material with no tile set draws the tile given here.
+ */
 export function tileAlbedo(tex: THREE.Texture, level: number, tx: number, ty: number): THREE.Node {
-  const fuv = attribute('fuv', 'vec2');
-  const s = 1 << level;
-  const tuv = fuv.mul(s).sub(vec2(tx, ty));
-  return texture(tex, tuv).rgb;
+  const own: TileSource = { texture: tex, transform: new THREE.Vector3(1 << level, tx, ty) };
+  const xf: N = uniform(own.transform.clone());
+  const map: N = texture(tex, attribute('fuv', 'vec2').mul(xf.x).sub(xf.yz));
+  // Object updates run for every draw before its bindings are updated, so the draw binds its material's tile.
+  // (TextureNode resets its own update type during setup, so the texture is switched from the uniform's update.)
+  xf.onObjectUpdate(({ material }: { material: THREE.Material | null }) => {
+    const src = (material && tileSources.get(material)) ?? own;
+    map.value = src.texture;
+    return src.transform;
+  });
+  return map.rgb;
 }
 
 /** Albedo from an equirectangular map using the chunk's continuous lon/lat 'uv' attribute. */
