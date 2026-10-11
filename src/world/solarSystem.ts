@@ -6,6 +6,7 @@
  * barycentric magnitudes (1e12 m) with surface-scale offsets.
  */
 import * as THREE from 'three/webgpu';
+import { Fn, uv, vec4, float, length, exp, max, smoothstep, uniform, vec3 as tvec3 } from 'three/tsl';
 import { AU_M, PARSEC_M } from '../core/constants';
 import { Mat3d, Vec3d } from '../core/vec3d';
 import { dataUrl, loadHeights } from '../data/assets';
@@ -56,6 +57,13 @@ export interface BodyView {
   /** Max relief + atmosphere above the mean radius, metres. */
   envelope: number;
   angularRadiusPx: number;
+  /** Stars: the lens-glare sprite and its own intensity (irradiance from this star at the camera, capped). */
+  readonly glare?: { readonly sprite: THREE.Sprite; readonly intensity: { value: number } };
+}
+
+/** Anything holding GPU-side resources that removeBody must release. */
+interface Disposable {
+  dispose(): void;
 }
 
 const loader = new THREE.TextureLoader();
@@ -98,6 +106,8 @@ export class SolarSystem {
   private readonly mat3 = new THREE.Matrix3();
   private readonly mat4 = new THREE.Matrix4();
   private lastPrimary: BodyView | null = null;
+  /** Textures, materials and geometries each body owns (released by removeBody). */
+  private readonly owned = new Map<string, Disposable[]>();
 
   private constructor(
     readonly ephemeris: Ephemeris,
@@ -112,12 +122,18 @@ export class SolarSystem {
     onProgress?: (msg: string) => void,
   ): Promise<SolarSystem> {
     const sys = new SolarSystem(ephemeris, bodies);
-    for (const def of bodies) {
-      onProgress?.(def.name);
-      const view = await sys.buildBody(def, pool);
+    // Bodies load concurrently (their assets are independent); they are added in catalogue order.
+    const built = await Promise.all(
+      bodies.map(async (def) => {
+        const view = await sys.buildBody(def, pool);
+        onProgress?.(def.name);
+        return view;
+      }),
+    );
+    for (const view of built) {
       frame.add(view.renderable);
       sys.views.push(view);
-      sys.byId.set(def.id, view);
+      sys.byId.set(view.def.id, view);
     }
     // Spheres of influence (Laplace): r = a (m / M)^(2/5); never smaller than 3 radii.
     const t = 0;
@@ -150,12 +166,18 @@ export class SolarSystem {
     return view;
   }
 
-  /** Remove a runtime body (frees its terrain chunks). */
+  /**
+   * Remove a runtime body and release what it owned: terrain chunks and their queued builds, the render objects of
+   * its meshes and sprites (Object3D 'dispose'), and its materials, geometries and textures.
+   */
   removeBody(id: string, frame: FrameRenderer): void {
     const v = this.byId.get(id);
     if (!v) return;
     frame.remove(v.renderable);
     v.terrain.dispose();
+    v.root.traverse((o) => o.dispose());
+    for (const r of this.owned.get(id) ?? []) r.dispose();
+    this.owned.delete(id);
     this.byId.delete(id);
     const i = this.views.indexOf(v);
     if (i >= 0) this.views.splice(i, 1);
@@ -170,18 +192,30 @@ export class SolarSystem {
     const R = def.radiusM;
     const s = def.surface;
 
+    const owned: Disposable[] = [];
+    this.owned.set(def.id, owned);
+
+    // Independent assets load together: night lights, clouds, heights, the equirect albedo map and the rings.
+    const nightP = s.night ? loadTexture(s.night) : undefined;
+    const cloudsP = s.clouds ? (s.clouds === s.night && nightP ? nightP : loadTexture(s.clouds, 'webp', false)) : undefined;
+    const [night, cloudTex, heightmap, albedoTex, ringTex] = await Promise.all([
+      nightP,
+      cloudsP,
+      s.heights ? loadHeights(s.heights) : undefined,
+      s.type !== 'star' && !s.generated ? loadTexture(s.texture ?? def.key) : undefined,
+      def.rings ? loadTexture(def.rings.texture, 'png') : undefined,
+    ]);
+    for (const tex of new Set([night, cloudTex, albedoTex, ringTex])) if (tex) owned.push(tex);
+
     let atmosphere: AtmosphereNodes | undefined;
     if (def.atmosphere) atmosphere = makeAtmosphere(def.atmosphere, R, uniforms);
 
     let clouds: CloudSpec | undefined;
-    let night: THREE.Texture | undefined;
-    if (s.night) night = await loadTexture(s.night);
-    if (s.clouds) {
-      const tex = s.clouds === s.night && night ? night : await loadTexture(s.clouds, 'webp', false);
+    if (cloudTex) {
       clouds = {
-        texture: tex,
+        texture: cloudTex,
         altitudeM: 6000,
-        widthTexels: (tex.image as { width?: number } | null)?.width ?? 8192,
+        widthTexels: (cloudTex.image as { width?: number } | null)?.width ?? 8192,
         channel: s.cloudChannel ?? 'r',
       };
     }
@@ -196,7 +230,7 @@ export class SolarSystem {
       ...(s.seaLevel !== undefined ? { seaLevel: s.seaLevel } : {}),
       ...(s.heights ? { craterMinLevel: 10 } : {}),
     };
-    if (s.heights) cfg.heightmap = await loadHeights(s.heights);
+    if (heightmap) cfg.heightmap = heightmap;
 
     const brdf = s.type === 'gas' ? 'gas' : (s.brdf ?? 'lambert');
     let material: THREE.Material;
@@ -217,15 +251,16 @@ export class SolarSystem {
       material = createStarMaterial(blackbodyColor(s.teffK ?? 5772), 60);
     } else if (s.tiles) {
       const maxLevel = s.tiles === 'earth' ? 3 : 2;
+      // Tile materials use the night and cloud textures above, so the tiles start loading after them.
       tiles = new TileSet(s.tiles, maxLevel, (tex, L, x, y) => createSurfaceMaterial({ ...surfaceOpts, albedo: tileAlbedo(tex, L, x, y) }));
       await tiles.init();
-      material = createSurfaceMaterial({ ...surfaceOpts, albedo: equirectAlbedo(await loadTexture(s.texture ?? def.key)) });
+      material = createSurfaceMaterial({ ...surfaceOpts, albedo: equirectAlbedo(albedoTex!) });
     } else if (s.generated) {
       material = createSurfaceMaterial({ ...surfaceOpts, albedo: generatedAlbedo(s.generated.palette, s.generated.seed) });
     } else {
-      const tex = await loadTexture(s.texture ?? def.key);
-      material = createSurfaceMaterial({ ...surfaceOpts, albedo: equirectAlbedo(tex) });
+      material = createSurfaceMaterial({ ...surfaceOpts, albedo: equirectAlbedo(albedoTex!) });
     }
+    owned.push(material);
 
     const maxRelief = cfg.heightmap ? 11_000 : Math.max(500, (s.amplitude ?? 0) * 1.5 + (s.terrain === 'cratered' ? 4000 : 0));
     const tileSet = tiles;
@@ -241,24 +276,31 @@ export class SolarSystem {
     let envelope = maxRelief;
     if (atmosphere) {
       const sky = new THREE.Mesh(new THREE.SphereGeometry(atmosphere.Rt * 1000, 96, 48), createSkyMaterial(R, atmosphere, uniforms, clouds));
+      owned.push(sky.geometry, sky.material);
       sky.renderOrder = 10;
       sky.frustumCulled = false;
       root.add(sky);
       envelope = Math.max(envelope, (def.atmosphere?.heightM ?? 0) * 1.01);
     }
-    if (def.rings) {
-      const rtex = await loadTexture(def.rings.texture, 'png');
-      rtex.wrapS = THREE.ClampToEdgeWrapping;
-      const ring = new THREE.Mesh(new THREE.RingGeometry(def.rings.innerM, def.rings.outerM, 256, 1), createRingMaterial(rtex, def.rings.innerM, def.rings.outerM, R, uniforms));
+    if (def.rings && ringTex) {
+      ringTex.wrapS = THREE.ClampToEdgeWrapping;
+      const ring = new THREE.Mesh(new THREE.RingGeometry(def.rings.innerM, def.rings.outerM, 256, 1), createRingMaterial(ringTex, def.rings.innerM, def.rings.outerM, R, uniforms));
+      owned.push(ring.geometry, ring.material);
       ring.renderOrder = 5;
       fixed.add(ring); // ring plane = body equator (body-fixed xy plane)
       envelope = Math.max(envelope, def.rings.outerM - R);
     }
+    let glare: BodyView['glare'];
     if (s.type === 'star') {
-      const glare = new THREE.Sprite(createGlareMaterial(blackbodyColor(s.teffK ?? 5772)));
-      glare.name = 'glare';
-      glare.renderOrder = 20;
-      root.add(glare);
+      // Each star has its own intensity uniform, set from its own irradiance in update().
+      const intensity = uniform(1);
+      const sprite = new THREE.Sprite(createGlareMaterial(blackbodyColor(s.teffK ?? 5772), intensity));
+      // The sprite geometry is three's shared quad: only the material is this body's to dispose.
+      owned.push(sprite.material);
+      sprite.name = 'glare';
+      sprite.renderOrder = 20;
+      root.add(sprite);
+      glare = { sprite, intensity };
       envelope = R * 0.1;
     }
 
@@ -274,6 +316,7 @@ export class SolarSystem {
       soi: Infinity,
       envelope,
       angularRadiusPx: 0,
+      ...(glare ? { glare } : {}),
       renderable: {
         object: root,
         radius: R + envelope,
@@ -440,6 +483,14 @@ export class SolarSystem {
   }
 
   /**
+   * Body-fixed -> ICRF orientation of every body at time t. The App calls this each frame before the controller runs,
+   * so ship physics, landing and terrain sampling use the orientation the frame is drawn with; update() calls it too.
+   */
+  updateRotations(t: number): void {
+    for (const v of this.views) if (v.def.rotation.poleRa.length) bodyToIcrf(v.def.rotation, t, v.rotation);
+  }
+
+  /**
    * Per-frame update: camera-relative placement, orientation, lighting uniforms, terrain LOD and tile streaming.
    * `cam` is the camera position; pxPerRadian = viewport height / vertical FOV.
    */
@@ -448,9 +499,9 @@ export class SolarSystem {
     this.lastPrimary = star;
     const sunRel = this.bodyRelative(star.def.id, cam, t, new Vec3d());
     const lum = star.def.luminositySun ?? 1;
+    this.updateRotations(t);
     for (const v of this.views) {
       this.bodyRelative(v.def.id, cam, t, v.rel);
-      if (v.def.rotation.poleRa.length) bodyToIcrf(v.def.rotation, t, v.rotation);
       const d = v.rel.length();
       v.angularRadiusPx = (Math.asin(Math.min(1, v.def.radiusM / Math.max(d, v.def.radiusM))) * pxPerRadian);
       v.root.position.set(v.rel.x, v.rel.y, v.rel.z);
@@ -478,27 +529,20 @@ export class SolarSystem {
         v.terrain.update(camBf, pxPerRadian);
         v.tiles?.endFrame();
       }
-      if (v.def.kind === 'star') {
-        const glare = v.root.getObjectByName('glare');
-        if (glare) {
-          // Lens glare: fixed ~14 degree sprite (never smaller than 3x the disc), brightness from irradiance.
-          const ang = Math.max(0.12, (3 * v.def.radiusM) / Math.max(d, 1));
-          glare.scale.setScalar(Math.max(d, 1) * ang * 2);
-          const irr = (AU_M / Math.max(d, 1)) ** 2;
-          (glare as THREE.Sprite).userData['intensity'] = irr;
-          glareIntensity.value = Math.min(irr, 50);
-        }
+      if (v.glare) {
+        // Lens glare: fixed ~14 degree sprite (never smaller than 3x the disc), brightness from this star's own
+        // irradiance at the camera (luminosity times inverse square, in units of the Sun at 1 au).
+        const ang = Math.max(0.12, (3 * v.def.radiusM) / Math.max(d, 1));
+        v.glare.sprite.scale.setScalar(Math.max(d, 1) * ang * 2);
+        const irr = (v.def.luminositySun ?? 1) * (AU_M / Math.max(d, 1)) ** 2;
+        v.glare.intensity.value = Math.min(irr, 50);
       }
     }
   }
 }
 
-import { Fn, uv, vec4, float, length, exp, max, smoothstep, uniform, vec3 as tvec3 } from 'three/tsl';
-
-const glareIntensity = uniform(1);
-
-/** Additive glare sprite around a star (an artistic lens effect, not physical light). */
-function createGlareMaterial(color: THREE.Color): THREE.SpriteNodeMaterial {
+/** Additive glare sprite around a star (an artistic lens effect, not physical light), scaled by `intensity`. */
+function createGlareMaterial(color: THREE.Color, intensity: THREE.UniformNode<'float', number>): THREE.SpriteNodeMaterial {
   const m = new THREE.SpriteNodeMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
   m.depthTest = true;
   const c = tvec3(color.r, color.g, color.b);
@@ -506,7 +550,7 @@ function createGlareMaterial(color: THREE.Color): THREE.SpriteNodeMaterial {
     const r = length(uv().sub(0.5)).mul(2);
     const core = exp(r.mul(r).mul(-180)).mul(6);
     const halo = exp(r.mul(-9)).mul(0.35).add(max(float(0), float(1).sub(r)).mul(0.04));
-    const k = core.add(halo).mul(smoothstep(1, 0.85, r)).mul(glareIntensity);
+    const k = core.add(halo).mul(smoothstep(1, 0.85, r)).mul(intensity);
     return vec4(c.mul(k), k);
   })();
   return m;

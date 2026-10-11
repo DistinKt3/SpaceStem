@@ -5,6 +5,7 @@ const configs = new Map<string, HeightConfig>();
 
 export type WorkerIn =
   | { type: 'config'; config: HeightConfig }
+  | { type: 'unregister'; key: string }
   | { type: 'build'; id: number; key: string; req: ChunkRequest };
 
 const ctx = self as unknown as {
@@ -16,6 +17,10 @@ ctx.onmessage = (ev: MessageEvent<WorkerIn>) => {
   const msg = ev.data;
   if (msg.type === 'config') {
     configs.set(msg.config.key, msg.config);
+    return;
+  }
+  if (msg.type === 'unregister') {
+    configs.delete(msg.key);
     return;
   }
   const cfg = configs.get(msg.key);
