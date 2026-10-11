@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Known Sky: guided opening lab</title>
+    <style>
+      html, body { overflow: hidden; }
+      #sky { position: fixed; inset: 0; width: 100vw; height: 100vh; cursor: crosshair; touch-action: none; }
+      #backdrop { position: fixed; inset: 0; width: 100vw; height: 100vh; object-fit: cover; pointer-events: none; }
+      #backdrop[hidden] { display: none; }
+      .lab {
+        position: fixed; right: 1.2rem; bottom: 1.2rem; z-index: 7; box-sizing: border-box; width: min(25rem, calc(100vw - 2.4rem));
+        max-height: calc(100vh - 2.4rem); overflow: auto; padding: 0.75rem 0.85rem; color: var(--ks-fg);
+        background: var(--ks-panel); border: var(--ks-border-w, 1px) solid var(--ks-border); border-radius: 0.8rem;
+        backdrop-filter: blur(8px); box-shadow: 0 0.8rem 2.4rem rgba(0, 0, 0, 0.35); font: 0.78rem/1.4 var(--ks-font);
+      }
+      .lab[hidden] { display: none; }
+      .lab h1 { margin: 0; font: 300 0.95rem/1.2 var(--ks-font); letter-spacing: 0.14em; text-transform: uppercase; }
+      .lab p { margin: 0.35rem 0 0.55rem; color: var(--ks-dim); }
+      .lab h2 { margin: 0.55rem 0 0.35rem; font: 600 0.6rem/1 var(--ks-mono); letter-spacing: 0.2em; text-transform: uppercase; color: var(--ks-accent); }
+      .lab-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(6.8rem, 1fr)); gap: 0.3rem; }
+      .lab-grid .ks-btn { justify-content: center; padding: 0.35rem 0.4rem; font-size: 0.74rem; white-space: normal; text-align: center; }
+      .lab-row { display: flex; flex-wrap: wrap; gap: 0.3rem 0.8rem; align-items: center; }
+      .lab-row label { display: inline-flex; gap: 0.35rem; align-items: center; color: var(--ks-dim); }
+      .lab-state { margin-top: 0.5rem; font: 0.7rem/1.45 var(--ks-mono); color: var(--ks-dim); }
+      .lab-state div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .lab-show { position: fixed; right: 1.2rem; bottom: 1.2rem; z-index: 7; }
+      .lab-show[hidden] { display: none; }
+      .ks-map[hidden] { display: none; }
+      .ks-map { background: radial-gradient(60% 60% at 40% 50%, rgba(40, 60, 100, 0.25), rgba(1, 3, 8, 0.92)); pointer-events: auto; }
+      @media (max-height: 560px), (max-width: 760px) { .lab { width: min(19rem, calc(100vw - 2.4rem)); } .lab > p, .lab-state { display: none; } }
+    </style>
+  </head>
+  <body class="ks-cockpit-on">
+    <img id="backdrop" alt="" hidden />
+    <canvas id="sky" aria-hidden="true"></canvas>
+    <script type="module" src="/src/spike/onboardingDemo.ts"></script>
+  </body>
+</html>
