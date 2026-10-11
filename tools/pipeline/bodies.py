@@ -6,6 +6,8 @@ kernels (pck00011.tpc, gm_de440.tpc), not typed by hand. Presentation metadata (
 terrain kind) is curated below, each with provenance.
 
 Usage: tools/.venv/bin/python tools/pipeline/bodies.py
+Run order: bodies.py, then textures.py (it calibrates USGS mosaics to the albedos written here), then bodies.py again
+so each albedoScale is measured from the textures that ship.
 """
 from __future__ import annotations
 
@@ -81,14 +83,16 @@ TITAN_ATMOS = {
     "heightM": 600_000,
     "rayleigh": [1.5e-6, 2.2e-6, 3.0e-6],
     "rayleighScaleHeightM": 40_000,
-    "mie": 6.0e-6,
-    "mieExtinction": 9.0e-6,
+    # Limb haze only. The real haze is optically thick in the visible (vertical optical depth ~4-5, Tomasko et al.
+    # 2008), which single scattering cannot render; the surface entry's "haze" deck supplies the disc's colour.
+    "mie": 1.2e-5,
+    "mieExtinction": 1.5e-5,
     "mieScaleHeightM": 60_000,
     "mieG": 0.6,
-    "mieColor": [1.0, 0.65, 0.25],
+    "mieColor": [1.0, 0.62, 0.22],
     "ozone": [0, 0, 0],
     "provenance": "generated",
-    "source": "Artistic approximation of Titan's orange haze",
+    "source": "Artistic approximation of Titan's limb haze (colour and phase function tuned by eye)",
     "citation": "nasa-factsheet",
 }
 VENUS_ATMOS = {
@@ -158,7 +162,13 @@ BODIES = [
     {"id": "602", "key": "enceladus", "name": "Enceladus", "kind": "moon", "parent": "699",
      "surface": {"type": "terrain", "texture": "enceladus", "terrain": "icy", "amplitude": 600}},
     {"id": "606", "key": "titan", "name": "Titan", "kind": "moon", "parent": "699",
-     "surface": {"type": "terrain", "texture": "titan", "terrain": "icy", "amplitude": 300}, "atmosphere": TITAN_ATMOS},
+     "surface": {"type": "terrain", "texture": "titan", "terrain": "icy", "amplitude": 300,
+                 # Seen from space in visible light Titan is a featureless orange disc: its haze hides the surface
+                 # (the Cassini ISS map is a 938 nm near-infrared view). Colour: Titan's geometric albedo spectrum,
+                 # ~0.08 (blue), ~0.2 (green), ~0.3 (red) outside methane bands (Karkoschka 1994).
+                 "haze": {"color": [0.30, 0.19, 0.075], "opacity": 0.96, "provenance": "inferred",
+                          "source": "Titan visible geometric albedo spectrum", "citation": "karkoschka1994"}},
+     "atmosphere": TITAN_ATMOS},
     {"id": "799", "key": "uranus", "name": "Uranus", "kind": "planet", "parent": "10",
      "surface": {"type": "gas", "texture": "uranus"}, "atmosphere": GIANT_ATMOS([0.7, 0.9, 1.0])},
     {"id": "899", "key": "neptune", "name": "Neptune", "kind": "planet", "parent": "10",
@@ -180,8 +190,26 @@ GEOMETRIC_ALBEDO = {
     "599": 0.538, "501": 0.63, "502": 0.67, "503": 0.43, "504": 0.22, "699": 0.499, "602": 1.38, "606": 0.22,
     "799": 0.488, "899": 0.442, "801": 0.76, "999": 0.52, "901": 0.41,
 }
-# Display-stretched maps are scaled toward the body's real reflectance (linear multiplier).
-ALBEDO_SCALE = {"301": 0.4, "199": 0.6, "401": 0.35, "402": 0.35, "504": 0.8}
+TEX = ROOT / "public" / "data" / "tex"
+
+
+def albedo_scale(surface: dict, p: float) -> float:
+    """Linear multiplier taking a display-stretched surface map to the body's measured reflectance: the body's
+    geometric albedo (capped at 0.9) over the map's area-weighted mean linear luminance. Matches the Moon's earlier
+    hand-tuned value (0.40). Earth (oceans, clouds and atmosphere set its albedo) and gas giants keep 1."""
+    tex = surface.get("texture")
+    if surface.get("type") != "terrain" or not tex or surface.get("tiles") == "earth" or not (TEX / f"{tex}.webp").exists():
+        return 1.0
+    import numpy as np
+    from PIL import Image
+
+    a = np.asarray(Image.open(TEX / f"{tex}.webp").convert("RGB")).astype(np.float32) / 255.0
+    lin = np.where(a <= 0.04045, a / 12.92, ((a + 0.055) / 1.055) ** 2.4)
+    y = 0.2126 * lin[..., 0] + 0.7152 * lin[..., 1] + 0.0722 * lin[..., 2]
+    h = y.shape[0]
+    w = np.cos((np.arange(h) + 0.5) / h * np.pi - np.pi / 2)[:, None] * np.ones_like(y)
+    mean = float((y * w).sum() / w.sum())
+    return round(max(0.05, min(6.0, min(p, 0.9) / max(mean, 1e-4))), 3)
 
 
 def rotation(pck: dict[str, list[float]], bid: str) -> dict:
@@ -219,7 +247,7 @@ def main() -> None:
             "gmM3S2": gm_km3 * 1e9,
             "rotation": rotation(pck, bid),
             "geometricAlbedo": GEOMETRIC_ALBEDO[bid],
-            "albedoScale": ALBEDO_SCALE.get(bid, 1.0),
+            "albedoScale": albedo_scale(b["surface"], GEOMETRIC_ALBEDO[bid]),
             "provenance": "measured",
             "source": "NAIF PCK pck00011 (IAU WGCCRE 2015) radii and rotation; JPL DE440 GM",
             "citation": "archinal2018",

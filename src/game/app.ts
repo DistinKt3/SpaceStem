@@ -153,8 +153,14 @@ export class App {
       case 'sun':
         return facing(s, '10', 6e9, 20, 5);
       case 'leo':
-      default:
         return above(s, '399', eLat * 0.5, eLon - 55, 420_000, 70, -18);
+      default: {
+        // "body:<id>": a sunlit three-quarter view of any loaded body from 3.5 radii.
+        const id = name.startsWith('body:') ? name.slice(5) : '';
+        const v = s.byId.get(id);
+        if (v) return facing(s, id, v.def.radiusM * 3.5, 30, 10);
+        return above(s, '399', eLat * 0.5, eLon - 55, 420_000, 70, -18);
+      }
     }
   }
 
@@ -248,8 +254,9 @@ export class App {
     const [near] = this.sys.nearest(this.cam.pos, this.simTime);
     if (near.def.kind !== 'star') {
       const cover = Math.min(1, near.angularRadiusPx / (this.renderer.domElement.height * 0.5));
-      const refl = Math.max(0.03, near.def.geometricAlbedo * (near.def.albedoScale < 1 ? 1 : 0.7));
-      const k = Math.min(2.0, Math.max(0.7, 0.22 / refl));
+      // Surface maps are calibrated to the measured geometric albedo (bodies.py), so adapt to that directly.
+      const refl = Math.max(0.03, near.def.geometricAlbedo);
+      const k = Math.min(1.6, Math.max(0.7, 0.22 / refl));
       target *= 1 + (k - 1) * cover;
     }
     target = Math.min(80, Math.max(0.002, target)) * 1.15;

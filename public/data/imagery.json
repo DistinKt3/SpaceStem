@@ -11,5 +11,66 @@
    "format": "webp"
   }
  },
- "tex": {}
+ "tex": {
+  "pluto": {
+   "centreLonDeg": 180.0,
+   "filledFraction": 0.319,
+   "albedoTarget": 0.52,
+   "albedoRemap": "none (linear albedoScale in bodies.json)"
+  },
+  "charon": {
+   "centreLonDeg": 0.0,
+   "filledFraction": 0.3398,
+   "albedoTarget": 0.41,
+   "albedoRemap": "none (linear albedoScale in bodies.json)"
+  },
+  "titan": {
+   "centreLonDeg": 180.0,
+   "filledFraction": 0.0002,
+   "albedoTarget": 0.22,
+   "albedoRemap": "none (linear albedoScale in bodies.json)"
+  },
+  "enceladus": {
+   "centreLonDeg": 180.0,
+   "filledFraction": 0.0,
+   "albedoTarget": 0.9,
+   "albedoRemap": "none (linear albedoScale in bodies.json)"
+  },
+  "io": {
+   "centreLonDeg": 0.0,
+   "filledFraction": 0.0,
+   "albedoTarget": 0.63,
+   "albedoRemap": "none (linear albedoScale in bodies.json)"
+  },
+  "europa": {
+   "centreLonDeg": 180.0,
+   "filledFraction": 0.043,
+   "albedoTarget": 0.67,
+   "albedoRemap": "none (linear albedoScale in bodies.json)"
+  },
+  "ganymede": {
+   "centreLonDeg": 180.0,
+   "filledFraction": 0.0347,
+   "albedoTarget": 0.43,
+   "albedoRemap": "none (linear albedoScale in bodies.json)"
+  },
+  "callisto": {
+   "centreLonDeg": 180.0,
+   "filledFraction": 0.038,
+   "albedoTarget": 0.22,
+   "albedoRemap": "none (linear albedoScale in bodies.json)"
+  },
+  "triton": {
+   "centreLonDeg": 0.0,
+   "filledFraction": 0.3857,
+   "albedoTarget": 0.76,
+   "albedoRemap": "none (linear albedoScale in bodies.json)"
+  },
+  "phobos": {
+   "centreLonDeg": 0.0,
+   "filledFraction": 0.0001,
+   "albedoTarget": 0.071,
+   "albedoRemap": "none (linear albedoScale in bodies.json)"
+  }
+ }
 }

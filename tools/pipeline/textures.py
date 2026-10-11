@@ -160,6 +160,63 @@ def save_heights(name: str, meters: np.ndarray, source: str, quantum_m: int = 2)
     print(f"heights {name}: {a.shape[1]}x{a.shape[0]} [{meta['minM']}, {meta['maxM']}] m -> {out.stat().st_size / 1e6:.2f} MB")
 
 
+def srgb_to_linear(a: np.ndarray) -> np.ndarray:
+    return np.where(a <= 0.04045, a / 12.92, ((a + 0.055) / 1.055) ** 2.4)
+
+
+def linear_to_srgb(a: np.ndarray) -> np.ndarray:
+    return np.where(a <= 0.0031308, a * 12.92, 1.055 * np.power(np.clip(a, 0, None), 1 / 2.4) - 0.055)
+
+
+def downsample_masked(a: np.ndarray, width: int) -> np.ndarray:
+    """Box-downsample an 8-bit map whose no-data value is 0, averaging only valid samples (normalised convolution),
+    so no-data regions do not darken the edges of valid data. Output keeps 0 where nothing valid was averaged."""
+    if a.shape[1] <= width:
+        return a
+    size = (width, width // 2)
+    gray = a if a.ndim == 2 else a.max(axis=-1)
+    mask = Image.fromarray(((gray > 0) * 255).astype(np.uint8)).resize(size, Image.BOX)
+    m = np.asarray(mask).astype(np.float32) / 255.0
+    chans = [a] if a.ndim == 2 else [a[..., c] for c in range(a.shape[-1])]
+    out = []
+    for ch in chans:
+        v = np.asarray(Image.fromarray(ch).resize(size, Image.BOX)).astype(np.float32)
+        out.append(np.where(m > 0.05, v / np.maximum(m, 1e-3), 0))
+    r = np.clip(np.stack(out, -1) if len(out) > 1 else out[0], 0, 255).astype(np.uint8)
+    if r.ndim == 2:
+        r[m <= 0.05] = 0
+    else:
+        r[m <= 0.05] = 0
+    return r
+
+
+def fill_and_calibrate(a: np.ndarray, target: float) -> tuple[np.ndarray, float, float]:
+    """Fill no-data (0) with the area-weighted mean of valid pixels (labelled Generated in the Codex). Reflectance is
+    not remapped here: bodies.py applies a linear albedo scale so the map's mean matches the measured geometric albedo
+    while keeping the data's contrast. `target` is recorded for reference. Returns (image, fraction filled, 1.0)."""
+    img = a.astype(np.float32) / 255.0
+    gray = img if img.ndim == 2 else img.max(axis=-1)
+    valid = gray > 0
+    filled = 1.0 - float(valid.mean())
+    lin = srgb_to_linear(img)
+    lum = lin if lin.ndim == 2 else 0.2126 * lin[..., 0] + 0.7152 * lin[..., 1] + 0.0722 * lin[..., 2]
+    h = lum.shape[0]
+    wlat = np.cos((np.arange(h) + 0.5) / h * np.pi - np.pi / 2)[:, None] * np.ones_like(lum)
+    wv = wlat * valid
+
+    def mean(x: np.ndarray) -> float:
+        return float((x * wv).sum() / wv.sum())
+
+    out = lin
+    g = 1.0
+    if out.ndim == 2:
+        out = np.where(valid, out, mean(lum))
+    else:
+        fillc = np.array([float((out[..., c] * wv).sum() / wv.sum()) for c in range(3)])
+        out = np.where(valid[..., None], out, fillc)
+    return (np.clip(linear_to_srgb(out), 0, 1) * 255 + 0.5).astype(np.uint8), filled, g
+
+
 def load_rgb(path: Path) -> np.ndarray:
     if path.suffix.lower() in (".tif", ".tiff"):
         a = tifffile.imread(path)
@@ -209,9 +266,9 @@ def main() -> None:
                "uranus": ("2k_uranus.jpg", 2048), "neptune": ("2k_neptune.jpg", 2048)}
         for k, (f, w) in sss.items():
             save_equirect(k, Image.open(RAW / f), w)
-        nasa = {"io": "Jupiter - Io (A)", "europa": "Jupiter - Europa", "ganymede": "Jupiter - Ganymede",
-                "callisto": "Jupiter - Callisto", "enceladus": "Saturn - Enceladus", "titan": "Saturn - Titan",
-                "phobos": "Mars - Phobos", "deimos": "Mars - Deimos", "triton": "Neptune - Triton"}
+        # Titan and Enceladus come from USGS Cassini mosaics (see "dwarfs"); NASA 3D Resources' Titan map is a concept.
+        # Only Deimos still comes from NASA 3D Resources (no USGS global mosaic); the others use USGS mosaics below.
+        nasa = {"deimos": "Mars - Deimos"}
         for k, folder in nasa.items():
             im = Image.open(NASA3D / folder / f"{folder}.jpg")
             save_equirect(k, im, min(2048, im.width))
@@ -220,16 +277,53 @@ def main() -> None:
         ring.save(OUT / "tex" / "saturn_rings.png", optimize=True)
         print("tex saturn_rings", ring.size, ring.mode)
     if want("dwarfs"):
-        for k, f in (("pluto", "Pluto_NewHorizons_Global_Mosaic_300m_Jul2017_8bit.tif"),
-                     ("charon", "Charon_NewHorizons_Global_Mosaic_300m_Jul2017_8bit.tif")):
+        # USGS Astrogeology mosaics: equirectangular with the centre longitude in the GeoTIFF keys (usually 180, i.e.
+        # left edge 0 E, east to the right). The game expects centre longitude 0, so the image is rolled accordingly.
+        # Checked on known features: Pluto's Sputnik Planitia (~175 E) and Titan's Xanadu (~100 W) are brightest at
+        # 150-210 and 210-300 degrees from the left edge of the original files.
+        calib: dict[str, dict] = {}
+        # Geometric albedos come from bodies.json (built by bodies.py), keyed here by texture name.
+        albedo = {b["key"]: b["geometricAlbedo"] for b in json.loads((OUT / "bodies.json").read_text())["bodies"]}
+        usgs = (("pluto", "Pluto_NewHorizons_Global_Mosaic_300m_Jul2017_8bit.tif"),
+                ("charon", "Charon_NewHorizons_Global_Mosaic_300m_Jul2017_8bit.tif"),
+                ("titan", "Titan_ISS_P19658_Mosaic_Global_4km.tif"),
+                ("enceladus", "Enceladus_Cassini_ISS_Global_Mosaic_100m_HPF.tif"),
+                ("io", "Io_GalileoSSI-Voyager_Global_Mosaic_ClrMerge_1km.tif"),
+                ("europa", "Europa_Voyager_GalileoSSI_global_mosaic_500m.tif"),
+                ("ganymede", "Ganymede_Voyager_GalileoSSI_global_mosaic_1km.tif"),
+                ("callisto", "Callisto_Voyager_GalileoSSI_global_mosaic_1km.tif"),
+                ("triton", "Triton_Voyager2_ClrMosaic_GlobalFill_600m.tif"),
+                ("phobos", "Phobos_Viking_Mosaic_40ppd_DLRcontrol.tif"))
+        for k, f in usgs:
             p = RAW / f
             if not p.exists():
                 print(f"skip {k}: {f} missing")
                 continue
-            a = tifffile.imread(p)
+            with tifffile.TiffFile(p) as tf:
+                geo = tf.geotiff_metadata or {}
+                a = tf.asarray()
+            center = float(geo.get("ProjCenterLongGeoKey", geo.get("ProjNatOriginLongGeoKey", 180.0)))
+            if a.ndim == 3 and a.shape[0] in (3, 4) and a.shape[-1] not in (3, 4):
+                a = np.moveaxis(a, 0, -1)  # planar -> interleaved
             if a.ndim == 3:
-                a = a[..., 0]
-            save_equirect(k, Image.fromarray(a).convert("L"), 2048)
+                a = a[..., :3] if a.shape[-1] >= 3 else a[..., 0]
+            if a.dtype != np.uint8:
+                # Stretch to 8 bits on the 0.5-99.5 percentile range of valid (finite, non-nodata) samples.
+                af = a.astype(np.float32)
+                valid = np.isfinite(af) & (af > -1e30)
+                lo, hi = np.percentile(af[valid], [0.5, 99.5])
+                a = (np.clip((np.where(valid, af, lo) - lo) / (hi - lo), 0, 1) * 255).astype(np.uint8)
+            # Pixel x is at longitude center - 180 + 360 x / w (east to the right); the game wants center 0.
+            a = np.roll(a, int(round(center / 360 * a.shape[1])) % a.shape[1], axis=1)
+            a = downsample_masked(a, 4096)
+            target = min(albedo[k], 0.9)
+            a, filled, g = fill_and_calibrate(a, target)
+            calib[k] = {"centreLonDeg": center, "filledFraction": round(filled, 4), "albedoTarget": target,
+                        "albedoRemap": "none (linear albedoScale in bodies.json)"}
+            print(f"{k}: centre longitude {center}, shape {a.shape}, filled {filled:.1%}, target {target}")
+            im = Image.fromarray(a)
+            save_equirect(k, im.convert("RGB" if a.ndim == 3 else "L"), 2048)
+        manifest["tex"].update(calib)
     if want("heights"):
         from scipy.io import netcdf_file
 

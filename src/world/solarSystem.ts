@@ -203,6 +203,7 @@ export class SolarSystem {
       ...(night ? { night } : {}),
       ocean: s.seaLevel !== undefined,
       albedoScale: def.albedoScale,
+      ...(s.haze ? { haze: { color: s.haze.color, opacity: s.haze.opacity } } : {}),
       ...(s.type === 'terrain' && new URLSearchParams(location.search).get('detail') !== '0' ? { detailFaceEdgeM: (R * Math.PI) / 2 } : {}),
     } as const;
     if (s.type === 'star') {

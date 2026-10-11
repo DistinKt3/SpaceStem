@@ -207,6 +207,12 @@ export interface SurfaceOptions {
    */
   detailFaceEdgeM?: number;
   viewSamples?: number;
+  /**
+   * Optically thick haze deck (Titan): the visible "surface" is the haze top. Albedo blends toward the haze's
+   * measured visible albedo (linear RGB) and the normal toward the smooth sphere by `opacity`. Stands in for the
+   * multiple scattering that the single-scattering atmosphere omits.
+   */
+  haze?: { color: [number, number, number]; opacity: number };
 }
 
 /** Surface material for terrain chunks and gas-giant spheres. */
@@ -247,10 +253,13 @@ export function createSurfaceMaterial(o: SurfaceOptions): THREE.MeshBasicNodeMat
       n = select(ok, normalize(bumped), n);
       albedoVar = float(1).add(coarse.mul(0.18).mul(fadeCoarse)).add(fine.mul(0.1).mul(fadeFine));
     }
-    const ndl = dot(n, l);
     const nGeo = normalize(pRel);
-    const sunHere = o.atmosphere ? o.atmosphere.sunTransmittance(pRel) : vec3(1);
-    const albedo = (o.albedo as N).mul(o.albedoScale ?? 1).mul(albedoVar);
+    if (o.haze) n = normalize(mix(n, nGeo, o.haze.opacity));
+    const ndl = dot(n, l);
+    let sunHere: N = o.atmosphere ? o.atmosphere.sunTransmittance(pRel) : vec3(1);
+    if (o.haze) sunHere = mix(sunHere, vec3(1), o.haze.opacity);
+    let albedo: N = (o.albedo as N).mul(o.albedoScale ?? 1).mul(albedoVar);
+    if (o.haze) albedo = mix(albedo, vec3(...o.haze.color), o.haze.opacity);
     let diffuse: N;
     if (o.brdf === 'lunar') {
       // Lunar-Lambert (McEwen 1991 style blend of Lommel-Seeliger and Lambert): flat-looking full Moon.
@@ -310,7 +319,9 @@ export function createSurfaceMaterial(o: SurfaceOptions): THREE.MeshBasicNodeMat
       const t1 = min(span.y, viewDist);
       If(t1.greaterThan(t0), () => {
         const s = atm.scatter(camRel, rd, t0, t1, o.viewSamples ?? 8);
-        color.assign(color.mul(s.transmittance).add(s.inscatter));
+        // A haze deck is the reflecting layer itself: do not attenuate it again by the haze above it.
+        const tr = o.haze ? mix(s.transmittance, vec3(1), o.haze.opacity) : s.transmittance;
+        color.assign(color.mul(tr).add(s.inscatter));
       });
     }
     return vec4(color, 1);

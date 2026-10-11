@@ -21,6 +21,8 @@ export interface SurfaceDef {
   cloudChannel?: 'r' | 'a';
   brdf?: 'lambert' | 'lunar';
   teffK?: number;
+  /** Optically thick haze deck: visible albedo (linear RGB) and how much it hides the surface (0-1). */
+  haze?: { color: [number, number, number]; opacity: number; provenance: Provenance; source: string; citation: string };
 }
 
 export interface RingsDef {

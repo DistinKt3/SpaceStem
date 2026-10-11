@@ -34,12 +34,34 @@ export function bvToTeff(bv: number): number {
 }
 
 /**
- * Inferred luminosity (L_sun, visual-band approximation without bolometric correction) and radius (m) from absolute
- * magnitude and colour: L = 10^(-0.4 (M_V - 4.83)), R = sqrt(L) (T_sun / T)^2 R_sun.
+ * Bolometric correction BC_V(T_eff) from Flower (1996, ApJ 469, 355) with the corrected coefficients of Torres (2010,
+ * AJ 140, 1158, Table 1). Valid roughly 2,900-50,000 K; the input is clamped to that range.
+ */
+export function bolometricCorrectionV(teffK: number): number {
+  const x = Math.log10(Math.max(2900, Math.min(50000, teffK)));
+  const c =
+    x < 3.7
+      ? [-0.190537291496456e5, 0.155144866764412e5, -0.421278819301717e4, 0.381476328422343e3]
+      : x < 3.9
+        ? [-0.370510203809015e5, 0.385672629965804e5, -0.150651486316025e5, 0.261724637119416e4, -0.170623810323864e3]
+        : [-0.118115450538963e6, 0.137145973583929e6, -0.636233812100225e5, 0.147412923562646e5, -0.170587278406872e4, 0.78873172180499e2];
+  let bc = 0;
+  for (let i = c.length - 1; i >= 0; i--) bc = bc * x + c[i]!;
+  return bc;
+}
+
+/** Nominal solar absolute bolometric magnitude (IAU 2015 Resolution B2). */
+const M_BOL_SUN = 4.74;
+
+/**
+ * Inferred bolometric luminosity (L_sun) and radius (m) from absolute visual magnitude and B-V colour:
+ * T_eff from B-V (Ballesteros 2012), M_bol = M_V + BC_V(T_eff), L = 10^(-0.4 (M_bol - 4.74)),
+ * R = sqrt(L) (T_sun / T_eff)^2 R_sun (Stefan-Boltzmann). B-V saturates for M dwarfs, so their T_eff is overestimated
+ * and radii underestimated (Proxima Centauri: ~0.07 vs 0.15 R_sun measured); results are labelled Inferred.
  */
 export function inferStar(absMagV: number, bv: number): { luminositySun: number; radiusM: number; teffK: number } {
-  const luminositySun = Math.pow(10, -0.4 * (absMagV - 4.83));
   const teffK = bvToTeff(bv);
+  const luminositySun = Math.pow(10, -0.4 * (absMagV + bolometricCorrectionV(teffK) - M_BOL_SUN));
   const radiusM = Math.sqrt(luminositySun) * (SUN_TEFF_K / teffK) ** 2 * SUN_RADIUS_M;
   return { luminositySun, radiusM, teffK };
 }

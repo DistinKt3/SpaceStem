@@ -28,4 +28,14 @@ ls -la "$RAW"
 USGS=https://planetarymaps.usgs.gov/mosaic
 get $USGS/Pluto_NewHorizons_Global_Mosaic_300m_Jul2017_8bit.tif
 get $USGS/Charon_NewHorizons_Global_Mosaic_300m_Jul2017_8bit.tif
+# Cassini ISS mosaics (replace the NASA 3D Resources Titan concept map and the Voyager-era Enceladus map).
+get $USGS/Titan_ISS_P19658_Mosaic_Global_4km.tif
+get $USGS/Enceladus_Cassini_ISS_Global_Mosaic_100m_HPF.tif
+# Galileo/Voyager/Viking mosaics with georeferencing (replace NASA 3D Resources maps of unverified orientation).
+get $USGS/Io_GalileoSSI-Voyager_Global_Mosaic_ClrMerge_1km.tif
+get $USGS/Europa_Voyager_GalileoSSI_global_mosaic_500m.tif
+get $USGS/Ganymede_Voyager_GalileoSSI_global_mosaic_1km.tif
+get $USGS/Callisto_Voyager_GalileoSSI_global_mosaic_1km.tif
+get $USGS/Triton_Voyager2_ClrMosaic_GlobalFill_600m.tif
+get $USGS/Phobos_Viking_Mosaic_40ppd_DLRcontrol.tif
 echo "done (usgs)"

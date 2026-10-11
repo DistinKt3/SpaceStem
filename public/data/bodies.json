@@ -115,7 +115,7 @@
     ]
    },
    "geometricAlbedo": 0.142,
-   "albedoScale": 0.6,
+   "albedoScale": 0.612,
    "provenance": "measured",
    "source": "NAIF PCK pck00011 (IAU WGCCRE 2015) radii and rotation; JPL DE440 GM",
    "citation": "archinal2018"
@@ -587,7 +587,7 @@
     ]
    },
    "geometricAlbedo": 0.17,
-   "albedoScale": 1.0,
+   "albedoScale": 0.931,
    "provenance": "measured",
    "source": "NAIF PCK pck00011 (IAU WGCCRE 2015) radii and rotation; JPL DE440 GM",
    "citation": "archinal2018"
@@ -730,7 +730,7 @@
     ]
    },
    "geometricAlbedo": 0.071,
-   "albedoScale": 0.35,
+   "albedoScale": 0.255,
    "provenance": "measured",
    "source": "NAIF PCK pck00011 (IAU WGCCRE 2015) radii and rotation; JPL DE440 GM",
    "citation": "archinal2018"
@@ -890,7 +890,7 @@
     ]
    },
    "geometricAlbedo": 0.068,
-   "albedoScale": 0.35,
+   "albedoScale": 0.262,
    "provenance": "measured",
    "source": "NAIF PCK pck00011 (IAU WGCCRE 2015) radii and rotation; JPL DE440 GM",
    "citation": "archinal2018"
@@ -1133,7 +1133,7 @@
     ]
    },
    "geometricAlbedo": 0.63,
-   "albedoScale": 1.0,
+   "albedoScale": 2.399,
    "provenance": "measured",
    "source": "NAIF PCK pck00011 (IAU WGCCRE 2015) radii and rotation; JPL DE440 GM",
    "citation": "archinal2018"
@@ -1235,7 +1235,7 @@
     ]
    },
    "geometricAlbedo": 0.67,
-   "albedoScale": 1.0,
+   "albedoScale": 2.13,
    "provenance": "measured",
    "source": "NAIF PCK pck00011 (IAU WGCCRE 2015) radii and rotation; JPL DE440 GM",
    "citation": "archinal2018"
@@ -1334,7 +1334,7 @@
     ]
    },
    "geometricAlbedo": 0.43,
-   "albedoScale": 1.0,
+   "albedoScale": 5.662,
    "provenance": "measured",
    "source": "NAIF PCK pck00011 (IAU WGCCRE 2015) radii and rotation; JPL DE440 GM",
    "citation": "archinal2018"
@@ -1439,7 +1439,7 @@
     ]
    },
    "geometricAlbedo": 0.22,
-   "albedoScale": 0.8,
+   "albedoScale": 4.415,
    "provenance": "measured",
    "source": "NAIF PCK pck00011 (IAU WGCCRE 2015) radii and rotation; JPL DE440 GM",
    "citation": "archinal2018"
@@ -1557,7 +1557,7 @@
     ]
    },
    "geometricAlbedo": 1.38,
-   "albedoScale": 1.0,
+   "albedoScale": 3.871,
    "provenance": "measured",
    "source": "NAIF PCK pck00011 (IAU WGCCRE 2015) radii and rotation; JPL DE440 GM",
    "citation": "archinal2018"
@@ -1572,7 +1572,18 @@
     "type": "terrain",
     "texture": "titan",
     "terrain": "icy",
-    "amplitude": 300
+    "amplitude": 300,
+    "haze": {
+     "color": [
+      0.3,
+      0.19,
+      0.075
+     ],
+     "opacity": 0.96,
+     "provenance": "inferred",
+     "source": "Titan visible geometric albedo spectrum",
+     "citation": "karkoschka1994"
+    }
    },
    "atmosphere": {
     "heightM": 600000,
@@ -1582,14 +1593,14 @@
      3e-06
     ],
     "rayleighScaleHeightM": 40000,
-    "mie": 6e-06,
-    "mieExtinction": 9e-06,
+    "mie": 1.2e-05,
+    "mieExtinction": 1.5e-05,
     "mieScaleHeightM": 60000,
     "mieG": 0.6,
     "mieColor": [
      1.0,
-     0.65,
-     0.25
+     0.62,
+     0.22
     ],
     "ozone": [
      0,
@@ -1597,7 +1608,7 @@
      0
     ],
     "provenance": "generated",
-    "source": "Artistic approximation of Titan's orange haze",
+    "source": "Artistic approximation of Titan's limb haze (colour and phase function tuned by eye)",
     "citation": "nasa-factsheet"
    },
    "ephemerisId": "606",
@@ -1674,7 +1685,7 @@
     ]
    },
    "geometricAlbedo": 0.22,
-   "albedoScale": 1.0,
+   "albedoScale": 0.906,
    "provenance": "measured",
    "source": "NAIF PCK pck00011 (IAU WGCCRE 2015) radii and rotation; JPL DE440 GM",
    "citation": "archinal2018"
@@ -2010,7 +2021,7 @@
     ]
    },
    "geometricAlbedo": 0.76,
-   "albedoScale": 1.0,
+   "albedoScale": 2.274,
    "provenance": "measured",
    "source": "NAIF PCK pck00011 (IAU WGCCRE 2015) radii and rotation; JPL DE440 GM",
    "citation": "archinal2018"
@@ -2053,7 +2064,7 @@
     ]
    },
    "geometricAlbedo": 0.52,
-   "albedoScale": 1.0,
+   "albedoScale": 3.182,
    "provenance": "measured",
    "source": "NAIF PCK pck00011 (IAU WGCCRE 2015) radii and rotation; JPL DE440 GM",
    "citation": "archinal2018"
@@ -2096,7 +2107,7 @@
     ]
    },
    "geometricAlbedo": 0.41,
-   "albedoScale": 1.0,
+   "albedoScale": 1.57,
    "provenance": "measured",
    "source": "NAIF PCK pck00011 (IAU WGCCRE 2015) radii and rotation; JPL DE440 GM",
    "citation": "archinal2018"
