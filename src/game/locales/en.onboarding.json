@@ -81,6 +81,9 @@
   "onboarding.nudge.closeMap": "Close the map with {toggleMap}, then press {hyperspeed}.",
   "onboarding.nudge.starTooClose": "Too close for a jump: {name}. Choose a more distant star.",
   "onboarding.nudge.gravityWell": "Too deep in a gravity well for hyperspeed: climb to an altitude of {alt} first.",
+  "onboarding.nudge.climb": "Hyperspeed needs an altitude of {alt}, and the nose points at the ground: pitch up with {pitch+}, then climb.",
+  "onboarding.nudge.climbAutoAlign": "Hyperspeed needs an altitude of {alt}, but auto-align points the nose at the ground: turn it off with {autoAlign}, pitch up with {pitch+}, then climb.",
+  "onboarding.nudge.climbAutoAlign.pad": "Hyperspeed needs an altitude of {alt}, but auto-align points the nose at the ground: switch it off, pitch up with {pitch+}, then climb.",
 
   "onboarding.settings.section": "Guided tour",
   "onboarding.settings.restart": "Restart guided tour",

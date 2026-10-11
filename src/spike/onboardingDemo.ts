@@ -182,6 +182,8 @@ class Sim {
       alignedToTarget: this.aligned,
       targetOffNoseRad: this.target ? (this.aligned ? 0 : 0.5) : null,
       targetBlockedBy: this.blocked && this.target?.id === '301' && near === 'earth' ? t('body.earth') : null,
+      // The lab has no attitude beyond "aligned": it never flies its nose into the ground.
+      noseBlockedBy: null,
       mapOpen: this.mapOpen,
       mapMode: this.mapOpen ? this.mapMode : null,
       codexOpen: false,

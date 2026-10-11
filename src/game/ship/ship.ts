@@ -265,9 +265,13 @@ export class Ship {
     this.vel.lerp(target, blend);
     tel.thrust = this.throttle;
     tel.surfaceSpeed = this.vel.length();
-    // Drop out to thrusters when close to a surface.
+    // Drop out to thrusters when close to a surface. The test looks one step ahead: the velocity lags the governor,
+    // so a full-throttle arrival still closes at ~1,000 km/s near the surface, and at 30 fps or less a single step
+    // would carry the ship through the drop-out band into the ground (docs/ONBOARDING.md, "Landing").
     const dropAlt = Math.max(20_000, near.def.radiusM * FLIGHT.dropOutAltitudeFraction);
-    if (alt < dropAlt && this.vel.dot(sys.bodyRelative(near.def.id, this.pos, t, new Vec3d())) > 0) {
+    const toBody = sys.bodyRelative(near.def.id, this.pos, t, new Vec3d());
+    const closing = this.vel.dot(toBody) / Math.max(toBody.length(), 1);
+    if (closing > 0 && alt - closing * dt < dropAlt) {
       this.mode = 'thrusters';
       this.throttle = 0;
       // Match the surface frame of the body we dropped out at (not the anchor's, e.g. Mars at Deimos).
@@ -295,14 +299,24 @@ export class Ship {
       const vn = vRel.dot(up);
       if (vn < 0) vRel.addScaled(up, -vn);
       if (this.mode !== 'thrusters') this.mode = 'thrusters';
+      this.lastContact = t;
       // Touchdown: slow enough relative to the surface -> landed (locked to the rotating body).
       if (vRel.length() < FLIGHT.landingSpeed && this.throttle <= 0.05) {
         this.land(sys, near, t);
         return;
       }
       this.vel.copy(frame).add(vRel.scale(0.9));
+    } else if (this.mode === 'thrusters' && this.throttle <= 0.05 && tel.agl < FLIGHT.clearanceM + 0.5 && t - this.lastContact < 0.5) {
+      // Settled: a ship pressed onto the ground that cuts its throttle is held by flight assist exactly at the
+      // clearance height, where it never touches again; resting there slowly is a touchdown too
+      // (docs/ONBOARDING.md, "Landing").
+      const frame = this.surfaceVelocity(sys.byId.get(this.pos.anchor), t, this.pos.offset);
+      if (new Vec3d().subVectors(this.vel, frame).length() < FLIGHT.landingSpeed) this.land(sys, near, t);
     }
   }
+
+  /** Simulation time of the last terrain contact (for the settled touchdown above). */
+  private lastContact = -Infinity;
 
   private land(sys: SolarSystem, near: BodyView, t: number): void {
     if (this.pos.anchor !== near.def.id) this.reanchor(sys, near.def.id, t);

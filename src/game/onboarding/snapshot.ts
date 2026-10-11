@@ -78,6 +78,8 @@ export function isAligned(forward: Vec3Like, rel: Vec3Like, radiusM = 0): boolea
 export interface BindingSource {
   readonly bindings: Readonly<Record<string, BindingSlots>>;
   readonly padBindings: Readonly<Record<string, BindingSlots>>;
+  /** The "Invert Y" setting (settings.data.invertY). */
+  readonly invertY?: boolean;
 }
 
 /** One direction of an axis action: '+' gives +1 (thrust forward, strafe up...), '-' gives -1. */
@@ -111,7 +113,10 @@ export function bindingHalfLabel(b: Binding | null, half: AxisHalf): string {
 export function actionLabel(source: BindingSource, device: InputContext, id: ActionId, half?: AxisHalf): string {
   const slots = (device === 'pad' ? source.padBindings : source.bindings)[id];
   const b = slots?.[0] ?? slots?.[1] ?? null;
-  return half ? bindingHalfLabel(b, half) : bindingLabel(b);
+  if (!half) return bindingLabel(b);
+  // "Invert Y" flips a stick bound to pitch (InputManager.evaluate), so "nose up" is then the other direction.
+  const flip = id === 'pitch' && source.invertY === true && b?.type === 'padAxis';
+  return bindingHalfLabel(b, flip ? (half === '+' ? '-' : '+') : half);
 }
 
 /** A body that can stand in the way of a target (positions relative to the ship, m). */
@@ -180,7 +185,8 @@ export function openingUp(
   moon: Vec3Like,
   fallback: Vec3Like,
   sunAngleRad = (55 * Math.PI) / 180,
-  minMoonElevRad = (12 * Math.PI) / 180,
+  // 13 degrees from the body's centre: at least 12 from a ship in low orbit (the Moon's parallax there is <= 1 degree).
+  minMoonElevRad = (13 * Math.PI) / 180,
 ): Vec3Like {
   const s = unit(sun);
   const m = unit(moon);

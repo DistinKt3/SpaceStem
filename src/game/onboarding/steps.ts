@@ -143,7 +143,12 @@ function toTheStars(s: OnboardingSnapshot): Nudge | null {
   if (s.altitudeM < floor) {
     // Rounded up to two significant figures, so climbing to the quoted altitude is always enough.
     const p = 10 ** Math.max(0, Math.floor(Math.log10(floor)) - 1);
-    return { key: 'onboarding.nudge.gravityWell', params: { alt: formatDistance(Math.ceil(floor / p) * p), body: s.nearName } };
+    const params = { alt: formatDistance(Math.ceil(floor / p) * p), body: s.nearName };
+    // Climbing along a nose that points into the body (auto-align on a star below the horizon) only drops out again.
+    if (s.noseBlockedBy !== null) {
+      return { key: s.autoAlign ? 'onboarding.nudge.climbAutoAlign' : 'onboarding.nudge.climb', params };
+    }
+    return { key: 'onboarding.nudge.gravityWell', params };
   }
   return null;
 }

@@ -403,9 +403,12 @@ test.describe('guided opening', () => {
         for (const sel of ['.ks-hud-top', '.ks-hud-left', '.ks-hud-right', '.ks-reticle', '.ks-hud-footer']) {
           expect(intersects(c, await rect(page.locator(sel))), `${s}: ${sel}`).toBe(false);
         }
-        // The goal is always in view; the hint too where the window leaves room for it.
+        // The goal is always in view; where the window leaves room, so is the first instruction: the nudge when one
+        // shows (it comes first), else the key hint.
         expect((await rect(goal(page))).bottom, `${s}: goal`).toBeLessThanOrEqual(c.bottom);
-        if (hintInView) expect((await rect(page.locator('.ks-onb-hint'))).bottom, `${s}: hint`).toBeLessThanOrEqual(c.bottom);
+        const nudge = page.locator('.ks-onb-nudge');
+        const first = (await nudge.isVisible()) ? nudge : page.locator('.ks-onb-hint');
+        if (hintInView) expect((await rect(first)).bottom, `${s}: first instruction`).toBeLessThanOrEqual(c.bottom);
         // Anything below the visible part is announced by the fade.
         const overflow = await card(page).evaluate((e) => e.scrollHeight - e.clientHeight > 2);
         if (!overflow) {

@@ -17,6 +17,7 @@ import { GamepadMenuNav, pickSpatial, type NavCommand, type NavDirection } from 
 import { CAPTION_SIZES, COLORBLIND_MODES, LIMITS, QUALITY_PRESETS, type Settings, type SettingsData, type SettingsKey } from '../settings/settings';
 
 export type SettingsTab = 'controls' | 'accessibility' | 'audio' | 'graphics';
+export const SETTINGS_TABS: readonly SettingsTab[] = ['controls', 'accessibility', 'audio', 'graphics'];
 
 /** The guided tour's Settings entries (passed only where the tour can run). */
 export interface TourActions {
@@ -25,7 +26,6 @@ export interface TourActions {
   /** End is offered only while the tour shows. */
   isActive(): boolean;
 }
-export const SETTINGS_TABS: readonly SettingsTab[] = ['controls', 'accessibility', 'audio', 'graphics'];
 
 type Child = Node | string | null | undefined | false;
 type Attrs = Record<string, string | number | boolean | null | undefined>;

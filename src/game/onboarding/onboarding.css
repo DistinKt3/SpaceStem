@@ -108,8 +108,8 @@ body.ks-map-open .ks-onb {
   position: sticky;
   bottom: 0;
   display: block;
-  height: 1.8rem;
-  margin-top: -1.8rem;
+  height: 1.2rem;
+  margin-top: -1.2rem;
   background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--ks-bg, #02040a) 92%, transparent));
   opacity: 0;
   pointer-events: none;
@@ -379,6 +379,11 @@ body.ks-map-open .ks-onb {
   box-shadow: 0 0 0.6rem color-mix(in srgb, var(--ks-accent) 10%, transparent);
 }
 
+/* A keycap and the bracket or punctuation around it stay on one line ("(Esc)."). */
+.ks-onb-nowrap {
+  white-space: nowrap;
+}
+
 .ks-onb-key.is-unbound {
   border-style: dashed;
   color: var(--ks-dim);
@@ -583,9 +588,9 @@ body.ks-map-open .ks-onb {
 }
 
 /*
- * Very short windows (800x450 at 100 % text): every line counts, so the header leaves the flow. The step count and
- * the minimise button sit at the end of the goal row, the eyebrow goes, and the progress strip stays for screen
- * readers only (the live region announces each step too).
+ * Very short windows (800x450 at 100 % text): every line counts, so the header leaves the flow. The minimise button
+ * sits at the end of the goal row; the eyebrow and the step count go, and the progress strip stays for screen readers
+ * only (the live region announces each step with its number too).
  */
 @container ks-onb (min-height: 27rem) and (max-height: 32rem) {
   .ks-onb[data-collapsed='false']:not([data-state='farewell']) .ks-onb-head {
@@ -595,7 +600,8 @@ body.ks-map-open .ks-onb {
     min-height: 0;
   }
 
-  .ks-onb[data-collapsed='false'] .ks-onb-eyebrow {
+  .ks-onb[data-collapsed='false'] .ks-onb-eyebrow,
+  .ks-onb[data-collapsed='false'] .ks-onb-count {
     display: none;
   }
 
@@ -613,7 +619,7 @@ body.ks-map-open .ks-onb {
   }
 
   .ks-onb[data-collapsed='false'] .ks-onb-goal {
-    padding-right: 4.6rem;
+    padding-right: 2rem;
   }
 
   .ks-onb-hint {

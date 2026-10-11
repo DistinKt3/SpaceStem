@@ -46,6 +46,8 @@ export interface OnboardingSnapshot {
    * that body's surface (see pathBlocker in snapshot.ts). Null when the way is clear.
    */
   targetBlockedBy: string | null;
+  /** Display name of the nearest body when flying along the nose would run into it (drop-out height); else null. */
+  noseBlockedBy: string | null;
   mapOpen: boolean;
   /** Which map is showing while it is open. */
   mapMode: 'system' | 'stars' | null;

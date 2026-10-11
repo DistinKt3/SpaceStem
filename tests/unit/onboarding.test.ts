@@ -84,6 +84,7 @@ const BASE: OnboardingSnapshot = {
   alignedToTarget: false,
   targetOffNoseRad: 1,
   targetBlockedBy: null,
+  noseBlockedBy: null,
   mapOpen: false,
   mapMode: null,
   codexOpen: false,
@@ -514,6 +515,11 @@ describe('onboarding tour: steps and nudges', () => {
     const moon = { nearKey: 'moon', nearName: 'Moon', nearKind: 'moon', nearRadiusM: 1.7374e6 };
     expect(hyper(snap({ ...star, ...moon, altitudeM: 5e6 }))?.params?.['alt']).toBe('10,000 km');
     expect(hyper(snap({ ...star, ...moon, altitudeM: 1.01e7 }))).toBeNull();
+    // Just lifted off with auto-align on a star below the horizon: climbing along the nose would hit the Moon again.
+    const low = { ...star, ...moon, altitudeM: 50, aglM: 50, noseBlockedBy: 'Moon' };
+    expect(hyper(snap({ ...low, autoAlign: true }))?.key).toBe('onboarding.nudge.climbAutoAlign');
+    expect(hyper(snap(low))?.key).toBe('onboarding.nudge.climb');
+    expect(t('onboarding.nudge.climb', { alt: '10,000 km', pitch: 'x' })).toContain('{pitch+}'); // filled by the card
     // Near a star (a visited catalogue star or an exoplanet host) there is no floor.
     const host = { nearKey: 'trappist-1', nearName: 'TRAPPIST-1', nearKind: 'star', nearRadiusM: 8.4e7 };
     expect(hyper(snap({ ...star, ...host, altitudeM: 1e6 }))).toBeNull();
@@ -733,6 +739,13 @@ describe('onboarding tour: snapshot helpers', () => {
     expect(actionLabel(src, 'pad', 'strafeY', '+')).toBe(up);
     expect(actionLabel(src, 'pad', 'strafeY', '-')).toBe(down);
     expect(bindingHalfLabel({ type: 'padAxis', axis: 1, invert: false }, '+')).toBe(down);
+    // Nose up: the up arrow, or the right stick up, unless "Invert Y" flips the stick.
+    expect(actionLabel(src, 'kbm', 'pitch', '+')).toBe('↑');
+    const rUp = t('input.pad.stick', { stick: t('input.pad.stick.right'), dir: '↑' });
+    const rDown = t('input.pad.stick', { stick: t('input.pad.stick.right'), dir: '↓' });
+    expect(actionLabel(src, 'pad', 'pitch', '+')).toBe(rUp);
+    expect(actionLabel({ ...src, invertY: true }, 'pad', 'pitch', '+')).toBe(rDown);
+    expect(actionLabel({ ...src, invertY: true }, 'kbm', 'pitch', '+')).toBe('↑'); // keys are never inverted
     // Buttons have no direction; unbound stays unbound.
     expect(actionLabel(src, 'kbm', 'targetNext', '+')).toBe('Tab');
     expect(bindingHalfLabel(null, '+')).toBe(t('input.unbound'));
@@ -771,14 +784,15 @@ describe('onboarding tour: snapshot helpers', () => {
       const moon = { x: Math.cos(a), y: Math.sin(a) * 0.9, z: Math.sin(a) * Math.sqrt(1 - 0.81) };
       const up = openingUp(sun, moon, fallback);
       expect(Math.hypot(up.x, up.y, up.z)).toBeCloseTo(1, 9);
-      // The Moon at least 12 degrees up (parallax from 420 km is under 1 degree).
-      expect((elevation(up, moon) * 180) / Math.PI, `elongation ${deg}`).toBeGreaterThan(11.99);
+      // The Moon at least 13 degrees up from Earth's centre, so at least 12 from the ship (parallax under 1 degree).
+      expect((elevation(up, moon) * 180) / Math.PI, `elongation ${deg}`).toBeGreaterThan(12.99);
       // The Sun 35 degrees up (as in the 'leo' view) whenever the Moon allows it, and never lower than needed.
       const sunUp = (elevation(up, sun) * 180) / Math.PI;
-      expect(sunUp, `elongation ${deg}`).toBeCloseTo(Math.min(35, 90 - (deg - 78)), 6);
+      expect(sunUp, `elongation ${deg}`).toBeCloseTo(Math.min(35, 90 - (deg - 77)), 6);
     }
-    // At full Moon both sit low: the Sun just below the horizon of the point below (still above the visible limb).
+    // At full Moon both sit low: the Sun just below the horizon of the point below (still above the visible limb,
+    // which lies 20 degrees down from 420 km).
     const full = openingUp(sun, { x: -1, y: 0, z: 0 }, fallback);
-    expect((elevation(full, sun) * 180) / Math.PI).toBeCloseTo(-12, 6);
+    expect((elevation(full, sun) * 180) / Math.PI).toBeCloseTo(-13, 6);
   });
 });

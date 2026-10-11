@@ -34,7 +34,7 @@ export function tourEnabled(params: URLSearchParams, hash = ''): boolean {
 const DEG = Math.PI / 180;
 
 /**
- * Where the tour starts: 420 km above Earth, above the point where the Moon stands at least 12 degrees above the
+ * Where the tour starts: 420 km above Earth, above the point where the Moon stands 13 degrees or more above the
  * horizon and the Sun is as high as that allows (openingUp; 55 degrees from the zenith, the lighting of
  * App.view('leo'), whenever the Moon's position permits). From App.view('leo') itself the Moon is behind Earth on
  * about a third of all dates, and a pilot following the tour would fly into Earth. The view looks along the horizon
@@ -79,6 +79,10 @@ export function shipSnapshot(app: App, ctl: ShipController, look: LookTracker): 
     const view = b ? app.sys.byId.get(b.id) : undefined;
     if (view) blockedBy = bodyLabel(view.def);
   }
+  // Flying on along the nose: would the ship run into the nearest body (its drop-out height)?
+  const ahead = { x: fwd.x * 1e9, y: fwd.y * 1e9, z: fwd.z * 1e9 };
+  const nearObstacle = { key: near.def.key, id: near.def.id, rel: near.rel, radiusM: near.def.radiusM };
+  const noseBlockedBy = near.def.kind !== 'star' && pathBlocker(ahead, '', [nearObstacle]) ? bodyLabel(near.def) : null;
   const anchor = ship.pos.anchor;
   const map = app.map;
   return {
@@ -101,6 +105,7 @@ export function shipSnapshot(app: App, ctl: ShipController, look: LookTracker): 
     alignedToTarget: info !== null && isAligned(fwd, info.rel, info.radius),
     targetOffNoseRad: info ? angleBetween(fwd, info.rel) : null,
     targetBlockedBy: blockedBy,
+    noseBlockedBy,
     mapOpen: map?.isOpen ?? false,
     mapMode: map?.isOpen ? map.mode : null,
     codexOpen: app.codex.ui.isOpen,
@@ -153,6 +158,12 @@ export class GameTour {
     if (!(ctl instanceof ShipController)) return;
     this.card.setVisible(ctl.hud.isVisible);
     this.card.update(dt, shipSnapshot(this.app, ctl, this.look));
+  }
+
+  /** What the tour would judge right now (tests and debugging); null outside a ship session. */
+  snapshot(): OnboardingSnapshot | null {
+    const ctl = this.app.controller;
+    return ctl instanceof ShipController ? shipSnapshot(this.app, ctl, this.look) : null;
   }
 
   /** Settings > Restart guided tour: back to the opening orbit with the Moon targeted, tour from the first step. */

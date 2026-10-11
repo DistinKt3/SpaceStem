@@ -76,6 +76,43 @@ function svg(viewBox: string, inner: string, cls: string): SVGSVGElement {
 
 const halfOf = (sign: string | undefined): AxisHalf | undefined => (sign === '+' || sign === '-' ? sign : undefined);
 
+/**
+ * Keeps each keycap on one line with an opening bracket just before it and closing punctuation just after it, so a
+ * line never ends with "(" and starts with "Esc).". Text and keycaps keep their order; only line breaks change.
+ */
+function keepTogether(nodes: Node[]): Node[] {
+  const out: Node[] = [];
+  for (let i = 0; i < nodes.length; i++) {
+    const node = nodes[i]!;
+    if (!(node instanceof HTMLElement)) {
+      out.push(node);
+      continue;
+    }
+    const group: Node[] = [node];
+    const prev = out[out.length - 1];
+    const open = prev instanceof Text ? /[([“‘«]$/u.exec(prev.data) : null;
+    if (prev instanceof Text && open) {
+      prev.data = prev.data.slice(0, -open[0].length);
+      group.unshift(document.createTextNode(open[0]));
+    }
+    const next = nodes[i + 1];
+    const close = next instanceof Text ? /^[)\]”’».,;:!?]+/u.exec(next.data) : null;
+    if (next instanceof Text && close) {
+      next.data = next.data.slice(close[0].length);
+      group.push(document.createTextNode(close[0]));
+    }
+    if (group.length === 1) {
+      out.push(node);
+      continue;
+    }
+    const span = document.createElement('span');
+    span.className = 'ks-onb-nowrap';
+    span.append(...group);
+    out.push(span);
+  }
+  return out.filter((n) => !(n instanceof Text) || n.data !== '');
+}
+
 let instances = 0;
 
 export class Onboarding {
@@ -180,9 +217,11 @@ export class Onboarding {
     this.goalText = el('span', 'ks-onb-goal-text', this.goal);
     this.goalDone = el('span', 'ks-onb-sr', this.goal);
     this.optionalTag = el('span', 'ks-onb-optional', this.goal);
-    this.hint = el('p', 'ks-onb-hint', this.body);
+    // A nudge (what stands in the way right now) comes before the general hint: in a short card it is never the
+    // line that scrolls out of view.
     this.nudge = el('p', 'ks-onb-nudge', this.body);
     this.nudge.hidden = true;
+    this.hint = el('p', 'ks-onb-hint', this.body);
     this.science = el('p', 'ks-onb-science', this.body);
     const tag = el('span', 'ks-onb-science-tag', this.science);
     tag.textContent = t('onboarding.scienceTag');
@@ -455,7 +494,7 @@ export class Onboarding {
         nodes.push(document.createTextNode(`{${name}${half ?? ''}}`));
       }
     }
-    target.replaceChildren(...nodes);
+    target.replaceChildren(...keepTogether(nodes));
   }
 
   private setKeyLabel(k: HTMLElement, action: ActionId, half: AxisHalf | undefined): void {
