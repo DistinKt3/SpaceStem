@@ -3,10 +3,16 @@
  * overlay (capture button, caption switch, exit) with viewfinder corners and a live preview of the caption, and
  * composites the rendered frame plus the optional caption bar into a PNG at the canvas's native resolution.
  *
- * Keyboard: the overlay is a group of native buttons (Tab, Enter, Space). Global keys (capture, exit) belong to the
- * game's input bindings; the integrator calls capture()/exit() from its action handler and passes the bound key
- * labels through `keyHints`, so hints always name the player's own bindings. Activation keys pressed on the overlay
- * stop at the overlay, so they do not also steer the ship.
+ * Keyboard: the overlay is a group of native buttons. While the mode is active, Tab (and Shift+Tab) from the game view
+ * moves focus into the toolbar, even though Tab is a flight binding (target next); from there the browser moves focus
+ * as usual, and the game's InputManager leaves Tab, Enter and Space to a focused button. Every other key, and every
+ * key release, still reaches the game, so the ship never keeps turning on a key released over the toolbar. Global keys
+ * (capture, exit) belong to the game's input bindings; the integrator calls capture()/exit() from its action handler
+ * and passes the bound key labels through `keyHints`, so hints always name the player's own bindings.
+ *
+ * Layout: the toolbar's bottom edge (`--ks-shot-bar-bottom`) and the caption's height (`--ks-shot-caption-h`, with the
+ * body class `ks-shot-captioned` while the caption is on) are published on <body>, so other overlays can stay clear
+ * of them (share.css: Codex toasts, sound captions, viewfinder corners).
  *
  * Reduced motion: no capture flash, no fades (the Settings value via `reducedMotion`, html[data-reduced-motion] or
  * the OS preference).
@@ -29,6 +35,8 @@ export interface ScreenshotModeOptions {
   captionText: () => CaptionText;
   /** Labels of the inputs bound to capture and exit, from the player's bindings; null when unbound. */
   keyHints?: () => { capture: string | null; exit: string | null };
+  /** KeyboardEvent.code values bound to capture and exit: when the player binds Tab to one, Tab does that instead. */
+  reservedKeys?: () => readonly string[];
   /** A share link embedded in the PNG (iTXt Comment), so the image leads back to the place. */
   link?: () => string | null;
   /** Called after enter() and exit() (hide the cockpit, release pointer lock, ...). */
@@ -47,6 +55,18 @@ export interface ScreenshotModeOptions {
 export function screenshotFilename(d: Date = new Date()): string {
   const p = (n: number, w = 2): string => String(n).padStart(w, '0');
   return `knownsky-${p(d.getFullYear(), 4)}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}.png`;
+}
+
+/** Largest scene target for a supersampled capture, in pixels: twice 1280 × 720 in each direction. */
+export const SUPERSAMPLE_MAX_PIXELS = 2560 * 1440;
+
+/**
+ * Render scale for a screenshot of a w × h canvas: up to 2 (four samples per pixel), less on large canvases so the
+ * scene target stays within SUPERSAMPLE_MAX_PIXELS, and never below the scale already in use.
+ */
+export function supersampleScale(w: number, h: number, current = 1): number {
+  const s = Math.min(2, Math.sqrt(SUPERSAMPLE_MAX_PIXELS / Math.max(1, w * h)));
+  return s > current * 1.05 ? s : current;
 }
 
 function loadImage(url: string): Promise<HTMLImageElement> {
@@ -70,13 +90,19 @@ function toBlob(canvas: HTMLCanvasElement): Promise<Blob> {
 
 let instances = 0;
 
-const ACTIVATION_KEYS = new Set(['Enter', 'NumpadEnter', 'Space', 'Tab', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End']);
+/** True when focus is on nothing the player can operate: the page, the game view, or an element hidden meanwhile. */
+function focusIsFree(el: Element | null): boolean {
+  if (!el || el === document.body || el === document.documentElement || el instanceof HTMLCanvasElement) return true;
+  return el.getClientRects().length === 0;
+}
 
 export class ScreenshotMode {
   /** Caption switch state (used when capture() is called without an explicit caption option). */
   caption = true;
   /** The overlay root (hidden while inactive). */
   readonly root: HTMLElement;
+  /** The toolbar (Capture, Caption, Exit). */
+  readonly bar: HTMLElement;
   private _active = false;
   private busy = false;
   private readonly preview: HTMLCanvasElement;
@@ -91,7 +117,27 @@ export class ScreenshotMode {
   private previewTimer = 0;
   private restoreFocus: HTMLElement | null = null;
   private readonly onActivity = (): void => this.wake();
-  private readonly onResize = (): void => this.drawPreview();
+  private readonly onResize = (): void => {
+    this.drawPreview();
+    this.publishBar();
+  };
+  private readonly barObserver: ResizeObserver | null = typeof ResizeObserver === 'function' ? new ResizeObserver(() => this.publishBar()) : null;
+  /**
+   * Window capture phase, so it runs before the game's input: Tab from the game view goes to the toolbar instead of
+   * cycling targets. Within the toolbar (or any other control) the browser's own focus order applies.
+   */
+  private readonly onTab = (e: KeyboardEvent): void => {
+    if (e.key !== 'Tab' || e.ctrlKey || e.metaKey || e.altKey || e.isComposing) return;
+    if (this.opts.reservedKeys?.().includes(e.code)) return;
+    if (!focusIsFree(document.activeElement)) return;
+    const stops = [...this.bar.querySelectorAll<HTMLButtonElement>('button')].filter((b) => b.getClientRects().length > 0);
+    const to = e.shiftKey ? stops[stops.length - 1] : stops[0];
+    if (!to) return;
+    e.preventDefault();
+    e.stopPropagation();
+    this.wake();
+    to.focus({ preventScroll: true });
+  };
 
   constructor(private readonly opts: ScreenshotModeOptions) {
     const root = document.createElement('div');
@@ -126,6 +172,7 @@ export class ScreenshotMode {
     this.announcer.className = 'ks-sr-only ks-shot-announcer';
     this.announcer.setAttribute('aria-live', 'polite');
     const bar = q('.ks-shot-bar');
+    this.bar = bar;
     bar.setAttribute('aria-label', t('share.shot.controls'));
     q('.ks-shot-badge span:last-child').textContent = t('share.shot.badge');
     this.captureLabel.textContent = t('share.shot.capture');
@@ -137,13 +184,8 @@ export class ScreenshotMode {
     this.captureBtn.addEventListener('click', () => void this.captureFromOverlay());
     this.captionBtn.addEventListener('click', () => this.setCaption(!this.caption));
     q('.ks-shot-exit').addEventListener('click', () => this.exit());
-    // Activation and navigation keys on the overlay must not reach the game's input bindings (window listeners).
-    bar.addEventListener('keydown', (e) => {
-      if (ACTIVATION_KEYS.has(e.code) || e.key === 'Enter' || e.key === ' ') e.stopPropagation();
-    });
-    bar.addEventListener('keyup', (e) => {
-      if (ACTIVATION_KEYS.has(e.code) || e.key === 'Enter' || e.key === ' ') e.stopPropagation();
-    });
+    // No key filter here: the game's input leaves Tab, Enter and Space to a focused button by itself, and every other
+    // key (and every key release) must reach it, or a key released over the toolbar would stay held.
     bar.addEventListener('focusin', () => this.wake());
     opts.parent.append(root, this.announcer);
     this.syncCaptionSwitch();
@@ -166,7 +208,10 @@ export class ScreenshotMode {
     window.addEventListener('pointermove', this.onActivity, { passive: true });
     window.addEventListener('pointerdown', this.onActivity, { passive: true });
     window.addEventListener('keydown', this.onActivity);
+    window.addEventListener('keydown', this.onTab, true);
     window.addEventListener('resize', this.onResize);
+    this.barObserver?.observe(this.bar);
+    this.publishBar();
     this.wake();
     const k = this.opts.keyHints?.();
     this.announce(k?.capture && k.exit ? t('share.shot.enteredKeys', { capture: k.capture, exit: k.exit }) : t('share.shot.entered'));
@@ -182,7 +227,13 @@ export class ScreenshotMode {
     window.removeEventListener('pointermove', this.onActivity);
     window.removeEventListener('pointerdown', this.onActivity);
     window.removeEventListener('keydown', this.onActivity);
+    window.removeEventListener('keydown', this.onTab, true);
     window.removeEventListener('resize', this.onResize);
+    this.barObserver?.disconnect();
+    const body = document.body;
+    body.classList.remove('ks-shot-captioned');
+    body.style.removeProperty('--ks-shot-bar-bottom');
+    body.style.removeProperty('--ks-shot-caption-h');
     const hadFocus = this.root.contains(document.activeElement);
     this.root.hidden = true;
     this.root.classList.remove('is-idle');
@@ -258,6 +309,7 @@ export class ScreenshotMode {
 
   dispose(): void {
     this.exit();
+    this.barObserver?.disconnect();
     this.root.remove();
     this.announcer.remove();
   }
@@ -313,7 +365,18 @@ export class ScreenshotMode {
     if (!ctx) return;
     ctx.clearRect(0, 0, w, h);
     c.hidden = !this.caption;
-    if (this.caption) drawCaption(ctx, w, h, this.opts.captionText(), this.style());
+    const box = this.caption ? drawCaption(ctx, w, h, this.opts.captionText(), this.style()) : null;
+    // The caption's height in CSS pixels: the viewfinder corners and the sound captions keep above it (share.css).
+    const body = document.body;
+    body.classList.toggle('ks-shot-captioned', box !== null);
+    if (box) body.style.setProperty('--ks-shot-caption-h', `${Math.round((h - box.textTop) / (h / innerHeight))}px`);
+    else body.style.removeProperty('--ks-shot-caption-h');
+  }
+
+  /** Publishes the toolbar's bottom edge (layout box, not the idle fade's offset) for overlays that must stay below it. */
+  private publishBar(): void {
+    if (!this._active) return;
+    document.body.style.setProperty('--ks-shot-bar-bottom', `${Math.round(this.bar.offsetTop + this.bar.offsetHeight)}px`);
   }
 
   private syncCaptionSwitch(): void {
