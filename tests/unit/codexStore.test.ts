@@ -4,6 +4,7 @@ import codexFixture from '../fixtures/codex_sample.json';
 import citationsFixture from '../fixtures/citations_sample.json';
 import {
   CodexStore,
+  publicDataSource,
   citationHref,
   formatCitation,
   staticSource,
@@ -88,6 +89,16 @@ describe('codex fixtures', () => {
     }
   });
 
+  it('never present a definition or a conversion constant as a measurement', () => {
+    for (const e of parseCodex(codexFixture).value) {
+      for (const f of e.facts) {
+        if (f.provenance !== 'measured') continue;
+        expect(f.method, `${e.id}: ${f.label}`).not.toMatch(/\bexact\b|by definition|conversion constant/i);
+        expect(f.label, `${e.id}: ${f.label}`).not.toMatch(/nominal/i);
+      }
+    }
+  });
+
   it('cover every category, unlock state and provenance tier', () => {
     const entries = parseCodex(codexFixture).value;
     expect(new Set(entries.map((e) => e.kind))).toEqual(new Set(['body', 'star', 'exoplanet', 'concept']));
@@ -150,6 +161,78 @@ describe('CodexStore content', () => {
     expect(store.entries()).toHaveLength(8);
     expect(store.problems.some((p) => p.includes('"agol2021" not found'))).toBe(true);
     warn.mockRestore();
+  });
+
+  it('change listeners see the load error together with the (empty) content', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const store = new CodexStore({
+      source: { codex: () => Promise.reject(new Error('404')), citations: () => Promise.resolve(citationsFixture) },
+      storage: null,
+    });
+    const seen: (string | null)[] = [];
+    store.onChange(() => seen.push(store.error));
+    await store.load();
+    expect(seen).toEqual(['codex: 404']);
+    warn.mockRestore();
+  });
+
+  it('retries after a failed load, keeping the files that did load', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    let codexOk = false;
+    const codex = vi.fn(() =>
+      codexOk ? Promise.resolve<unknown>(codexFixture) : Promise.reject(new Error('offline')),
+    );
+    let citationsOk = true;
+    const citations = vi.fn(() =>
+      citationsOk ? Promise.resolve<unknown>(citationsFixture) : Promise.reject(new Error('offline')),
+    );
+    const store = new CodexStore({ source: { codex, citations }, storage: null });
+    await store.load();
+    expect(store.error).toBe('codex: offline');
+    expect(store.entries()).toEqual([]);
+    // The second attempt gets the Codex but loses the citations: the citations from the first attempt stay.
+    codexOk = true;
+    citationsOk = false;
+    await store.load();
+    expect(codex).toHaveBeenCalledTimes(2);
+    expect(store.entries()).toHaveLength(8);
+    expect(store.citation('agol2021')).toBeDefined();
+    expect(store.error).toBe('citations: offline');
+    citationsOk = true;
+    await store.load();
+    expect(store.error).toBeNull();
+    // Once loaded, later calls reuse the result.
+    await store.load();
+    expect(codex).toHaveBeenCalledTimes(3);
+    warn.mockRestore();
+  });
+
+  it('reports fetch failures once, without wrapping them twice', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    vi.stubGlobal('fetch', () => Promise.resolve(new Response('Not found', { status: 404 })));
+    try {
+      const store = new CodexStore({ source: publicDataSource(), storage: null });
+      await store.load();
+      expect(store.error).toBe('codex: fetch codex/en.json: 404; citations: fetch citations.json: 404');
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(String(warn.mock.calls[0]?.[0])).not.toMatch(/Error:/);
+    } finally {
+      vi.unstubAllGlobals();
+      warn.mockRestore();
+    }
+  });
+
+  it('finds star entries by name and the entries of a system', async () => {
+    const store = await loaded();
+    expect(store.byStarName('Proxima Centauri')?.id).toBe('proxima-centauri');
+    expect(store.byStarName('  proxima CENTAURI ')?.id).toBe('proxima-centauri');
+    expect(store.byStarName('TRAPPIST-1')?.id).toBe('trappist-1'); // the star, not its planet with the same starName
+    expect(store.byStarName('Sun')?.id).toBe('sun');
+    expect(store.byStarName('Earth')).toBeUndefined(); // not a star
+    expect(store.byStarName('')).toBeUndefined();
+    expect(store.bySystem('trappist-1').map((e) => e.id)).toEqual(['trappist-1', 'trappist-1e']);
+    expect(store.bySystem('sol').map((e) => e.id)).toEqual(['sun', 'earth', 'moon']);
+    expect(store.bySystem('nowhere')).toEqual([]);
   });
 
   it('withFallback uses the fallback per file', async () => {
@@ -255,16 +338,32 @@ describe('CodexStore discovery', () => {
     expect(() => b.reset()).not.toThrow();
   });
 
-  it('records discoveries made before load() and announces them afterwards', async () => {
-    const store = new CodexStore({ source: fixtures(), storage: null, now: () => 7 });
+  it('queues discoveries made before load() and records only the real ones once it finishes', async () => {
+    const storage = new MemoryStorage();
+    let now = 7;
+    const store = new CodexStore({ source: fixtures(), storage, now: () => now });
     const seen: string[] = [];
     store.onDiscover((e) => seen.push(e.id));
+    // Provisional answers: nothing is known yet.
     expect(store.discover('moon')).toBe(true);
-    expect(store.discover('not-an-entry')).toBe(true); // unknown until the content arrives
+    expect(store.discover('moon')).toBe(false);
+    expect(store.discover('not-an-entry')).toBe(true);
+    expect(store.discover('earth')).toBe(true); // a start entry, which is never a discovery
+    expect(store.discovered('moon')).toBe(true);
     expect(seen).toEqual([]);
+    expect(storage.data.size).toBe(0); // nothing persisted before the content confirms it
+    now = 99;
     await store.load();
     expect(seen).toEqual(['moon']);
-    expect(store.log()).toEqual([{ id: 'moon', at: 7 }]);
+    expect(store.log()).toEqual([{ id: 'moon', at: 7 }]); // the time of the call, not of the load
+    expect(store.discovered('not-an-entry')).toBe(false);
+    expect(store.discoveredAt('earth')).toBeNull();
+    expect(store.isNew('earth')).toBe(false);
+    expect(JSON.parse(storage.data.get('knownsky.codex.v1')!)).toEqual({
+      v: 1,
+      log: [{ id: 'moon', at: 7 }],
+      seen: [],
+    });
   });
 
   it('searches discovered entries only, ignoring case and accents', async () => {
@@ -421,6 +520,9 @@ describe('codex value formatting', () => {
     expect(lockedHint(noSystem, entries)).toBe('Visit this world in the Solar System to unlock it.'); // NAIF body id implies Sol
     expect(lockedHint(get('trappist-1e'), entries)).toBe('Travel to the TRAPPIST-1 system to unlock it.');
     expect(lockedHint(get('proxima-centauri'), entries)).toBe('Jump to Proxima Centauri to unlock it.');
+    // An exoplanet that names its star but no system id (as Proxima b does in the shipped content).
+    const { systemId: _sys, ...proximaB } = { ...get('trappist-1e'), id: 'proxima-b', starName: 'Proxima Centauri' };
+    expect(lockedHint(proximaB, entries)).toBe('Travel to the Proxima Centauri system to unlock it.');
     expect(lockedHint({ ...get('moon'), unlock: 'scan', systemId: 'nowhere' }, entries)).toBe(
       'Scan this object up close to unlock it.',
     );

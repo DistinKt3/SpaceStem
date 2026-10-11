@@ -18,7 +18,7 @@
     "doi": "10.3847/1538-3881/abd414",
     "url": "https://doi.org/10.3847/1538-3881/abd414",
     "accessed": "2026-10-11",
-    "verified": false
+    "verified": true
   },
   "iau2015_b3": {
     "authors": "Prša, A. et al.",
@@ -30,6 +30,16 @@
     "accessed": "2026-10-10",
     "verified": true
   },
+  "haberreiter2008": {
+    "authors": "Haberreiter, M., Schmutz, W. & Kosovichev, A. G.",
+    "year": 2008,
+    "title": "Solving the Discrepancy between the Seismic and Photospheric Solar Radius",
+    "venue": "The Astrophysical Journal 675, L53–L56",
+    "doi": "10.1086/529492",
+    "url": "https://doi.org/10.1086/529492",
+    "accessed": "2026-10-11",
+    "verified": true
+  },
   "connelly2012": {
     "authors": "Connelly, J. N. et al.",
     "year": 2012,
@@ -38,7 +48,7 @@
     "doi": "10.1126/science.1226919",
     "url": "https://doi.org/10.1126/science.1226919",
     "accessed": "2026-10-11",
-    "verified": false
+    "verified": true
   },
   "dalrymple2001": {
     "authors": "Dalrymple, G. B.",
@@ -48,7 +58,7 @@
     "doi": "10.1144/GSL.SP.2001.190.01.14",
     "url": "https://doi.org/10.1144/GSL.SP.2001.190.01.14",
     "accessed": "2026-10-11",
-    "verified": false
+    "verified": true
   },
   "etopo1": {
     "authors": "Amante, C. & Eakins, B. W.",
@@ -101,7 +111,7 @@
     "doi": "10.1126/science.265.5171.482",
     "url": "https://doi.org/10.1126/science.265.5171.482",
     "accessed": "2026-10-11",
-    "verified": false
+    "verified": true
   },
   "lro_lola": {
     "authors": "Smith, D. E. et al.",
@@ -121,7 +131,7 @@
     "doi": "10.1038/35089010",
     "url": "https://doi.org/10.1038/35089010",
     "accessed": "2026-10-11",
-    "verified": false
+    "verified": true
   },
   "gaia_dr3": {
     "authors": "Gaia Collaboration, Vallenari, A. et al.",
@@ -212,16 +222,6 @@
     "venue": "Astronomische Nachrichten 16, 65-96",
     "doi": null,
     "url": "https://ui.adsabs.harvard.edu/abs/1838AN.....16...65B",
-    "accessed": "2026-10-11",
-    "verified": false
-  },
-  "bipm_si": {
-    "authors": "Bureau International des Poids et Mesures",
-    "year": 2019,
-    "title": "The International System of Units (SI), 9th edition",
-    "venue": "BIPM, Sèvres",
-    "doi": null,
-    "url": "https://www.bipm.org/en/publications/si-brochure",
     "accessed": "2026-10-11",
     "verified": false
   }
