@@ -2,7 +2,7 @@
  * Gamepad navigation for DOM menus: turns the D-pad, left stick and face buttons into navigation commands with
  * keyboard-like auto-repeat, and picks the nearest focusable element in a direction (spatial navigation).
  * Bindings here are fixed menu conventions (A accept, B back, X clear, LB/RB switch tab, Menu close), independent of
- * the remappable game actions.
+ * the remappable game actions, and apply to pads with the W3C standard mapping only.
  */
 import { PAD } from './actions';
 
@@ -83,7 +83,9 @@ export class GamepadMenuNav {
       return down;
     }
     for (const p of pads) {
-      if (!p?.connected) continue;
+      // Button and axis meanings below are those of the standard mapping; other pads could rest on a stick direction
+      // and scroll the menu forever.
+      if (!p?.connected || p.mapping !== 'standard') continue;
       p.buttons.forEach((b, i) => {
         if (b.pressed || b.value > 0.5) down.add(`b${i}`);
       });
