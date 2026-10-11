@@ -74,27 +74,60 @@ function richText(parent: HTMLElement, text: string): void {
   });
 }
 
-const decimalsOf = (v: number): number => (String(v).split('.')[1] ?? '').length;
-
-/** Number formatting that keeps the precision of the data and uses ×10ⁿ for very large or small values. */
-function formatValue(v: number, minDecimals = 0): string {
-  const a = Math.abs(v);
-  if (a !== 0 && (a >= 1e7 || a < 1e-3)) {
-    const [mant = '', exp = '0'] = v.toExponential().split('e');
-    const sup = String(Number(exp))
-      .split('')
-      .map((c) => '⁰¹²³⁴⁵⁶⁷⁸⁹⁻'['0123456789-'.indexOf(c)] ?? c)
-      .join('');
-    return `${mant} × 10${sup}`;
-  }
-  const decimals = Math.max(decimalsOf(v), minDecimals);
-  return formatNumber(v, decimals, decimals);
+/** Digits after the decimal point in the shortest exact form of v (6e-7 has 7; 1518.6 has 1). */
+function decimalsOf(v: number): number {
+  if (!Number.isFinite(v) || v === 0) return 0;
+  const [mant = '', exp = '0'] = Math.abs(v).toExponential().split('e');
+  return Math.max(0, (mant.split('.')[1] ?? '').length - Number(exp));
 }
 
-function formatUncertainty(u: string | number): string {
-  if (typeof u === 'number') return `± ${formatNumber(u, decimalsOf(u), decimalsOf(u))}`;
+/** Significant digits after the point of the mantissa of v in scientific notation (7.087e-4 has 3). */
+const mantissaDecimals = (v: number): number => (Math.abs(v).toExponential().split('e')[0]?.split('.')[1] ?? '').length;
+
+const superscript = (n: number): string =>
+  String(n)
+    .split('')
+    .map((c) => '⁰¹²³⁴⁵⁶⁷⁸⁹⁻'['0123456789-'.indexOf(c)] ?? c)
+    .join('');
+
+/** Decimals a string uncertainty such as "+0.014/-0.012" is quoted with. */
+const stringDecimals = (u: string): number =>
+  Math.max(0, ...(u.match(/\d+\.(\d+)/g) ?? []).map((m) => (m.split('.')[1] ?? '').length));
+
+function formatStringUncertainty(u: string): string {
   if (/^[+-]/.test(u)) return u.replace('/', ' / ').replace(/-(?=\d)/g, '−');
   return `± ${u}`;
+}
+
+/**
+ * A number with its uncertainty, keeping the precision of the data. Very large or small values use ×10ⁿ, and a numeric
+ * uncertainty then shares the exponent: (7.087 ± 0.006) × 10⁻⁴. The uncertainty is returned separately so the page can
+ * style it.
+ */
+function valueParts(v: number, u?: string | number): { lead: string; unc: string; tail: string } {
+  const a = Math.abs(v);
+  if (a !== 0 && (a >= 1e7 || a < 1e-3)) {
+    const exp = Math.floor(Math.log10(a));
+    const scale = 10 ** exp;
+    const tail = ` × 10${superscript(exp)}`;
+    if (typeof u === 'number') {
+      const uDec = Math.max(0, decimalsOf(u) + exp);
+      const mDec = Math.max(mantissaDecimals(v), uDec);
+      const mant = formatNumber(v / scale, mDec, mDec);
+      return { lead: `(${mant} `, unc: `± ${formatNumber(u / scale, uDec, uDec)}`, tail: `)${tail}` };
+    }
+    const mDec = mantissaDecimals(v);
+    return {
+      lead: `${formatNumber(v / scale, mDec, mDec)}${tail}`,
+      unc: u === undefined ? '' : formatStringUncertainty(u),
+      tail: '',
+    };
+  }
+  const uDec = u === undefined ? 0 : typeof u === 'number' ? decimalsOf(u) : stringDecimals(u);
+  const decimals = Math.max(decimalsOf(v), uDec);
+  const unc =
+    u === undefined ? '' : typeof u === 'number' ? `± ${formatNumber(u, uDec, uDec)}` : formatStringUncertainty(u);
+  return { lead: formatNumber(v, decimals, decimals), unc, tail: '' };
 }
 
 function provBadge(p: Provenance): HTMLElement {
@@ -126,6 +159,17 @@ class CodexReview {
     this.root.replaceChildren(this.header(), this.main());
     this.renderList();
     this.renderDetail();
+    this.revealSelected();
+  }
+
+  /** Scrolls the list (only the list) so the selected entry is visible. */
+  private revealSelected(): void {
+    const item = this.listEl.querySelector<HTMLElement>('.cx-item[aria-current="true"]');
+    if (!item) return;
+    const list = this.listEl.getBoundingClientRect();
+    const box = item.getBoundingClientRect();
+    if (box.top < list.top) this.listEl.scrollTop += box.top - list.top - 8;
+    else if (box.bottom > list.bottom) this.listEl.scrollTop += box.bottom - list.bottom + 8;
   }
 
   /** Counts for the header and for tests. */
@@ -148,6 +192,7 @@ class CodexReview {
     this.renderList();
     this.renderDetail();
     this.detailEl.scrollTop = 0;
+    this.revealSelected();
   }
 
   selectedId(): string | undefined {
@@ -279,12 +324,25 @@ class CodexReview {
       const tr = el('tr', 'cx-fact');
       const label = el('td', '', f.label);
       const value = el('td');
-      const uncDecimals =
-        typeof f.uncertainty === 'number'
-          ? decimalsOf(f.uncertainty)
-          : Math.max(0, ...(f.uncertainty?.match(/\d+\.(\d+)/g) ?? []).map((m) => (m.split('.')[1] ?? '').length));
-      const v = el('span', 'cx-val', typeof f.value === 'number' ? formatValue(f.value, uncDecimals) : f.value);
-      if (f.uncertainty !== undefined) v.append(el('span', 'cx-unc', ` ${formatUncertainty(f.uncertainty)}`));
+      const v = el('span', 'cx-val');
+      if (typeof f.value === 'number') {
+        const parts = valueParts(f.value, f.uncertainty);
+        v.append(document.createTextNode(parts.lead));
+        if (parts.unc) {
+          if (!parts.lead.endsWith(' ')) v.append(document.createTextNode(' '));
+          v.append(el('span', 'cx-unc', parts.unc));
+        }
+        v.append(document.createTextNode(parts.tail));
+      } else {
+        v.append(document.createTextNode(f.value));
+        if (f.uncertainty !== undefined) {
+          const unc =
+            typeof f.uncertainty === 'number'
+              ? valueParts(0, f.uncertainty).unc
+              : formatStringUncertainty(f.uncertainty);
+          v.append(document.createTextNode(' '), el('span', 'cx-unc', unc));
+        }
+      }
       if (f.unit) v.append(document.createTextNode(` ${f.unit}`));
       value.append(v, el('span', 'cx-method', f.method));
       const prov = el('td');
@@ -327,9 +385,10 @@ class CodexReview {
       if (!c) continue;
       const li = el('li');
       li.id = `src-${key}`;
-      li.append(document.createTextNode(`${c.authors} (${c.year ?? 'n.d.'}). `), el('span', 'cx-src-title', c.title));
+      const year = c.year === null ? t('codexdata.noDate') : String(c.year);
+      li.append(document.createTextNode(`${c.authors} (${year}). `), el('span', 'cx-src-title', c.title));
       li.append(document.createTextNode(`. ${c.venue}. `));
-      const a = el('a', '', c.doi ? `doi:${c.doi}` : c.url);
+      const a = el('a', '', c.doi ? t('codexdata.doi', { doi: c.doi }) : c.url);
       a.href = c.doi ? `https://doi.org/${c.doi}` : c.url;
       a.target = '_blank';
       a.rel = 'noopener noreferrer';
@@ -350,6 +409,7 @@ class CodexReview {
 }
 
 async function boot(): Promise<void> {
+  document.title = t('codexdata.pageTitle');
   const root = document.getElementById('cx-root');
   if (!root) return;
   const status = el('div', 'cx-status', t('codexdata.loading'));

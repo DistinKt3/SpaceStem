@@ -1,4 +1,5 @@
 {
+  "codexdata.pageTitle": "Known Sky: Codex content review",
   "codexdata.title": "Codex",
   "codexdata.subtitle": "Content review: every fact with its provenance and source",
   "codexdata.loading": "Loading the Codex…",
@@ -22,6 +23,8 @@
   "codexdata.verified": "Verified {date}",
   "codexdata.unverified": "Not verified",
   "codexdata.license": "Licence: {license}",
+  "codexdata.noDate": "n.d.",
+  "codexdata.doi": "doi:{doi}",
   "codexdata.unknownCitation": "Unknown source: {key}",
   "codexdata.empty": "No entries match.",
   "codexdata.legend": "Badges: solid = Measured, dashed = Inferred, dotted = Generated"
