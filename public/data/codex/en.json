@@ -119,6 +119,12 @@
      "citation": "bouvier2010"
     },
     {
+     "claim": "The game's solar radius, 695,700 km, is the IAU nominal value: an exact conversion constant, not a new measurement.",
+     "method": "IAU 2015 Resolution B3",
+     "provenance": "measured",
+     "citation": "prsa2016"
+    },
+    {
      "claim": "The core is hot enough (about 15 million °C) to sustain nuclear fusion.",
      "method": "Solar interior models",
      "provenance": "inferred",
@@ -489,9 +495,21 @@
     },
     {
      "claim": "Night lights come from satellite observations made in 2016.",
-     "method": "VIIRS Day/Night Band composites (Black Marble)",
+     "method": "Cloud-free monthly composites of 2016 night imagery (NASA Earth Observatory)",
      "provenance": "measured",
      "citation": "black-marble-2016-maps"
+    },
+    {
+     "claim": "Black Marble night lights are measured by the VIIRS Day/Night Band.",
+     "method": "Suomi NPP satellite radiometry",
+     "provenance": "measured",
+     "citation": "black-marble-2016"
+    },
+    {
+     "claim": "The clouds in the game are a 2002 composite, not current weather.",
+     "method": "Two days of visible imagery plus thermal infrared over the poles",
+     "provenance": "measured",
+     "citation": "blue-marble-2002-clouds"
     },
     {
      "claim": "Terrain elevation comes from a global relief model combining many surveys.",
@@ -649,6 +667,12 @@
      "method": "LROC Wide Angle Camera mosaic, processed for natural colour by NASA SVS",
      "provenance": "measured",
      "citation": "svs-cgi-moon-kit"
+    },
+    {
+     "claim": "The colour data come from the Lunar Reconnaissance Orbiter Camera.",
+     "method": "LROC Wide Angle Camera",
+     "provenance": "measured",
+     "citation": "lroc-wac"
     }
    ],
    "related": [
@@ -1426,6 +1450,12 @@
      "method": "Comparison of JPL mean radii for all moons",
      "provenance": "inferred",
      "citation": "jpl-sat-phys"
+    },
+    {
+     "claim": "ESA's Juice will make Ganymede its primary target.",
+     "method": "Mission plan (ESA)",
+     "provenance": "measured",
+     "citation": "esa-juice"
     }
    ],
    "related": [
@@ -1890,6 +1920,12 @@
      "method": "Spacecraft and telescope observations (NASA)",
      "provenance": "measured",
      "citation": "nasa-titan"
+    },
+    {
+     "claim": "Dragonfly is planned to launch no earlier than July 2028.",
+     "method": "Mission plan (NASA)",
+     "provenance": "measured",
+     "citation": "nasa-dragonfly"
     }
    ],
    "related": [
@@ -2568,6 +2604,12 @@
      "method": "Several empirical age indicators combined",
      "provenance": "inferred",
      "citation": "burgasser2017"
+    },
+    {
+     "claim": "The star's mass comes from an empirical mass-luminosity relation for M dwarfs.",
+     "method": "Relation calibrated on 62 nearby binary stars",
+     "provenance": "inferred",
+     "citation": "mann2019"
     },
     {
      "claim": "Unseen starspots and faculae contaminate transmission spectra.",
@@ -5375,6 +5417,12 @@
      "method": "New reduction of the raw mission data",
      "provenance": "measured",
      "citation": "vanleeuwen2007"
+    },
+    {
+     "claim": "Gaia EDR3 has parallaxes and proper motions for about 1.5 billion sources.",
+     "method": "Gaia Collaboration summary",
+     "provenance": "measured",
+     "citation": "brown2021"
     },
     {
      "claim": "Gaia DR3 contains the EDR3 astrometry plus many new products.",

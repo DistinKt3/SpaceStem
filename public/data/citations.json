@@ -52,26 +52,6 @@
   "verified": true,
   "note": "Reports that TRAPPIST-1h transit times drifted by up to tens of minutes from the 2021 analysis. Not peer-reviewed as far as checked."
  },
- "akeson2013": {
-  "authors": "Akeson, R. L. et al.",
-  "year": 2013,
-  "title": "The NASA Exoplanet Archive: Data and Tools for Exoplanet Research",
-  "venue": "Publications of the Astronomical Society of the Pacific 125, 989-999",
-  "doi": "10.1086/672273",
-  "url": "https://doi.org/10.1086/672273",
-  "accessed": "2026-10-11",
-  "verified": true
- },
- "akeson2021": {
-  "authors": "Akeson, R. et al.",
-  "year": 2021,
-  "title": "Precision Millimeter Astrometry of the α Centauri AB System",
-  "venue": "The Astronomical Journal 162, 14",
-  "doi": "10.3847/1538-3881/abfaff",
-  "url": "https://doi.org/10.3847/1538-3881/abfaff",
-  "accessed": "2026-10-11",
-  "verified": true
- },
  "alcubierre1994": {
   "authors": "Alcubierre, M.",
   "year": 1994,
