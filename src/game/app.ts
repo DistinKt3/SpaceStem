@@ -19,6 +19,7 @@ import { SettingsPanel } from './ui/settingsPanel';
 import { Captions } from './ui/captions';
 import { AudioEngine } from './audio/audioEngine';
 import { Cockpit } from '../render/cockpit/cockpit';
+import type { ShareController } from './share/shareController';
 import { createCodexUI } from './codex';
 import { CodexStore } from './codex/codexStore';
 import { CodexDirector } from './codexDirector';
@@ -96,6 +97,8 @@ export class App {
   readonly captions: Captions;
   readonly audio: AudioEngine;
   cockpit: Cockpit | null = null;
+  /** Share links and screenshot mode (src/game/share, docs/SHARE.md); created by main.ts after boot. */
+  share: ShareController | null = null;
   /** The Codex (entries, citations, "How do we know this?") and its link to play. */
   readonly codex: CodexDirector;
   /** True while the camera is inside a sunlit atmosphere (set by updateSky). */
@@ -338,7 +341,9 @@ export class App {
     this.input.update(dt);
     const codexOpen = this.codex.ui.isOpen;
     if (!codexOpen) {
-      if (this.input.justPressed('pause')) {
+      // Share link and screenshot actions. In screenshot mode the pause input (Escape, gamepad Menu) leaves the mode.
+      const pauseTaken = this.share?.update() ?? false;
+      if (!pauseTaken && this.input.justPressed('pause')) {
         if (this.map?.isOpen) this.map.close();
         else this.panel.open();
       }

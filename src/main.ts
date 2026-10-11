@@ -2,6 +2,7 @@ import './game/styles.css';
 import { App } from './game/app';
 import { FreeCamera } from './game/freeCamera';
 import { ShipController } from './game/ship/shipController';
+import { createGameShare } from './game/share/gameShare';
 import './game/hud/hud.css';
 import './game/map/map.css';
 import './game/ui/ui.css';
@@ -10,10 +11,14 @@ import { t } from './game/i18n';
 const app = new App(document.getElementById('c') as HTMLCanvasElement);
 app
   .boot()
-  .then(() => {
+  .then(async () => {
     app.controller = app.params.get('free') === '1' ? new FreeCamera(app) : new ShipController(app);
+    // A shared location (#ks1.…) is applied before the first frame (docs/SHARE.md).
+    app.share = createGameShare(app);
+    await app.share.applyFragment(location.hash);
     (window as unknown as { __ks: unknown }).__ks = {
       app,
+      share: app.share,
       setView: (name: string) => app.place(app.view(name)),
       stats: () => app.stats(),
       capture: () => {
