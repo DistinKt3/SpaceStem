@@ -15,6 +15,67 @@ async function open(page: Page, query = ''): Promise<void> {
 const dialog = (page: Page) => page.locator('dialog.ks-settings');
 const slot = (page: Page, action: string, n: 0 | 1) => page.locator(`.ks-slot[data-action="${action}"][data-slot="${n}"]`);
 
+/**
+ * Presses a button on the mocked pad for exactly one polled frame: the release happens in an animation-frame callback
+ * registered after the page's own pollers (menu navigation, rebind capture, the lab's game loop), so each of them sees
+ * the press once, however slow the frames are (a fixed hold could span two polls and auto-repeat on a loaded machine).
+ */
+async function padTap(page: Page, button: number): Promise<void> {
+  await page.evaluate(
+    (i) =>
+      new Promise<void>((resolve) => {
+        const pad = (window as unknown as { __pad: { buttons: unknown[] } }).__pad;
+        pad.buttons[i] = { pressed: true, touched: true, value: 1 };
+        requestAnimationFrame(() => {
+          pad.buttons[i] = { pressed: false, touched: false, value: 0 };
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+        });
+      }),
+    button,
+  );
+}
+
+/** Button actions the lab's game loop has seen fire (suffixed '@menu' if the menu was open), oldest first. */
+async function fired(page: Page): Promise<string[]> {
+  return page.evaluate(() => [...(window as unknown as { __ks: { fired: string[] } }).__ks.fired]);
+}
+
+/** A mocked pad for navigator.getGamepads(), reachable as window.__pad. */
+async function installPad(page: Page, mapping = 'standard', axes = [0, 0, 0, 0]): Promise<void> {
+  await page.addInitScript(
+    ([m, a]) => {
+      const pad = {
+        id: 'Xbox Wireless Controller (STANDARD GAMEPAD Vendor: 045e Product: 0b13)',
+        index: 0,
+        connected: true,
+        mapping: m,
+        timestamp: 0,
+        axes: a,
+        buttons: Array.from({ length: 17 }, () => ({ pressed: false, touched: false, value: 0 })),
+      };
+      (window as unknown as { __pad: typeof pad }).__pad = pad;
+      Object.defineProperty(navigator, 'getGamepads', { value: () => [pad] });
+    },
+    [mapping, axes] as const,
+  );
+}
+
+/** Lets a few animation frames run (the lab polls input once per frame). */
+async function frames(page: Page, n = 3): Promise<void> {
+  await page.evaluate(
+    (count) =>
+      new Promise<void>((resolve) => {
+        let left = count;
+        const step = (): void => {
+          if (--left <= 0) resolve();
+          else requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
+      }),
+    n,
+  );
+}
+
 async function binding(page: Page, ctx: 'bindings' | 'padBindings', action: string, n: 0 | 1): Promise<unknown> {
   return page.evaluate(
     ([c, a, i]) => (window as unknown as { __ks: { settings: { data: Record<string, Record<string, unknown[]>> } } }).__ks.settings.data[c]![a]![i],
@@ -252,12 +313,7 @@ test.describe('settings panel', () => {
       Object.defineProperty(navigator, 'getGamepads', { value: () => [pad] });
     });
     await open(page);
-    const tap = async (b: number): Promise<void> => {
-      await page.evaluate((i) => ((window as unknown as { __pad: { buttons: unknown[] } }).__pad.buttons[i] = { pressed: true, touched: true, value: 1 }), b);
-      await page.waitForTimeout(120);
-      await page.evaluate((i) => ((window as unknown as { __pad: { buttons: unknown[] } }).__pad.buttons[i] = { pressed: false, touched: false, value: 0 }), b);
-      await page.waitForTimeout(120);
-    };
+    const tap = (b: number): Promise<void> => padTap(page, b);
     await tap(9); // Menu
     await expect(dialog(page)).toBeVisible();
     await expect(dialog(page)).toHaveAttribute('data-input', 'pad');
@@ -280,6 +336,7 @@ test.describe('settings panel', () => {
     await expect(page.locator('.ks-pane-audio :focus')).toHaveCount(1);
     await tap(1); // B closes
     await expect(dialog(page)).toBeHidden();
+    expect(await fired(page)).toEqual(['pause']); // the opening press only: B (also Switch view) stayed in the menu
   });
 });
 
@@ -315,4 +372,198 @@ test.describe('captions', () => {
     await show('settings.demo.captionA');
     await expect(region.locator('.ks-caption')).toHaveCount(0);
   });
+});
+
+test.describe('gamepad and page focus edge cases', () => {
+  const state = (page: Page) =>
+    page.evaluate(() => {
+      const ks = (window as unknown as { __ks: { panel: { isOpen: boolean }; input: { enabled: boolean } } }).__ks;
+      return { dialog: document.querySelector('dialog.ks-settings')!.hasAttribute('open'), isOpen: ks.panel.isOpen, input: ks.input.enabled };
+    });
+  const closedState = { dialog: false, isOpen: false, input: true };
+
+  test('closing with Menu, B or A on Resume leaves the menu closed and sends nothing to the game', async ({ page }) => {
+    await installPad(page);
+    await open(page);
+    const PAD_A = 0;
+    const PAD_B = 1;
+    const MENU = 9;
+    // Menu opens, Menu closes: the closing press must not reach the game as a new pause (which reopened the menu and
+    // left a modal that nothing could dismiss).
+    await padTap(page, MENU);
+    await expect(dialog(page)).toBeVisible();
+    await padTap(page, MENU);
+    await frames(page, 4);
+    expect(await state(page)).toEqual(closedState);
+    // B closes; B is also Switch view in the game.
+    await padTap(page, MENU);
+    await expect(dialog(page)).toBeVisible();
+    await padTap(page, PAD_B);
+    await frames(page, 4);
+    expect(await state(page)).toEqual(closedState);
+    // A on Resume closes; A is also Target under reticle.
+    await padTap(page, MENU);
+    await expect(dialog(page)).toBeVisible();
+    await page.locator('.ks-set-close').focus();
+    await padTap(page, PAD_A);
+    await frames(page, 4);
+    expect(await state(page)).toEqual(closedState);
+    expect(await fired(page)).toEqual(['pause', 'pause', 'pause']); // the three opening presses, nothing else
+    // A press after the menu is gone does reach the game.
+    await padTap(page, PAD_B);
+    await frames(page, 2);
+    expect(await fired(page)).toEqual(['pause', 'pause', 'pause', 'toggleView']);
+  });
+
+  test('close() then open() in one task keeps a dismissable menu', async ({ page }) => {
+    await open(page, 'open=controls');
+    await page.evaluate(() => {
+      const p = (window as unknown as { __ks: { panel: { close(): void; open(tab: string): void } } }).__ks.panel;
+      p.close();
+      p.open('graphics');
+    });
+    await frames(page, 3); // the first close's native 'close' event arrives after open()
+    expect(await state(page)).toEqual({ dialog: true, isOpen: true, input: false });
+    await expect(page.getByRole('tab', { name: 'Graphics' })).toHaveAttribute('aria-selected', 'true');
+    await page.keyboard.press('Escape');
+    await expect(dialog(page)).toBeHidden();
+    expect(await state(page)).toEqual(closedState);
+  });
+
+  test('rebinds gamepad slots to A, B, X and RB with the gamepad alone, and Menu cancels', async ({ page }) => {
+    await installPad(page);
+    await open(page, 'open=controls&device=pad');
+    const boost = slot(page, 'boost', 0);
+    const capture = async (button: number): Promise<void> => {
+      await boost.focus();
+      await padTap(page, 0); // A starts listening on the focused slot
+      await expect(boost).toHaveClass(/is-listening/);
+      await padTap(page, button);
+      await expect(boost).not.toHaveClass(/is-listening/);
+      await frames(page, 3);
+    };
+    for (const [button, name] of [
+      [2, 'X'],
+      [0, 'A'],
+      [1, 'B'],
+      [5, 'RB'],
+    ] as const) {
+      await capture(button);
+      // Bound, and not also read by the menu as clear / select / close / next tab.
+      expect(await binding(page, 'padBindings', 'boost', 0), name).toEqual({ type: 'padButton', button });
+      await expect(boost, name).not.toHaveClass(/is-listening/);
+      await expect(boost.locator('kbd'), name).toHaveText(name);
+      expect(await state(page), name).toEqual({ dialog: true, isOpen: true, input: false });
+      await expect(page.getByRole('tab', { name: 'Controls' }), name).toHaveAttribute('aria-selected', 'true');
+    }
+    // Menu cancels a capture and leaves the menu open.
+    await boost.focus();
+    await padTap(page, 0);
+    await expect(boost).toHaveClass(/is-listening/);
+    await padTap(page, 9);
+    await expect(boost).not.toHaveClass(/is-listening/);
+    await frames(page, 3);
+    expect(await state(page)).toEqual({ dialog: true, isOpen: true, input: false });
+    expect(await binding(page, 'padBindings', 'boost', 0)).toEqual({ type: 'padButton', button: 5 });
+    await page.screenshot({ path: `${SHOTS}/panel-pad-rebound.png` });
+  });
+
+  test('a double-click on a slot keeps listening instead of binding the left mouse button', async ({ page }) => {
+    await open(page, 'open=controls');
+    const shot = slot(page, 'screenshot', 1);
+    await shot.dblclick();
+    await expect(shot).toHaveClass(/is-listening/);
+    expect(await binding(page, 'bindings', 'screenshot', 1)).toBeNull();
+    await page.keyboard.press('Digit7');
+    await expect(shot.locator('kbd')).toHaveText('7');
+  });
+
+  test('keyboard focus on page controls keeps Tab, Enter and Space working while flying', async ({ page }) => {
+    await open(page);
+    const active = () => page.evaluate(() => document.activeElement?.id ?? '');
+    await page.locator('#lab-open').focus();
+    await page.keyboard.press('Tab');
+    expect(await active()).toBe('lab-caption');
+    await page.keyboard.press('Space'); // activates the focused button instead of Next drive mode
+    await expect(page.locator('.ks-caption')).toHaveCount(1);
+    await page.keyboard.press('Shift+Tab');
+    expect(await active()).toBe('lab-open');
+    // Flight keys still work with a button focused.
+    await page.keyboard.down('KeyW');
+    await expect.poll(() => page.locator('.lab-val').nth(3).textContent()).toBe('1.00');
+    await page.keyboard.up('KeyW');
+    await frames(page, 2);
+    expect(await fired(page)).not.toContain('modeNext');
+    expect(await fired(page)).not.toContain('targetNext');
+    // With nothing focused, the same keys are game input again.
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await page.keyboard.press('Tab');
+    await page.keyboard.press('Space');
+    await frames(page, 2);
+    expect(await fired(page)).toEqual(expect.arrayContaining(['targetNext', 'modeNext']));
+  });
+
+  test('reduced motion follows the system preference, live, until the player overrides it', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await open(page);
+    const attr = () => page.evaluate(() => document.documentElement.dataset['reducedMotion']);
+    const set = (patch: object) => page.evaluate((p) => (window as unknown as { __ks: { settings: { set(p: object): void; flush(): void } } }).__ks.settings.set(p), patch);
+    await set({ volumes: { music: 0.3 } }); // an unrelated change is saved without pinning reduced motion
+    expect(await attr()).toBe('false');
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await expect.poll(attr).toBe('true'); // live
+    await page.goto('/ui.html'); // without ?reset=1, which would clear the stored settings
+    await page.waitForFunction(() => (window as unknown as { __ks?: unknown }).__ks !== undefined);
+    expect(await attr()).toBe('true');
+    // Turning it off in the menu is an explicit choice that outlasts the system setting.
+    await page.evaluate(() => (window as unknown as { __ks: { panel: { open(t: string): void } } }).__ks.panel.open('accessibility'));
+    const toggle = page.getByRole('switch', { name: 'Reduce motion' });
+    await expect(toggle).toBeChecked();
+    await expect(page.locator('[id$="-motion-hint"]')).toContainText('your system asks for reduced motion');
+    await page.locator('label.ks-switch[for$="-motion"]').click();
+    await expect(toggle).not.toBeChecked();
+    await expect(page.locator('[id$="-motion-hint"]')).toContainText('no longer applies');
+    await page.goto('/ui.html'); // without ?reset=1, which would clear the stored settings
+    await page.waitForFunction(() => (window as unknown as { __ks?: unknown }).__ks !== undefined);
+    expect(await attr()).toBe('false');
+    expect(await page.evaluate(() => (JSON.parse(localStorage.getItem('knownsky.settings')!) as { volumes: { music: number } }).volumes.music)).toBe(0.3);
+  });
+});
+
+test.describe('layout at large text in small windows', () => {
+  for (const [w, hgt] of [
+    [1024, 576],
+    [800, 450],
+    [640, 480],
+  ] as const) {
+    test(`every tab stays reachable at 200% text in ${w}x${hgt}`, async ({ page }) => {
+      await page.setViewportSize({ width: w, height: hgt });
+      await open(page, 'open=graphics&textScale=2');
+      const strip = page.locator('.ks-set-tabs');
+      await expect.poll(() => strip.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+      const frameBox = (await page.locator('.ks-set-frame').boundingBox())!;
+      for (const name of ['Controls', 'Accessibility', 'Audio', 'Graphics']) {
+        const tab = page.getByRole('tab', { name });
+        await expect(tab).toBeVisible();
+        const b = (await tab.boundingBox())!;
+        expect(b.x, name).toBeGreaterThanOrEqual(frameBox.x);
+        expect(b.x + b.width, name).toBeLessThanOrEqual(frameBox.x + frameBox.width);
+      }
+      // The active tab is named on screen; icon-only tabs carry a tooltip.
+      await expect(page.getByRole('tab', { name: 'Graphics' })).toHaveAttribute('aria-selected', 'true');
+      const mode = await page.locator('.ks-set-frame').getAttribute('data-tabs');
+      expect(mode).not.toBe('full');
+      if (mode === 'active') await expect(page.getByRole('tab', { name: 'Graphics' }).locator('.ks-tab-label')).toBeVisible();
+      else if ((await page.locator('.ks-set-frame').getAttribute('data-tabs-title')) !== null) {
+        await expect(page.locator('.ks-set-panetitle')).toBeVisible();
+        await expect(page.locator('.ks-set-panetitle')).toHaveText('Graphics');
+      }
+      await expect(page.getByRole('tab', { name: 'Audio' })).toHaveAttribute('title', 'Audio');
+      await page.screenshot({ path: `${SHOTS}/panel-text200-${w}x${hgt}-graphics.png` });
+      await page.getByRole('tab', { name: 'Accessibility' }).click();
+      await page.screenshot({ path: `${SHOTS}/panel-text200-${w}x${hgt}-accessibility.png` });
+      await page.getByRole('tab', { name: 'Controls' }).click();
+      await page.screenshot({ path: `${SHOTS}/panel-text200-${w}x${hgt}-controls.png` });
+    });
+  }
 });

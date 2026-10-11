@@ -4,8 +4,16 @@
  *
  * Behaviour worth knowing:
  * - Keys are ignored while a text field has focus, and while Ctrl or Cmd is held (browser shortcuts stay intact).
- * - Losing window focus or visibility clears all state; gamepad buttons held at that moment are ignored until released.
+ * - While another control has keyboard focus (a button, link, tab, slider, focusable panel...), the keys that operate
+ *   it stay with it: Tab, Enter and Space always, and the arrow / Home / End / Page keys for composite widgets. Other
+ *   keys still fly the ship. Focus on the game surface (the target element) or on nothing gives every key to the game.
+ * - Losing window focus or visibility, or toggling `enabled`, clears all state; gamepad buttons and sticks held at
+ *   that moment (read fresh from the pads) are ignored until released, so the press that closes a menu never reaches
+ *   the game.
  * - Presses shorter than a frame still register (presses are latched between updates).
+ * - Default gamepad bindings assume the W3C standard mapping. Pads without it are calibrated: an axis that rests near
+ *   one end (a trigger or throttle reported as an axis) reads 0 at rest and 1 at the far end, so it cannot steer the
+ *   ship while untouched.
  * - Escape (and the gamepad Menu button) always map to `pause`; neither can be rebound or captured.
  * - When pointer lock is lost without releasePointerLock() (the browser exits lock on Escape and swallows that key),
  *   a `pause` press is synthesised so the pause menu still opens.
@@ -51,9 +59,42 @@ export const MOUSE_FULL_SCALE_PX_PER_S = 1200;
 const MOUSE_SPIKE_PX = 600;
 /** Wheel distance in pixels that counts as one notch. */
 const WHEEL_NOTCH_PX = 100;
+/** Non-standard pads: an axis resting beyond this is a one-directional axis (trigger, throttle). */
+const AXIS_REST_LIMIT = 0.5;
+/** Non-standard pads: a one-directional axis that sits near the centre this long was a stick held at first sight. */
+const AXIS_RECENTRE_S = 1;
+/** A left click on the listening slot this soon after a capture starts is the rest of a double-click, not a binding. */
+const CAPTURE_LEFT_CLICK_GRACE_MS = 500;
 
 const MODIFIER_CODES = new Set(['ControlLeft', 'ControlRight', 'MetaLeft', 'MetaRight', 'ShiftLeft', 'ShiftRight', 'AltLeft', 'AltRight']);
 const NON_TEXT_INPUT_TYPES = new Set(['button', 'checkbox', 'radio', 'range', 'submit', 'reset', 'color', 'file', 'image']);
+/** Keys a focused button-like control uses (focus moves and activation). */
+const CONTROL_CODES = new Set(['Tab', 'Enter', 'NumpadEnter', 'Space']);
+/** Further keys a focused composite widget or scrollable region uses. */
+const WIDGET_CODES = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown']);
+const WIDGET_ROLES = new Set([
+  'tab',
+  'tablist',
+  'radio',
+  'radiogroup',
+  'slider',
+  'spinbutton',
+  'scrollbar',
+  'listbox',
+  'option',
+  'menu',
+  'menubar',
+  'menuitem',
+  'menuitemradio',
+  'menuitemcheckbox',
+  'tree',
+  'treeitem',
+  'grid',
+  'gridcell',
+  'combobox',
+  'toolbar',
+]);
+const BUTTON_ROLES = new Set(['button', 'link', 'checkbox', 'switch']);
 
 export type RebindStep = 'any' | 'neg' | 'pos';
 
@@ -76,6 +117,8 @@ export interface RebindState {
 export interface InputManagerOptions {
   /** Gamepad source (tests); defaults to navigator.getGamepads(). */
   getGamepads?: () => readonly (Gamepad | null)[];
+  /** Clock in milliseconds (tests); defaults to performance.now(). */
+  now?: () => number;
 }
 
 interface Capture {
@@ -90,11 +133,23 @@ interface Capture {
   /** Pad inputs that were down when the capture started (or after the first step); ignored until released. */
   padHeld: Set<string>;
   raf: number;
+  /** Clock time the capture started (ms). */
+  started: number;
 }
 
 interface PadFrame {
   buttons: number[];
   axes: number[];
+}
+
+/** Per-pad calibration of a pad without the standard mapping. */
+interface PadCalibration {
+  /** `index:id`, so a different device at the same index is calibrated afresh. */
+  readonly key: string;
+  /** Resting value per axis (0 for centred axes). */
+  readonly rest: number[];
+  /** Seconds each one-directional axis has spent near the centre. */
+  readonly centred: number[];
 }
 
 function isEditable(el: unknown): boolean {
@@ -105,6 +160,30 @@ function isEditable(el: unknown): boolean {
   if (tag === 'TEXTAREA' || tag === 'SELECT') return true;
   if (tag === 'INPUT') return !NON_TEXT_INPUT_TYPES.has(typeof e.type === 'string' ? e.type.toLowerCase() : 'text');
   return false;
+}
+
+/**
+ * Which keys a focused element uses itself: 'button' (Tab, Enter, Space) for buttons, links, checkboxes and the like;
+ * 'widget' (also arrows, Home/End, Page keys) for composite widgets and focusable regions; 'none' for the game surface,
+ * the page body and non-interactive elements.
+ */
+function focusKind(el: unknown, gameSurface: unknown): 'none' | 'button' | 'widget' {
+  if (typeof el !== 'object' || el === null || el === gameSurface) return 'none';
+  const e = el as { tagName?: unknown; type?: unknown; getAttribute?: unknown };
+  const tag = typeof e.tagName === 'string' ? e.tagName.toUpperCase() : '';
+  if (tag === '' || tag === 'BODY' || tag === 'HTML') return 'none';
+  const attr = (name: string): string | null =>
+    typeof e.getAttribute === 'function' ? ((e.getAttribute as (n: string) => string | null).call(el, name) ?? null) : null;
+  const role = (attr('role') ?? '').trim().toLowerCase();
+  if (WIDGET_ROLES.has(role) || tag === 'SELECT') return 'widget';
+  if (tag === 'INPUT') {
+    const type = typeof e.type === 'string' ? e.type.toLowerCase() : 'text';
+    return type === 'radio' || type === 'range' ? 'widget' : 'button';
+  }
+  if (BUTTON_ROLES.has(role) || tag === 'BUTTON' || tag === 'SUMMARY' || (tag === 'A' && attr('href') !== null)) return 'button';
+  // Any other element made focusable (e.g. a scrollable panel with tabindex="0") scrolls with the arrow keys.
+  const tabindex = attr('tabindex');
+  return tabindex !== null && Number(tabindex) >= 0 ? 'widget' : 'none';
 }
 
 const bump = (m: Map<string, number>, k: string, n = 1): void => {
@@ -131,6 +210,8 @@ export class InputManager {
   private readonly win: Window;
   private readonly doc: Document;
   private readonly getPads: () => readonly (Gamepad | null)[];
+  private readonly now: () => number;
+  private readonly padCalibration = new Map<number, PadCalibration>();
   private _enabled = true;
   private disposed = false;
 
@@ -183,6 +264,7 @@ export class InputManager {
           return []; // Blocked by permissions policy or an insecure context.
         }
       });
+    this.now = options.now ?? (() => performance.now());
     this.rebuildBindings();
     this.cleanups.push(
       settings.onChange((_, changed) => {
@@ -206,7 +288,11 @@ export class InputManager {
     return this._enabled;
   }
 
-  /** While disabled (e.g. a menu is open) all actions read as idle. */
+  /**
+   * While disabled (e.g. a menu is open) all actions read as idle. Switching either way clears state, and any pad
+   * input down at that moment stays ignored until released: the B or Menu press that closes a menu (polled by the
+   * menu before this frame's update()) must not also act in the game.
+   */
   set enabled(v: boolean) {
     if (v === this._enabled) return;
     this._enabled = v;
@@ -226,7 +312,7 @@ export class InputManager {
   // --- Per-frame API ------------------------------------------------------------------------------------------------
 
   update(dt: number): void {
-    this.pollPads();
+    this.pollPads(dt);
     this.pollCapturePads();
     this.frameDx = this.rawDx;
     this.frameDy = this.rawDy;
@@ -357,6 +443,7 @@ export class InputManager {
         firstPadButton: null,
         padHeld: this.currentPadDown(),
         raf: 0,
+        started: this.now(),
       };
       this.capture = cap;
       this.win.addEventListener('keydown', this.onCaptureKey, true);
@@ -487,22 +574,61 @@ export class InputManager {
 
   // --- Internals: devices -------------------------------------------------------------------------------------------
 
-  private readPads(): PadFrame {
+  /**
+   * Merges every connected pad into one frame (buttons: strongest press; axes: largest deflection). Pads without the
+   * standard mapping are calibrated first (see calibratedAxes). `dt` (seconds since the last read) advances the
+   * re-centring of their one-directional axes; reads outside update() pass 0.
+   */
+  private readPads(dt = 0): PadFrame {
     const frame: PadFrame = { buttons: [], axes: [] };
-    let first: Gamepad | null = null;
+    let styleFrom: Gamepad | null = null;
+    const seen = new Set<number>();
     for (const p of this.getPads()) {
       if (!p?.connected) continue;
-      first ??= p;
+      const standard = p.mapping === 'standard';
+      if (!styleFrom || (standard && styleFrom.mapping !== 'standard')) styleFrom = p;
+      seen.add(p.index);
       p.buttons.forEach((b, i) => {
         frame.buttons[i] = Math.max(frame.buttons[i] ?? 0, b.pressed ? Math.max(b.value, PAD_PRESS + 0.01) : b.value);
       });
-      p.axes.forEach((v, i) => {
+      const axes = standard ? p.axes : this.calibratedAxes(p, dt);
+      axes.forEach((v, i) => {
         if (Math.abs(v) > Math.abs(frame.axes[i] ?? 0)) frame.axes[i] = v;
         else frame.axes[i] ??= 0;
       });
     }
-    if (first) setPadStyle(padStyleFromId(first.id));
+    for (const index of [...this.padCalibration.keys()]) if (!seen.has(index)) this.padCalibration.delete(index);
+    if (styleFrom) setPadStyle(padStyleFromId(styleFrom.id));
     return frame;
+  }
+
+  /**
+   * Axes of a pad without the standard mapping, relative to where they rest. The first reading of each axis is taken
+   * as its rest. A centred axis (a stick) is used as is. An axis resting near one end (a trigger or throttle reported
+   * as an axis, e.g. resting at -1) reads 0 at rest and 1 at the other end, so it cannot steer while untouched. If
+   * such an axis then sits near the centre for AXIS_RECENTRE_S, it was a stick held when the pad was first seen, and
+   * it is treated as centred from then on.
+   */
+  private calibratedAxes(p: Gamepad, dt: number): number[] {
+    const key = `${p.index}:${p.id}`;
+    let cal = this.padCalibration.get(p.index);
+    if (cal?.key !== key) {
+      cal = { key, rest: p.axes.map((v) => (Math.abs(v) >= AXIS_REST_LIMIT ? v : 0)), centred: p.axes.map(() => 0) };
+      this.padCalibration.set(p.index, cal);
+    }
+    const c = cal;
+    return p.axes.map((v, i) => {
+      const rest = c.rest[i] ?? 0;
+      if (rest === 0) return v;
+      if (Math.abs(v) < PAD_STICK_DEADZONE) {
+        c.centred[i] = (c.centred[i] ?? 0) + dt;
+        if ((c.centred[i] ?? 0) >= AXIS_RECENTRE_S) {
+          c.rest[i] = 0;
+          return v;
+        }
+      } else c.centred[i] = 0;
+      return Math.max(0, Math.min(1, ((v - rest) * -Math.sign(rest)) / (1 + Math.abs(rest))));
+    });
   }
 
   /** Down pad inputs (buttons and stick directions) with hysteresis. */
@@ -525,8 +651,8 @@ export class InputManager {
     return this.padInputsOf(this.readPads(), new Set(), PAD_RELEASE);
   }
 
-  private pollPads(): void {
-    this.padFrame = this.readPads();
+  private pollPads(dt: number): void {
+    this.padFrame = this.readPads(dt);
     const now = this.padInputsOf(this.padFrame, this.padDown);
     for (const id of now) {
       if (this.padDown.has(id)) continue;
@@ -552,6 +678,12 @@ export class InputManager {
     this.heldNow = new Set();
     this.heldPrev = new Set();
     for (const id of this.padDown) this.padSuppressed.add(id);
+    // Read the pads now rather than trusting the last update(): a button pressed since then (the one that closed a
+    // menu, say) is down but not yet in padDown. Marking it down and suppressed ignores it until it is released.
+    for (const id of this.currentPadDown()) {
+      this.padDown.add(id);
+      this.padSuppressed.add(id);
+    }
   }
 
   private rebuildBindings(): void {
@@ -586,6 +718,7 @@ export class InputManager {
     if (!this._enabled || this.capture || e.isComposing || !e.code) return;
     if (isEditable(e.target) || isEditable(this.doc.activeElement)) return;
     if ((e.ctrlKey || e.metaKey) && !MODIFIER_CODES.has(e.code)) return;
+    if (this.focusedControlUses(e)) return; // Left to the browser: no game action, no preventDefault.
     if (this.kbmCodes.has(e.code)) e.preventDefault();
     this.activeDevice = 'kbm';
     if (!e.repeat && !this.keys.has(e.code)) bump(this.presses, keyInput(e.code));
@@ -596,9 +729,18 @@ export class InputManager {
     const e = ev as KeyboardEvent;
     // macOS sends no keyup for keys released while Cmd is held.
     if (e.code === 'MetaLeft' || e.code === 'MetaRight') this.keys.clear();
-    this.keys.delete(e.code);
-    if (this._enabled && this.kbmCodes.has(e.code) && !isEditable(e.target)) e.preventDefault();
+    // Only keys the game took on keydown: the keyup of Space must still click a focused button.
+    const owned = this.keys.delete(e.code);
+    if (owned && this._enabled && this.kbmCodes.has(e.code)) e.preventDefault();
   };
+
+  /** Whether the focused element (not the game surface) uses this key itself: Tab, activation, or widget keys. */
+  private focusedControlUses(e: KeyboardEvent): boolean {
+    if (!CONTROL_CODES.has(e.code) && !WIDGET_CODES.has(e.code)) return false;
+    const kinds = [focusKind(e.target, this.target), focusKind(this.doc.activeElement, this.target)];
+    if (kinds.includes('widget')) return true;
+    return kinds.includes('button') && CONTROL_CODES.has(e.code);
+  }
 
   private readonly onBlur = (): void => {
     this.clearState();
@@ -704,7 +846,9 @@ export class InputManager {
     const button = e.button;
     this.swallowNext(['mouseup', 'click', 'auxclick', 'contextmenu'], (x) => x.type === 'contextmenu' ? button === 2 : (x as MouseEvent).button === button);
     if (cap.context === 'pad' || cap.step !== 'any') return; // Mouse buttons cannot drive axes.
-    this.endCapture({ type: 'mouseButton', button: e.button });
+    // The second click of a double-click on the slot is not a request to bind the left button.
+    if (button === 0 && this.now() - cap.started < CAPTURE_LEFT_CLICK_GRACE_MS) return;
+    this.endCapture({ type: 'mouseButton', button });
   };
 
   private readonly onCaptureWheel = (ev: Event): void => {

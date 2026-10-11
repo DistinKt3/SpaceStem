@@ -49,6 +49,11 @@ interface FakeDoc extends EventTarget {
   exitPointerLock(): void;
 }
 
+/** A focused element double: tag, optional input type and attributes. */
+function el(tagName: string, attrs: Record<string, string> = {}, type?: string): unknown {
+  return { tagName, type, getAttribute: (n: string) => attrs[n] ?? null };
+}
+
 function setup(opts: { pads?: FakePad[] } = {}) {
   const raf: FrameRequestCallback[] = [];
   const win = Object.assign(new EventTarget(), {
@@ -76,8 +81,10 @@ function setup(opts: { pads?: FakePad[] } = {}) {
   });
   const settings = new Settings({ storage: null, env: { prefersReducedMotion: false, prefersMoreContrast: false } });
   const pads = opts.pads ?? [];
+  const clock = { ms: 0 };
   const input = new InputManager(target as unknown as HTMLElement, settings, {
     getGamepads: () => pads as unknown as Gamepad[],
+    now: () => clock.ms,
   });
   const key = (type: 'keydown' | 'keyup', code: string, extra: Record<string, unknown> = {}): Event => {
     const e = Object.assign(new Event(type, { cancelable: true }), { code, key: code, repeat: false, ctrlKey: false, metaKey: false, isComposing: false, ...extra });
@@ -97,7 +104,7 @@ function setup(opts: { pads?: FakePad[] } = {}) {
   const flushRaf = (): void => {
     for (const cb of raf.splice(0)) cb(0);
   };
-  return { win, doc, target, settings, input, down, up, mouse, wheel, pads, flushRaf };
+  return { win, doc, target, settings, input, down, up, mouse, wheel, pads, flushRaf, clock };
 }
 
 const tick = async (): Promise<void> => {
@@ -348,6 +355,50 @@ describe('InputManager', () => {
     expect(e.defaultPrevented).toBe(false);
   });
 
+  it('leaves Tab, Enter and Space to a focused button, and keeps flying on other keys', () => {
+    const { input, down, up, doc } = setup();
+    doc.activeElement = el('BUTTON');
+    const tab = down('Tab');
+    const space = down('Space');
+    input.update(1 / 60);
+    expect(tab.defaultPrevented).toBe(false); // focus moves on
+    expect(space.defaultPrevented).toBe(false); // the button activates
+    expect(input.justPressed('targetNext')).toBe(false);
+    expect(input.justPressed('modeNext')).toBe(false);
+    expect(up('Space').defaultPrevented).toBe(false); // Space clicks a button on keyup
+    down('KeyW');
+    down('ArrowUp'); // a plain button has no use for arrows
+    input.update(1 / 60);
+    expect(input.axis('thrust')).toBe(1);
+    expect(input.axis('pitch')).toBe(1);
+    up('KeyW');
+    up('ArrowUp');
+    doc.activeElement = el('A', { href: '#codex' });
+    expect(down('Enter').defaultPrevented).toBe(false);
+  });
+
+  it('leaves arrows to focused widgets and scrollable regions', () => {
+    const { input, down, up, doc } = setup();
+    for (const focused of [el('INPUT', {}, 'radio'), el('INPUT', {}, 'range'), el('DIV', { role: 'tab' }), el('SECTION', { tabindex: '0' })]) {
+      doc.activeElement = focused;
+      const e = down('ArrowUp');
+      input.update(1 / 60);
+      expect(e.defaultPrevented).toBe(false);
+      expect(input.axis('pitch')).toBe(0);
+      up('ArrowUp');
+    }
+    // The game surface itself (focusable from script with tabindex -1) and the body give every key to the game.
+    for (const focused of [el('CANVAS', { tabindex: '-1' }), el('BODY'), null]) {
+      doc.activeElement = focused;
+      const e = down('Tab');
+      input.update(1 / 60);
+      expect(e.defaultPrevented).toBe(true);
+      expect(input.justPressed('targetNext')).toBe(true);
+      up('Tab');
+      input.update(1 / 60);
+    }
+  });
+
   it('reads as idle while disabled', () => {
     const { input, down } = setup();
     input.enabled = false;
@@ -457,6 +508,57 @@ describe('InputManager', () => {
     expect(input.justPressed('pause')).toBe(true);
   });
 
+  it('ignores the pad press that closes a menu even before update() has seen it', () => {
+    // The menu polls the pad first in a frame and closes (re-enabling input) before the game's update() runs.
+    const pad = makePad();
+    const { input } = setup({ pads: [pad] });
+    input.enabled = false;
+    input.update(1 / 60);
+    press(pad, PAD.B); // B closes the menu...
+    input.enabled = true; // ...which re-enables game input in the same frame
+    input.update(1 / 60);
+    expect(input.justPressed('toggleView')).toBe(false); // B is also bound to Switch view
+    expect(input.held('toggleView')).toBe(false);
+    press(pad, PAD.B, 0);
+    input.update(1 / 60);
+    press(pad, PAD.B);
+    input.update(1 / 60);
+    expect(input.justPressed('toggleView')).toBe(true);
+  });
+
+  it('does not let a pad without the standard mapping steer while idle', () => {
+    // A generic pad that reports its triggers as axes resting at -1 (axes 2 and 5).
+    const pad = { ...makePad(), id: 'Generic USB Joystick (Vendor: 0079 Product: 0006)', mapping: '', axes: [0, 0, -1, 0, 0, -1] };
+    const { input } = setup({ pads: [pad] });
+    for (let i = 0; i < 3; i++) {
+      input.update(1 / 60);
+      expect(input.axis('yaw')).toBe(0);
+    }
+    expect(input.activeDevice).toBe('kbm');
+    expect(ACTIONS.some((a) => input.justPressed(a.id))).toBe(false);
+    // Pulling that trigger reads 0..1 on the axis it sits on.
+    pad.axes = [0, 0, 1, 0, 0, -1];
+    input.update(1 / 60);
+    expect(input.axis('yaw')).toBeCloseTo(1, 5);
+    pad.axes = [0, 0, 0, 0, 0, -1]; // halfway
+    input.update(1 / 60);
+    expect(input.axis('yaw')).toBeGreaterThan(0.3);
+    expect(input.axis('yaw')).toBeLessThan(0.5);
+  });
+
+  it('re-centres a non-standard stick that was held when the pad was first seen', () => {
+    const pad = { ...makePad(), mapping: '', axes: [0, 0, -0.9, 0] }; // right stick pushed left at first sight
+    const { input } = setup({ pads: [pad] });
+    input.update(1 / 60);
+    expect(input.axis('yaw')).toBe(0);
+    pad.axes = [0, 0, 0, 0]; // released: reads as a half-pressed trigger until it has rested for a second
+    for (let i = 0; i < 70; i++) input.update(1 / 60);
+    expect(input.axis('yaw')).toBe(0);
+    pad.axes = [0, 0, -1, 0];
+    input.update(1 / 60);
+    expect(input.axis('yaw')).toBeCloseTo(-1, 5); // now a normal two-way stick
+  });
+
   it('applies invertY to gamepad pitch', () => {
     const pad = makePad();
     const { input, settings } = setup({ pads: [pad] });
@@ -489,6 +591,19 @@ describe('rebinding', () => {
     down('Escape');
     await expect(p).resolves.toBeNull();
     expect(settings.data.bindings['toggleMap']).toEqual(before);
+  });
+
+  it('does not bind the left button from the second click of a double-click on the slot', async () => {
+    const { input, mouse, clock } = setup();
+    clock.ms = 1000;
+    const p = input.beginRebind('screenshot', 1);
+    clock.ms = 1200;
+    const second = mouse('mousedown', { button: 0 });
+    expect(second.defaultPrevented).toBe(true); // swallowed, so the slot does not restart the capture
+    expect(input.rebinding).not.toBeNull();
+    clock.ms = 2000; // a deliberate click later does bind it
+    mouse('mousedown', { button: 0 });
+    await expect(p).resolves.toEqual({ type: 'mouseButton', button: 0 });
   });
 
   it('captures two keys for an axis, negative first', async () => {
@@ -614,5 +729,14 @@ describe('menu navigation', () => {
     expect(nav.poll(1.6)).toEqual([]);
     press(pad, PAD.RB);
     expect(nav.poll(1.7)).toEqual(['tabNext']);
+  });
+
+  it('ignores pads without the standard mapping', () => {
+    const pad = { ...makePad(), mapping: '', axes: [0, -1, 0, 0] }; // an axis resting at -1 would scroll up forever
+    const nav = new GamepadMenuNav(() => [pad as unknown as Gamepad]);
+    nav.reset();
+    expect(nav.poll(0)).toEqual([]);
+    press(pad, PAD.A);
+    expect(nav.poll(1)).toEqual([]);
   });
 });

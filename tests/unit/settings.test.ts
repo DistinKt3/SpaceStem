@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { defaultBindings } from '../../src/game/input/actions';
 import {
   composite,
@@ -14,6 +14,7 @@ import {
 } from '../../src/game/settings/colorScience';
 import {
   COLORBLIND_MODES,
+  SETTINGS_SAVE_DELAY_MS,
   SETTINGS_STORAGE_KEY,
   SETTINGS_VERSION,
   Settings,
@@ -74,6 +75,8 @@ describe('settings persistence', () => {
     const storage = new MemoryStorage();
     const a = new Settings({ storage, env: ENV });
     a.set({ textScale: 1.5, colorblind: 'tritanopia', volumes: { music: 0.25 }, invertY: true });
+    expect(storage.getItem(SETTINGS_STORAGE_KEY)).toBeNull(); // debounced
+    a.flush();
     const b = new Settings({ storage, env: ENV });
     expect(b.data.textScale).toBe(1.5);
     expect(b.data.colorblind).toBe('tritanopia');
@@ -152,6 +155,49 @@ describe('settings persistence', () => {
     expect(settings.data.version).toBe(SETTINGS_VERSION);
   });
 
+  it('debounces saves: a burst of changes (a slider drag) writes once', () => {
+    vi.useFakeTimers();
+    try {
+      const storage = new MemoryStorage();
+      const writes: string[] = [];
+      const counting: StorageLike = { getItem: (k) => storage.getItem(k), setItem: (k, v) => (writes.push(v), storage.setItem(k, v)) };
+      const s = new Settings({ storage: counting, env: ENV });
+      for (let i = 1; i <= 30; i++) {
+        s.set({ volumes: { music: i / 100 } });
+        vi.advanceTimersByTime(16);
+      }
+      expect(writes).toHaveLength(0);
+      vi.advanceTimersByTime(SETTINGS_SAVE_DELAY_MS);
+      expect(writes).toHaveLength(1);
+      expect((JSON.parse(writes[0]!) as { volumes: { music: number } }).volumes.music).toBe(0.3);
+      s.set({ fovDeg: 80 });
+      s.flush(); // e.g. on pagehide
+      expect(writes).toHaveLength(2);
+      vi.advanceTimersByTime(SETTINGS_SAVE_DELAY_MS * 2);
+      expect(writes).toHaveLength(2);
+      const now = new Settings({ storage: counting, env: ENV, saveDelayMs: 0 });
+      now.set({ fovDeg: 90 });
+      expect(writes).toHaveLength(3);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('migrates version 1 data, which pinned the system-derived values', () => {
+    const { settings } = withStored({ version: 1, reducedMotion: false, colorblind: 'none', textScale: 1.5 });
+    expect(settings.data.textScale).toBe(1.5);
+    expect(settings.isOverridden('reducedMotion')).toBe(false);
+    expect(settings.isOverridden('colorblind')).toBe(false);
+    settings.setEnvironment({ prefersReducedMotion: true, prefersMoreContrast: true });
+    expect(settings.data.reducedMotion).toBe(true);
+    expect(settings.data.colorblind).toBe('high-contrast');
+    // Real choices survive the migration.
+    const kept = withStored({ version: 1, reducedMotion: true, colorblind: 'tritanopia' }).settings;
+    expect(kept.data.reducedMotion).toBe(true);
+    expect(kept.data.colorblind).toBe('tritanopia');
+    expect(kept.isOverridden('colorblind')).toBe(true);
+  });
+
   it('survives storage that throws', () => {
     const throwing: StorageLike = {
       getItem: () => {
@@ -183,6 +229,14 @@ describe('settings changes', () => {
     expect(seen).toHaveLength(2);
   });
 
+  it('keeps mouse sensitivity at the two decimals the slider shows', () => {
+    const s = new Settings({ storage: null, env: ENV });
+    s.set({ mouseSensitivity: 0.1216 }); // a log-scale slider position
+    expect(s.data.mouseSensitivity).toBe(0.12);
+    s.set({ mouseSensitivity: 9 });
+    expect(s.data.mouseSensitivity).toBe(5);
+  });
+
   it('keeps the current value when a patch is invalid', () => {
     const s = new Settings({ storage: null, env: ENV });
     s.set({ colorblind: 'protanopia' });
@@ -198,6 +252,51 @@ describe('settings changes', () => {
     expect(s.data.textScale).toBe(2);
     s.reset();
     expect(s.data.textScale).toBe(1);
+  });
+
+  it('keeps following the system preferences until the player overrides them', () => {
+    const storage = new MemoryStorage();
+    const stored = (): Record<string, unknown> => JSON.parse(storage.getItem(SETTINGS_STORAGE_KEY)!) as Record<string, unknown>;
+    const s = new Settings({ storage, env: ENV, saveDelayMs: 0 });
+    const seen: SettingsKey[][] = [];
+    s.onChange((_, changed) => seen.push([...changed]));
+    // An unrelated change saves, but does not pin the system-derived values.
+    s.set({ volumes: { music: 0.3 } });
+    expect(stored()).not.toHaveProperty('reducedMotion');
+    expect(stored()).not.toHaveProperty('colorblind');
+    // The system now asks for reduced motion: live, and on the next launch.
+    s.setEnvironment({ prefersReducedMotion: true, prefersMoreContrast: false });
+    expect(s.data.reducedMotion).toBe(true);
+    expect(seen.at(-1)).toEqual(['reducedMotion']);
+    expect(new Settings({ storage, env: { prefersReducedMotion: true, prefersMoreContrast: false } }).data.reducedMotion).toBe(true);
+    // An explicit choice that differs from the system is stored and wins, whatever the system says later.
+    s.set({ reducedMotion: false });
+    expect(s.isOverridden('reducedMotion')).toBe(true);
+    expect(stored()['reducedMotion']).toBe(false);
+    s.setEnvironment({ prefersReducedMotion: false, prefersMoreContrast: false });
+    s.setEnvironment({ prefersReducedMotion: true, prefersMoreContrast: false });
+    expect(s.data.reducedMotion).toBe(false);
+    expect(new Settings({ storage, env: { prefersReducedMotion: true, prefersMoreContrast: false } }).data.reducedMotion).toBe(false);
+    // Choosing the system's value again follows the system again.
+    s.set({ reducedMotion: true });
+    expect(s.isOverridden('reducedMotion')).toBe(false);
+    expect(stored()).not.toHaveProperty('reducedMotion');
+    s.setEnvironment({ prefersReducedMotion: false, prefersMoreContrast: false });
+    expect(s.data.reducedMotion).toBe(false);
+  });
+
+  it('follows prefers-contrast for the colour mode until a mode is chosen, and reset follows it again', () => {
+    const s = new Settings({ storage: null, env: ENV });
+    s.setEnvironment({ prefersReducedMotion: false, prefersMoreContrast: true });
+    expect(s.data.colorblind).toBe('high-contrast');
+    s.set({ colorblind: 'deuteranopia' });
+    s.setEnvironment({ prefersReducedMotion: false, prefersMoreContrast: false });
+    expect(s.data.colorblind).toBe('deuteranopia');
+    s.reset(['colorblind']);
+    expect(s.data.colorblind).toBe('none');
+    expect(s.isOverridden('colorblind')).toBe(false);
+    s.setEnvironment({ prefersReducedMotion: false, prefersMoreContrast: true });
+    expect(s.data.colorblind).toBe('high-contrast');
   });
 
   it('applies text scale, colour mode and reduced motion to the document root', () => {
@@ -324,6 +423,17 @@ describe('colour-blind palettes', () => {
         expect(minPairDifference(prov, null)).toBeGreaterThanOrEqual(20);
       });
 
+      // A provenance colour equal (or close) to plain text would present that provenance as ordinary data.
+      it('keeps every provenance colour distinct from plain text', () => {
+        const fg = resolve(t, '--ks-fg');
+        for (const [i, name] of ['--ks-measured', '--ks-inferred', '--ks-generated'].entries()) {
+          expect(t[name]!.toLowerCase(), name).not.toBe(t['--ks-fg']!.toLowerCase());
+          for (const sim of [null, ...(mode === 'none' ? [] : SIMS)]) {
+            expect(perceivedDifference(prov[i]!, fg, sim), `${name} vs text${sim ? ` (${sim})` : ''}`).toBeGreaterThanOrEqual(10);
+          }
+        }
+      });
+
       // Each CVD palette must survive its own deficiency; high contrast must survive all of them.
       const targets: Deficiency[] = mode === 'high-contrast' ? SIMS : mode === 'none' ? [] : [mode];
       for (const sim of targets) {
@@ -337,6 +447,12 @@ describe('colour-blind palettes', () => {
       }
     });
   }
+
+  it('separates the high-contrast provenance colours in greyscale too (achromatopsia, beyond the target set)', () => {
+    const t = paletteTokens('high-contrast');
+    const prov = ['--ks-measured', '--ks-inferred', '--ks-generated'].map((n) => resolve(t, n));
+    expect(minPairDifference(prov, 'achromatopsia')).toBeGreaterThanOrEqual(6);
+  });
 
   it('documents why the CVD modes exist: the default palette merges two provenance colours for deuteranopes', () => {
     const t = paletteTokens('none');
