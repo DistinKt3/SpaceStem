@@ -49,6 +49,7 @@ export class CodexPanel implements CodexNavTarget {
   private readonly progressFill: HTMLSpanElement;
   private readonly search: HTMLInputElement;
   private readonly listbox: HTMLDivElement;
+  private readonly panel: HTMLDivElement;
   private readonly listEmpty: HTMLParagraphElement;
   private readonly status: HTMLParagraphElement;
   private readonly main: HTMLElement;
@@ -98,7 +99,7 @@ export class CodexPanel implements CodexNavTarget {
         class: 'ks-cx-tab',
         role: 'tab',
         id: id(`tab-${tab}`),
-        'aria-controls': id('list'),
+        'aria-controls': id('panel'),
         'aria-selected': 'false',
         tabindex: -1,
         'data-tab': tab,
@@ -153,6 +154,8 @@ export class CodexPanel implements CodexNavTarget {
       if (it && it.id !== this.selectedId) this.select(it.id);
     });
     this.listEmpty = h('p', { class: 'ks-cx-empty ks-cx-list-empty', hidden: true });
+    // The list area is the tab panel of the selected category.
+    this.panel = h('div', { class: 'ks-cx-listwrap', role: 'tabpanel', id: id('panel') }, this.listbox, this.listEmpty);
     this.status = h('p', { class: 'ks-cx-sr', role: 'status', 'aria-live': 'polite' });
     const legend = h(
       'div',
@@ -160,14 +163,7 @@ export class CodexPanel implements CodexNavTarget {
       h('p', { class: 'ks-cx-eyebrow' }, t('codex.legend.title')),
       h('div', { class: 'ks-cx-legend-badges' }, ...PROVENANCES.map((p) => provenanceBadge(p))),
     );
-    const side = h(
-      'div',
-      { class: 'ks-cx-side' },
-      searchBox,
-      h('div', { class: 'ks-cx-listwrap' }, this.listbox, this.listEmpty),
-      legend,
-      this.status,
-    );
+    const side = h('div', { class: 'ks-cx-side' }, searchBox, this.panel, legend, this.status);
 
     // Main: entry view.
     this.backBtn = h('button', { type: 'button', class: 'ks-cx-back' }, icon('back'), t('codex.entry.back'));
@@ -626,6 +622,7 @@ export class CodexPanel implements CodexNavTarget {
       }
       if (hasNew) children.push(h('span', { class: 'ks-cx-dot' }));
       b.setAttribute('aria-label', name);
+      if (on) this.panel.setAttribute('aria-labelledby', b.id);
       b.title = label;
       b.replaceChildren(...children);
     }

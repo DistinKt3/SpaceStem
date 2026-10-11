@@ -72,6 +72,9 @@ test.describe('Codex panel', () => {
     await expect(bodies).toBeFocused();
     await expect(bodies).toHaveAttribute('aria-selected', 'true');
     await expect(listbox).toHaveAttribute('aria-label', 'Bodies entries');
+    const panel = page.getByRole('tabpanel', { name: /^Bodies, 1 of 2 discovered/ });
+    await expect(panel).toBeVisible();
+    await expect(bodies).toHaveAttribute('aria-controls', (await panel.getAttribute('id'))!);
     await page.keyboard.press('ArrowDown');
     await expect(listbox).toBeFocused();
     await expect(entryTitle(page)).toHaveText('Earth');
