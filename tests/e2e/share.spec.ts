@@ -829,8 +829,28 @@ test.describe('real game (index.html)', () => {
     expect(await peak(page, exo.png)).toBeGreaterThan(30);
     expect(decodeShare(`#${exo.token!}`)?.anchor).toBe('trappist-1e');
 
-    // The map and Codex checks come after the captures above: at da75eac, once the map has been opened and closed the 3D
-    // view renders black (a pre-existing bug, reported separately), which would blank these review images.
+    // Large text on this short window, a Codex notification up, then K in screenshot mode: the share toast stays on
+    // screen and off the toolbar, and every toolbar button still takes a click.
+    await page.evaluate(() => (window as unknown as { __ks: { app: { settings: { set(p: object): void } } } }).__ks.app.settings.set({ textScale: 2 }));
+    await page.keyboard.press('KeyP');
+    await expect(page.locator('body')).toHaveClass(/ks-screenshot/);
+    await page.evaluate(() => (window as unknown as { __ks: { app: { codex: { ui: { store: { discover(id: string): void } } } } } }).__ks.app.codex.ui.store.discover('concept-radial-velocity'));
+    await expect(page.locator('.ks-cx-toasts .ks-cx-toast')).not.toHaveCount(0);
+    await page.keyboard.press('KeyK');
+    await expect(toast(page).locator('.ks-toast-msg')).toHaveText('Location link copied');
+    await page.mouse.move(400, 300);
+    const bar = (await box(page, '.ks-shot-bar'))!;
+    await expect.poll(async () => (await box(page, '.ks-toasts .ks-toast'))?.bottom ?? 0).toBeLessThanOrEqual(450);
+    expect(intersects(bar, (await box(page, '.ks-toasts .ks-toast'))!)).toBe(false);
+    expect(intersects(bar, (await box(page, '.ks-cx-toasts .ks-cx-toast'))!)).toBe(false);
+    for (const sel of ['.ks-shot-capture', '.ks-shot-switch', '.ks-shot-exit']) expect(await hittable(page, sel), sel).toBe(true);
+    await page.screenshot({ path: `${SHOTS}/game-text2-toasts.png` });
+    await page.keyboard.press('Escape');
+    await expect(page.locator('body')).not.toHaveClass(/ks-screenshot/);
+    await page.evaluate(() => (window as unknown as { __ks: { app: { settings: { set(p: object): void } } } }).__ks.app.settings.set({ textScale: 1 }));
+
+    // The map and Codex checks come last: at da75eac, once the map has been opened and closed the 3D view renders black
+    // (a pre-existing bug, reported separately), which would blank the captures above and slow every frame after it.
     // The map ends screenshot mode (the toolbar must not sit over the map).
     await page.keyboard.press('KeyP');
     await expect(page.locator('body')).toHaveClass(/ks-screenshot/);
@@ -848,22 +868,6 @@ test.describe('real game (index.html)', () => {
     await page.keyboard.press('Escape');
     await expect.poll(() => page.evaluate(() => (window as unknown as { __ks: GameKs }).__ks.app.codex.ui.isOpen)).toBe(false);
 
-    // Large text on this short window, a Codex notification up, then K in screenshot mode: the share toast stays on
-    // screen and off the toolbar, and every toolbar button still takes a click.
-    await page.evaluate(() => (window as unknown as { __ks: { app: { settings: { set(p: object): void } } } }).__ks.app.settings.set({ textScale: 2 }));
-    await page.keyboard.press('KeyP');
-    await expect(page.locator('body')).toHaveClass(/ks-screenshot/);
-    await page.evaluate(() => (window as unknown as { __ks: { app: { codex: { ui: { store: { discover(id: string): void } } } } } }).__ks.app.codex.ui.store.discover('concept-radial-velocity'));
-    await expect(page.locator('.ks-cx-toasts .ks-cx-toast')).not.toHaveCount(0);
-    await page.keyboard.press('KeyK');
-    await expect(toast(page).locator('.ks-toast-msg')).toHaveText('Location link copied');
-    await page.mouse.move(400, 300);
-    const bar = (await box(page, '.ks-shot-bar'))!;
-    await expect.poll(async () => (await box(page, '.ks-toasts .ks-toast'))?.bottom ?? 0).toBeLessThanOrEqual(450);
-    expect(intersects(bar, (await box(page, '.ks-toasts .ks-toast'))!)).toBe(false);
-    expect(intersects(bar, (await box(page, '.ks-cx-toasts .ks-cx-toast'))!)).toBe(false);
-    for (const sel of ['.ks-shot-capture', '.ks-shot-switch', '.ks-shot-exit']) expect(await hittable(page, sel), sel).toBe(true);
-    await page.screenshot({ path: `${SHOTS}/game-text2-toasts.png` });
     expect(errors).toEqual([]);
   });
 });
