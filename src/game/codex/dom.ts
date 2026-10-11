@@ -213,8 +213,8 @@ export function citationView(
       h(
         'span',
         { class: 'ks-cx-unverified', title: t('codex.cite.unverifiedTitle') },
-        t('codex.cite.unverified'),
-        srOnly(`: ${t('codex.cite.unverifiedTitle')}`),
+        h('span', { 'aria-hidden': 'true' }, t('codex.cite.unverified')),
+        srOnly(t('codex.cite.unverifiedSr')),
       ),
     );
   }

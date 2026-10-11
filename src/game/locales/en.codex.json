@@ -14,11 +14,8 @@
   "codex.kind.exoplanet": "Exoplanet",
   "codex.kind.concept": "Concept",
   "codex.tab.count": "{n}/{total}",
-  "codex.tab.countLabel": "{n} of {total} discovered",
-  "codex.tab.newLabel": "includes new entries",
   "codex.search.label": "Search discovered entries",
   "codex.search.placeholder": "Search discovered entries",
-  "codex.search.clear": "Clear search",
   "codex.search.results.one": "{n} result",
   "codex.search.results.other": "{n} results",
   "codex.search.none": "No discovered entry matches “{q}”.",
@@ -130,5 +127,14 @@
   "codex.demo.targetHint": "I: How do we know this?",
   "codex.cite.short": "{authors} ({year}).",
   "codex.errorTitle": "Codex unavailable",
-  "codex.errorShort": "No entries available."
+  "codex.errorShort": "No entries available.",
+  "codex.tab.aria": "{category}, {n} of {total} discovered",
+  "codex.tab.ariaNew": "{category}, {n} of {total} discovered, includes new entries",
+  "codex.tab.logAria": "{category}",
+  "codex.tab.logAriaNew": "{category}, includes new entries",
+  "codex.log.sub": "{kind} · {when}",
+  "codex.log.optionLabelNew": "{title}, {kind}, discovered {when}, new",
+  "codex.search.sub": "{kind} · {summary}",
+  "codex.entry.eyebrow": "{kind} · {where}",
+  "codex.cite.unverifiedSr": "Unverified: this citation has not yet been checked against the original source."
 }

@@ -1,3 +1,4 @@
+import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import codexFixture from '../fixtures/codex_sample.json';
 import citationsFixture from '../fixtures/citations_sample.json';
@@ -19,6 +20,7 @@ import {
   relativeTime,
 } from '../../src/game/codex/format';
 import { parseCitations, parseCodex, type CodexCitation, type CodexEntry } from '../../src/game/codex/types';
+import { hasKey } from '../../src/game/i18n';
 
 class MemoryStorage implements StorageLike {
   readonly data = new Map<string, string>();
@@ -421,5 +423,30 @@ describe('codex value formatting', () => {
     expect(lockedHint({ ...get('parallax'), unlock: 'visit' }, entries)).toBe(
       'Keep exploring: this entry unlocks along the way.',
     );
+  });
+});
+
+describe('codex strings', () => {
+  it('every codex key used in the module exists in the locale files', () => {
+    const dir = new URL('../../src/game/codex/', import.meta.url);
+    const files = [
+      ...readdirSync(dir).map((f) => new URL(f, dir)),
+      new URL('../../src/game/ui/badge.ts', import.meta.url),
+      new URL('../../src/spike/codexDemo.ts', import.meta.url),
+    ];
+    const keys = new Set<string>();
+    for (const f of files) for (const m of readFileSync(f, 'utf8').matchAll(/'(codex\.[\w.-]+)'/g)) keys.add(m[1]!);
+    // Keys built at runtime.
+    for (const k of ['body', 'star', 'exoplanet', 'concept']) keys.add(`codex.kind.${k}`).add(`codex.cat.${k}`);
+    keys.add('codex.cat.log');
+    for (const p of ['measured', 'inferred', 'generated']) {
+      for (const s of ['', '.aria', '.explain']) keys.add(`codex.tier.${p}${s}`);
+      keys.add(`codex.tierCount.${p}`);
+    }
+    for (const m of ['none', 'deuteranopia', 'protanopia', 'tritanopia', 'high-contrast'])
+      keys.add(`codex.demo.palette.${m}`);
+    expect(keys.size).toBeGreaterThan(100);
+    // Plural bases (used through tCount) exist as "<base>.other".
+    expect([...keys].filter((k) => !hasKey(k) && !hasKey(`${k}.other`))).toEqual([]);
   });
 });

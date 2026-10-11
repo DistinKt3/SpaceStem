@@ -229,7 +229,7 @@ export class CodexPanel implements CodexNavTarget {
       this.openState = true;
       showDialog(this.element);
       pushNavTarget(this);
-      this.timer = window.setInterval(() => this.updateTimes(), 30_000);
+      this.timer = window.setInterval(() => this.refresh(), 30_000);
     }
     if (entryId && this.store.entry(entryId)) {
       this.showEntry(entryId);
@@ -609,35 +609,23 @@ export class CodexPanel implements CodexNavTarget {
       b.setAttribute('aria-selected', String(on));
       b.tabIndex = on ? 0 : -1;
       b.classList.toggle('is-active', on);
+      // The visible parts are decoration for a single translated accessible name.
       const label = t(`codex.cat.${tab}`);
-      const children: (Node | string)[] = [
-        icon(tab === 'log' ? 'log' : tab),
-        h('span', { class: 'ks-cx-tab-label' }, label),
-      ];
+      const children: Node[] = [icon(tab === 'log' ? 'log' : tab), h('span', { class: 'ks-cx-tab-label' }, label)];
+      const hasNew = this.store.newCount(tab === 'log' ? undefined : tab) > 0;
+      let name: string;
       if (tab === 'log') {
         const n = this.store.log().length;
-        if (n > 0) children.push(h('span', { class: 'ks-cx-tab-count', 'aria-hidden': 'true' }, String(n)));
-        if (this.store.newCount() > 0)
-          children.push(
-            h('span', { class: 'ks-cx-dot', 'aria-hidden': 'true' }),
-            srOnly(`, ${t('codex.tab.newLabel')}`),
-          );
+        if (n > 0) children.push(h('span', { class: 'ks-cx-tab-count' }, String(n)));
+        name = t(hasNew ? 'codex.tab.logAriaNew' : 'codex.tab.logAria', { category: label });
       } else {
         const pr = this.store.progress(tab);
-        children.push(
-          h(
-            'span',
-            { class: 'ks-cx-tab-count', 'aria-hidden': 'true' },
-            t('codex.tab.count', { n: String(pr.discovered), total: String(pr.total) }),
-          ),
-          srOnly(`, ${t('codex.tab.countLabel', { n: String(pr.discovered), total: String(pr.total) })}`),
-        );
-        if (this.store.newCount(tab) > 0)
-          children.push(
-            h('span', { class: 'ks-cx-dot', 'aria-hidden': 'true' }),
-            srOnly(`, ${t('codex.tab.newLabel')}`),
-          );
+        const p = { category: label, n: String(pr.discovered), total: String(pr.total) };
+        children.push(h('span', { class: 'ks-cx-tab-count' }, t('codex.tab.count', p)));
+        name = t(hasNew ? 'codex.tab.ariaNew' : 'codex.tab.aria', p);
       }
+      if (hasNew) children.push(h('span', { class: 'ks-cx-dot' }));
+      b.setAttribute('aria-label', name);
       b.title = label;
       b.replaceChildren(...children);
     }
@@ -686,15 +674,12 @@ export class CodexPanel implements CodexNavTarget {
       } else {
         let sub: HTMLElement;
         if (at !== null) {
-          const when = relativeTime(at, now);
-          sub = h('span', { class: 'ks-cx-opt-sub' }, `${kindLabel(e.kind)} · `, h('span', { 'data-ks-at': at }, when));
-          el.setAttribute(
-            'aria-label',
-            t('codex.log.optionLabel', { title: e.title, kind: kindLabel(e.kind), when }) +
-              (isNew ? `, ${t('codex.new')}` : ''),
-          );
+          const p = { title: e.title, kind: kindLabel(e.kind), when: relativeTime(at, now) };
+          sub = h('span', { class: 'ks-cx-opt-sub' }, t('codex.log.sub', p));
+          el.setAttribute('aria-label', t(isNew ? 'codex.log.optionLabelNew' : 'codex.log.optionLabel', p));
         } else {
-          sub = h('span', { class: 'ks-cx-opt-sub' }, searching ? `${kindLabel(e.kind)} · ${e.summary}` : e.summary);
+          const text = searching ? t('codex.search.sub', { kind: kindLabel(e.kind), summary: e.summary }) : e.summary;
+          sub = h('span', { class: 'ks-cx-opt-sub' }, text);
           el.setAttribute('aria-label', isNew ? t('codex.newLabel', { title: e.title }) : e.title);
         }
         el.append(
@@ -716,6 +701,7 @@ export class CodexPanel implements CodexNavTarget {
     });
     this.listbox.replaceChildren(...this.items.map((it) => it.el));
     if (searching) this.listbox.setAttribute('aria-label', t('codex.search.listLabel', { q: this.query.trim() }));
+    else if (this.tab === 'log') this.listbox.setAttribute('aria-label', t('codex.log.label'));
     else this.listbox.setAttribute('aria-label', t('codex.list.label', { category: t(`codex.cat.${this.tab}`) }));
     if (this.items.length > 0 && !this.items.some((it) => it.id === this.activeId)) {
       this.activeId = this.items.find((it) => it.id === this.selectedId)?.id ?? this.items[0]!.id;
@@ -805,7 +791,7 @@ export class CodexPanel implements CodexNavTarget {
       'p',
       { class: 'ks-cx-eyebrow ks-cx-entry-eyebrow' },
       icon(e.kind),
-      where ? `${kindLabel(e.kind)} · ${where}` : kindLabel(e.kind),
+      where ? t('codex.entry.eyebrow', { kind: kindLabel(e.kind), where }) : kindLabel(e.kind),
     );
     const title = h('h2', { class: 'ks-cx-entry-title', id: titleId, tabindex: -1 }, e.title);
 

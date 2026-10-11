@@ -141,7 +141,7 @@ test.describe('Codex panel', () => {
     const log = codex(page).getByRole('option');
     await expect(log).toHaveCount(2);
     await expect(log.nth(0)).toHaveAttribute('aria-label', /^TRAPPIST-1, Star, discovered just now/);
-    await expect(log.nth(1)).toHaveAttribute('aria-label', /^Moon, Body, discovered just now, New$/);
+    await expect(log.nth(1)).toHaveAttribute('aria-label', /^Moon, Body, discovered just now, new$/);
     await expect(page.locator('.ks-cx-opt.is-new .ks-cx-new')).toHaveText('New');
     await settle(page);
     await page.screenshot({ path: `${SHOTS}/panel-log.png` });
