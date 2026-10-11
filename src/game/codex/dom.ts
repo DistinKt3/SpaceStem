@@ -92,15 +92,19 @@ export function trapTab(e: KeyboardEvent, root: HTMLElement): boolean {
   const first = items[0]!;
   const last = items[items.length - 1]!;
   const active = document.activeElement;
-  const inside = active instanceof HTMLElement && root.contains(active) && items.includes(active);
-  if (e.shiftKey && (active === first || !inside)) {
+  if (!(active instanceof HTMLElement) || !root.contains(active)) {
     e.preventDefault();
-    last.focus();
+    (e.shiftKey ? last : first).focus();
     return true;
   }
-  if (!e.shiftKey && (active === last || !inside)) {
+  // Focus may rest on something that is not itself tabbable (a heading focused for reading): the browser moves on
+  // from it in document order, so wrap only when nothing tabbable lies ahead in that direction.
+  const ahead = e.shiftKey
+    ? items.some((el) => (active.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_PRECEDING) !== 0 && !el.contains(active))
+    : items.some((el) => (active.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0 && !active.contains(el));
+  if ((e.shiftKey && active === first) || (!e.shiftKey && active === last) || !ahead) {
     e.preventDefault();
-    first.focus();
+    (e.shiftKey ? last : first).focus();
     return true;
   }
   return false;

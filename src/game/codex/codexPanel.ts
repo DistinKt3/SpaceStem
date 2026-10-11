@@ -245,7 +245,7 @@ export class CodexPanel implements CodexNavTarget {
     this.activeId = null;
     this.refresh();
     if (opts.focus === 'tab') this.tabs.get(tab)?.focus();
-    else if (opts.focus === 'list') this.listbox.focus();
+    else if (opts.focus === 'list') this.focusList();
   }
 
   // --- Gamepad --------------------------------------------------------------------------------------------------------
@@ -329,8 +329,11 @@ export class CodexPanel implements CodexNavTarget {
     this.focusList();
   }
 
+  /** Focuses the list; its active entry becomes the selected one (selection follows focus). */
   private focusList(): void {
     this.listbox.focus({ preventScroll: true });
+    const it = this.activeItem();
+    if (it && it.id !== this.selectedId) this.select(it.id);
     this.activeItem()?.el.scrollIntoView({ block: 'nearest' });
   }
 
