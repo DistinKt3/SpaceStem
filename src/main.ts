@@ -3,6 +3,7 @@ import { App } from './game/app';
 import { FreeCamera } from './game/freeCamera';
 import { ShipController } from './game/ship/shipController';
 import './game/hud/hud.css';
+import './game/map/map.css';
 import { t } from './game/i18n';
 
 const app = new App(document.getElementById('c') as HTMLCanvasElement);

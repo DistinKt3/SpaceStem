@@ -10,6 +10,7 @@ import { createRenderer, effectiveDepthMode, type BackendRequest, type DepthMode
 import { FrameRenderer } from '../render/frameRenderer';
 import { Starfield } from '../render/starfield';
 import { StarCatalog } from '../world/starCatalog';
+import { MapView } from './map/mapView';
 import { PARSEC_M } from '../core/constants';
 import { loadBodies } from '../world/catalog';
 import { Ephemeris } from '../world/ephemeris';
@@ -43,6 +44,7 @@ export class App {
   pool!: ChunkWorkerPool;
   readonly stars = new Starfield();
   catalog: StarCatalog | null = null;
+  map: MapView | null = null;
   reducedMotion = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
   depthMode: DepthMode = 'reversed';
   /** Simulation time, TDB seconds since J2000. */
@@ -170,6 +172,10 @@ export class App {
     if (this.frameTimes.length > 240) this.frameTimes.shift();
     this.last = now;
     if (!this.paused) this.simTime = this.sys.ephemeris.clampTime(this.simTime + dt * this.timeScale);
+    if (this.map?.isOpen) {
+      this.map.render();
+      return;
+    }
     this.controller?.update(dt, this);
     this.renderFrame();
     if (this.controller?.updateHud) this.controller.updateHud(this);

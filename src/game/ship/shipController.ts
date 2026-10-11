@@ -14,6 +14,7 @@ import { Hyperspeed } from './hyperspeed';
 import { AU_M, PARSEC_M } from '../../core/constants';
 import type { Provenance } from '../../core/provenance';
 import { inferStar } from '../../world/starCatalog';
+import { MapView } from '../map/mapView';
 
 export interface ControlSource {
   read(): ShipControls;
@@ -40,6 +41,17 @@ export class ShipController implements Controller {
     if (anchor && anchor.def.kind !== 'star') this.ship.vel.copy(Ship.bodyOmega(anchor, app.simTime).cross(this.ship.pos.offset));
     this.hud = new Hud(document.body);
     this.input = new KeyboardControls(app.canvas);
+    const map = new MapView(app);
+    map.onSelect = (id) => {
+      if (id) this.targetId = id;
+    };
+    app.map = map;
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'KeyM' && app.map && !app.map.isOpen) {
+        app.map.selectedId = this.targetId;
+        app.map.open();
+      }
+    });
     this.hyper.onArrive = (anchor) => {
       // The destination star becomes a real, lit body; other visited stars are released.
       for (const v of [...app.sys.views]) if (v.def.id.startsWith('*') && v.def.id !== anchor) app.sys.removeBody(v.def.id, app.frame);

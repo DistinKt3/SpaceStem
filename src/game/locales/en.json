@@ -77,5 +77,14 @@
   "hyper.error.notStar": "Hyperspeed needs a star as destination",
   "hyper.spooling": "Hyperspeed spooling: {name}",
   "hyper.eta": "Arrival in {s} s",
-  "hud.starDistance": "From {name}"
+  "hud.starDistance": "From {name}",
+  "map.systemTitle": "System map",
+  "map.starsTitle": "Star map",
+  "map.systemScale": "Laid on the planets' mean orbital plane. Distances from the star are compressed (r^0.4) so every orbit fits; directions are true.",
+  "map.starsScale": "Named catalogue stars within 50 light-years at true positions, galactic plane horizontal; rings at 10, 25 and 50 ly; lines drop to the plane.",
+  "map.help": "Drag to rotate · wheel to zoom · click or choose a destination · M or Esc to close",
+  "map.showStars": "Show star map",
+  "map.showSystem": "Show system map",
+  "map.you": "You are here",
+  "map.youAt": "You are here · {name}"
 }
