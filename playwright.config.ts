@@ -5,6 +5,8 @@ import { defineConfig } from '@playwright/test';
  * Vulkan path needed for WebGPU readback. Locally we use the pre-installed browser; CI installs its own.
  */
 const executablePath = process.env['CI'] ? undefined : '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+/** Override with KS_PORT when several checkouts run tests at once. */
+const port = Number(process.env['KS_PORT'] ?? 5174);
 
 export default defineConfig({
   testDir: 'tests/e2e',
@@ -14,7 +16,7 @@ export default defineConfig({
   workers: 1,
   reporter: [['list']],
   use: {
-    baseURL: 'http://localhost:5174',
+    baseURL: `http://localhost:${port}`,
     viewport: { width: 800, height: 450 },
     launchOptions: {
       ...(executablePath ? { executablePath } : {}),
@@ -30,8 +32,8 @@ export default defineConfig({
     },
   },
   webServer: {
-    command: 'npx vite --port 5174 --strictPort',
-    url: 'http://localhost:5174/spike.html',
+    command: `npx vite --port ${port} --strictPort`,
+    url: `http://localhost:${port}/spike.html`,
     reuseExistingServer: true,
     timeout: 60_000,
   },
