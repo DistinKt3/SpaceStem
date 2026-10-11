@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Known Sky: benchmark panel lab</title>
+    <link rel="icon" href="data:," />
+    <style>
+      html, body { overflow: hidden; }
+      #sky { position: fixed; inset: 0; width: 100vw; height: 100vh; }
+      #rerun { position: fixed; left: 1.2rem; bottom: 1.2rem; }
+    </style>
+  </head>
+  <body>
+    <canvas id="sky" aria-hidden="true"></canvas>
+    <button id="rerun" class="ks-bench-btn" type="button" hidden></button>
+    <script type="module" src="/src/spike/benchDemo.ts"></script>
+  </body>
+</html>
