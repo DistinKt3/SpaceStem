@@ -165,6 +165,48 @@ export function spectralCentroid(x: Samples, sampleRate: number, size = 2048): n
   return den > 0 ? num / den : 0;
 }
 
+/**
+ * The strongest spectral peaks of a short excerpt (Hz, loudest first): one Hann-windowed FFT zero-padded to at least
+ * four times the excerpt, local maxima refined by parabolic interpolation of the log power. A peak within 3% of a
+ * louder one counts as part of it (window sidelobes, beating twins). Only peaks at or above `minHz` are reported.
+ */
+export function spectralPeaks(x: Samples, sampleRate: number, count: number, minHz = 0): number[] {
+  const n = x.length;
+  if (n < 16 || count <= 0) return [];
+  let size = 1;
+  while (size < n * 4) size <<= 1;
+  const re = new Float64Array(size);
+  const im = new Float64Array(size);
+  for (let i = 0; i < n; i++) {
+    const v = x[i]!;
+    re[i] = (Number.isFinite(v) ? v : 0) * (0.5 - 0.5 * Math.cos((2 * Math.PI * i) / (n - 1)));
+  }
+  fft(re, im);
+  const half = size / 2;
+  const db = new Float64Array(half);
+  for (let k = 0; k < half; k++) db[k] = 10 * Math.log10(re[k]! * re[k]! + im[k]! * im[k]! + 1e-30);
+  const binHz = sampleRate / size;
+  const cands: { hz: number; p: number }[] = [];
+  for (let k = Math.max(1, Math.ceil(minHz / binHz)); k < half - 1; k++) {
+    const a = db[k - 1]!;
+    const b = db[k]!;
+    const c = db[k + 1]!;
+    if (b > a && b >= c) {
+      const den = a - 2 * b + c;
+      const off = den !== 0 ? (0.5 * (a - c)) / den : 0;
+      cands.push({ hz: (k + off) * binHz, p: b - 0.25 * (a - c) * off });
+    }
+  }
+  cands.sort((u, v) => v.p - u.p);
+  const out: number[] = [];
+  for (const cand of cands) {
+    if (out.some((h) => Math.abs(cand.hz - h) < 0.03 * h)) continue;
+    out.push(cand.hz);
+    if (out.length >= count) break;
+  }
+  return out;
+}
+
 /** Spectrogram in dBFS per frame (for display). */
 export function spectrogramDb(x: Samples, size = 1024, hop = 256): { frames: Float32Array[]; bins: number } {
   const norm = (size / 4) * (size / 4); // Hann coherent gain^2 for a full-scale sine

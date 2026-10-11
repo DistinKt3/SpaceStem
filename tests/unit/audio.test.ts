@@ -4,9 +4,10 @@
  */
 import { describe, expect, it } from 'vitest';
 import { AUDIO_CUES, AudioEngine, type AudioState } from '../../src/game/audio/audioEngine';
-import { bandEnergyFraction, clickScore, countNonFinite, fft, peak, rms, spectralCentroid } from '../../src/game/audio/analysis';
+import { bandEnergyFraction, clickScore, countNonFinite, fft, peak, rms, spectralCentroid, spectralPeaks } from '../../src/game/audio/analysis';
 import { ALL_CAPTION_KEYS, CUE_CAPTIONS, CaptionGate, STATE_CAPTIONS, StateCaptioner, type CaptionDef } from '../../src/game/audio/captions';
-import { impulseResponse, makeLoopable, noise, padSpectrum, softClipCurve } from '../../src/game/audio/dsp';
+import { CUE_PRIORITY, voiceToSteal } from '../../src/game/audio/cues';
+import { impulseResponse, impulseResponseWork, makeLoopable, noise, noiseWork, padSpectrum, softClipCurve } from '../../src/game/audio/dsp';
 import {
   DEFAULT_STATE,
   cabinMix,
@@ -26,6 +27,7 @@ import {
   MODES,
   PAD_HIGH,
   PAD_LOW,
+  avoidPitchClasses,
   bellsForCycle,
   chordIndexAt,
   composeScore,
@@ -36,9 +38,15 @@ import {
   voiceLeadingDistance,
   type Score,
 } from '../../src/game/audio/score';
+import { blipFrequencies, codexNotes, droneFrequency, exitShimmerNotes, humFrequency, inKey, noteAtOrAbove, type MusicalKey } from '../../src/game/audio/tuning';
 import { hasKey, keySources, t } from '../../src/game/i18n';
 
 const SEEDS = Array.from({ length: 40 }, (_, i) => i * 7919 + 1);
+/** Wider sweep for the cheap structural checks (about 1.5 ms per score). */
+const MANY_SEEDS = Array.from({ length: 400 }, (_, i) => i * 104_729 + 3);
+/** Every tonic pitch class in every mode (the score uses 5 tonics, but the tuning functions accept any key). */
+const ALL_KEYS: MusicalKey[] = MODES.flatMap((m) => Array.from({ length: 12 }, (_, p) => ({ tonic: 36 + p, steps: m.steps })));
+const hzToMidi = (hz: number): number => 69 + 12 * Math.log2(hz / 440);
 const pc = (m: number): number => ((m % 12) + 12) % 12;
 const scalePcs = (s: Score): Set<number> => new Set(s.mode.steps.map((x) => pc(s.tonic + x)));
 const st = (p: Partial<AudioState>): AudioState => ({ ...DEFAULT_STATE, ...p });
@@ -93,8 +101,16 @@ describe('audio score generator', () => {
     }
   });
 
+  it('loops last 75 to 120 s over a wide seed sweep', () => {
+    for (const seed of MANY_SEEDS) {
+      const L = composeScore(seed).loopSeconds;
+      expect(L).toBeGreaterThan(74);
+      expect(L).toBeLessThan(120);
+    }
+  });
+
   it('voice-leads smoothly, including across the loop seam', () => {
-    for (const seed of SEEDS) {
+    for (const seed of MANY_SEEDS) {
       const s = composeScore(seed);
       for (let i = 0; i < s.chords.length; i++) {
         const a = s.chords[i]!.notes;
@@ -132,6 +148,26 @@ describe('audio score generator', () => {
     expect(perMinute).toBeGreaterThan(2); // there are some
     expect(perMinute).toBeLessThan(12); // but sparse: well under one note every five seconds
     expect(differ).toBeGreaterThan(SEEDS.length * 0.8);
+  });
+
+  it('bells never sit a minor ninth above the chord sounding under them, in any mode', () => {
+    expect([...avoidPitchClasses([9, 0, 4])].sort((a, b) => a - b)).toEqual([1, 5, 10]); // A minor: F would clash with E
+    expect(avoidPitchClasses([0, 4, 7, 11]).has(0)).toBe(false); // the root of a maj7 is a chord tone, never "avoided"
+    let bells = 0;
+    let aeolian = 0;
+    for (const seed of MANY_SEEDS) {
+      const s = composeScore(seed);
+      for (let cycle = 0; cycle < 3; cycle++)
+        for (const b of bellsForCycle(s, cycle)) {
+          bells++;
+          if (s.mode.name === 'aeolian') aeolian++;
+          const under = s.chords[chordIndexAt(s, b.t)]!;
+          if (under.pcs.includes(pc(b.midi))) continue;
+          for (const q of under.pcs) expect(pc(b.midi - q), `seed ${seed} bell ${b.midi} over ${under.pcs.join(',')}`).not.toBe(1);
+        }
+    }
+    expect(bells).toBeGreaterThan(MANY_SEEDS.length * 3 * 3); // still several motifs per cycle
+    expect(aeolian).toBeGreaterThan(100); // aeolian scores (the case that used to clash) are covered
   });
 
   it('windows tile the timeline exactly and repeat the harmony every loop', () => {
@@ -172,6 +208,93 @@ describe('audio score generator', () => {
   });
 });
 
+describe('audio tuning: tonal ship sounds sit in the score key', () => {
+  it('finds notes by pitch class', () => {
+    expect(noteAtOrAbove(2, 82)).toBe(86);
+    expect(noteAtOrAbove(10, 82)).toBe(82);
+    expect(noteAtOrAbove(9, 82)).toBe(93);
+  });
+
+  it('the hyperspeed exit shimmer is six distinct, diatonic, descending pitches below 7 kHz', () => {
+    for (const k of ALL_KEYS) {
+      const notes = exitShimmerNotes(k);
+      expect(notes).toHaveLength(6);
+      expect(new Set(notes).size).toBe(6);
+      for (let i = 1; i < notes.length; i++) expect(notes[i]!).toBeLessThan(notes[i - 1]!);
+      for (const m of notes) {
+        expect(inKey(k, m), `${m} in key ${k.tonic}/${k.steps.join('')}`).toBe(true);
+        expect(midiToHz(m)).toBeLessThan(7000);
+        expect(midiToHz(m)).toBeGreaterThan(400);
+      }
+      // A tonic triad: only the tonic, the mode's third and the fifth.
+      expect(new Set(notes.map(pc))).toEqual(new Set([pc(k.tonic), pc(k.tonic + k.steps[2]!), pc(k.tonic + 7)]));
+    }
+    // Minor modes keep their minor third (the old fixed 2.5 ratio was a major tenth in every mode).
+    const aeolian = MODES.find((m) => m.name === 'aeolian')!;
+    expect(exitShimmerNotes({ tonic: 45, steps: aeolian.steps }).map(pc)).toContain(pc(45 + 3));
+  });
+
+  it('the codex arpeggio, avionics blips, cabin hum and hyperspeed drone are in key', () => {
+    for (const k of ALL_KEYS) {
+      for (const m of codexNotes(k)) expect(inKey(k, m)).toBe(true);
+      const blips = blipFrequencies(k);
+      expect(blips).toHaveLength(5);
+      for (let i = 0; i < blips.length; i++) {
+        const hz = blips[i]!;
+        expect(inKey(k, Math.round(hzToMidi(hz)))).toBe(true);
+        expect(hz).toBeGreaterThan(1000);
+        expect(hz).toBeLessThan(3400);
+        if (i > 0) expect(hz).toBeGreaterThan(blips[i - 1]!);
+      }
+      const hum = humFrequency(k);
+      expect(hum).toBeGreaterThan(45);
+      expect(hum).toBeLessThan(67);
+      expect([pc(k.tonic), pc(k.tonic + 7)]).toContain(pc(Math.round(hzToMidi(hum))));
+      const drone = droneFrequency(k);
+      expect(pc(Math.round(hzToMidi(drone)))).toBe(pc(k.tonic));
+      expect(drone).toBeGreaterThan(36);
+      expect(drone).toBeLessThan(70);
+    }
+    // Seed 7 is D lydian: the blips are D E F# A B (the old fixed set had G and C, both out of key).
+    const s = composeScore(7);
+    expect(blipFrequencies({ tonic: s.tonic, steps: s.mode.steps }).map((hz) => pc(Math.round(hzToMidi(hz))))).toEqual([2, 4, 6, 9, 11]);
+    expect(instrumentBlips(7, 0, 60, blipFrequencies({ tonic: s.tonic, steps: s.mode.steps })).every((b) => inKey({ tonic: s.tonic, steps: s.mode.steps }, Math.round(hzToMidi(b.hz))))).toBe(true);
+  });
+});
+
+describe('audio cue voices', () => {
+  it('warnings outrank ship events, which outrank the interface', () => {
+    for (const cue of ['scoop-warning', 'heat-critical', 'alert', 'fuel-low'] as const) expect(CUE_PRIORITY[cue]).toBe(2);
+    for (const cue of ['ui-hover', 'ui-select', 'ui-back', 'codex-unlock'] as const) expect(CUE_PRIORITY[cue]).toBe(0);
+    expect(Object.keys(CUE_PRIORITY).sort()).toEqual([...AUDIO_CUES].sort());
+  });
+
+  it('a full voice pool gives way to higher priorities, oldest first', () => {
+    const live: [string, number][] = [
+      ['engage', 1],
+      ['hover', 0],
+      ['alert', 2],
+      ['select', 0],
+    ];
+    expect(voiceToSteal(live, 2)).toBe('hover'); // a warning takes the oldest interface voice
+    expect(voiceToSteal(live, 1)).toBe('hover');
+    expect(voiceToSteal(live, 0)).toBeNull(); // an interface cue never steals from an equal
+    const ship: [string, number][] = [
+      ['a', 1],
+      ['b', 1],
+    ];
+    expect(voiceToSteal(ship, 1)).toBeNull();
+    expect(voiceToSteal(ship, 2)).toBe('a');
+    const warnings: [string, number][] = [
+      ['w1', 2],
+      ['w2', 2],
+    ];
+    expect(voiceToSteal(warnings, 2)).toBe('w1'); // the newest warning is always heard
+    expect(voiceToSteal(warnings, 1)).toBeNull();
+    expect(voiceToSteal([], 2)).toBeNull();
+  });
+});
+
 describe('audio state mappings (honest silence)', () => {
   it('sanitizes NaN, infinities, out-of-range values and unknown modes', () => {
     const s = sanitizeState({ thrust: Number.NaN, rcs: 7, speedFraction: -1, hyperspeed: Infinity, atmosphereDensity: -0.5, airspeed: -Infinity, scoopHeat: 2, mode: 'warp' as AudioState['mode'], landed: 1 as unknown as boolean });
@@ -202,7 +325,15 @@ describe('audio state mappings (honest silence)', () => {
   it('the engine is silent at zero thrust, grows with thrust and stays low-passed (felt through the hull)', () => {
     for (const mode of ['thrusters', 'impulse', 'cruise', 'hyperspeed'] as const) {
       const off = engineMix(st({ mode }));
-      expect(off.rumbleGain + off.noiseGain + off.toneGain).toBe(0);
+      expect(off.rumbleGain + off.noiseGain + off.toneGain + off.resoGain).toBe(0);
+      for (const thrust of [0.1, 0.4, 1]) {
+        // The hull resonance lives in the band small speakers can play.
+        const m = engineMix(st({ mode, thrust }));
+        expect(m.resoHz).toBeGreaterThanOrEqual(150);
+        expect(m.resoHz).toBeLessThanOrEqual(600);
+        expect(m.resoGain).toBeGreaterThan(0);
+        expect(m.resoGain).toBeLessThan(0.35);
+      }
       let prev = -1;
       for (const thrust of [0.1, 0.3, 0.6, 1]) {
         const m = engineMix(st({ mode, thrust, speedFraction: 1 }));
@@ -435,12 +566,45 @@ describe('audio analysis tools', () => {
     for (let i = 24_000; i < clicked.length; i++) clicked[i] = clicked[i]! + 0.01; // a -40 dB step
     expect(clickScore(clicked)).toBeGreaterThan(12);
   });
+
+  it('finds the pitches of a chord of sines, loudest first', () => {
+    const n = Math.floor(sr * 0.11);
+    const x = new Float32Array(n);
+    const parts: [number, number][] = [
+      [1174.66, 0.04],
+      [1479.98, 0.035],
+      [1760, 0.03],
+      [2349.32, 0.025],
+    ];
+    for (let i = 0; i < n; i++) for (const [hz, a] of parts) x[i] = x[i]! + a * Math.sin((2 * Math.PI * hz * i) / sr);
+    const found = spectralPeaks(x, sr, 4, 100);
+    expect(found).toHaveLength(4);
+    found.forEach((hz, i) => expect(Math.abs(hzToMidi(hz) - hzToMidi(parts[i]![0]))).toBeLessThan(0.1));
+    expect(spectralPeaks(x.subarray(0, 8), sr, 4)).toEqual([]);
+  });
+});
+
+describe('resumable generation', () => {
+  it('yields often and produces exactly the same samples as the one-shot versions', () => {
+    const w = noiseWork('pink', 48_000, 9);
+    let pauses = 0;
+    let r = w.next();
+    while (!r.done) {
+      pauses++;
+      r = w.next();
+    }
+    expect(pauses).toBeGreaterThan(10); // about every 4096 samples
+    expect(r.value).toEqual(noise('pink', 48_000, 9));
+    const iw = impulseResponseWork(16_000, { rt60: 1, predelay: 0.01, brightness: 0.5 }, 3);
+    let ir = iw.next();
+    while (!ir.done) ir = iw.next();
+    expect(ir.value).toEqual(impulseResponse(16_000, { rt60: 1, predelay: 0.01, brightness: 0.5 }, 3));
+  });
 });
 
 describe('AudioEngine without Web Audio (Node)', () => {
-  it('is a safe no-op: never throws, stays locked', async () => {
-    const captions: string[] = [];
-    const e = new AudioEngine({ seed: 5, onCaption: (k) => captions.push(k) });
+  it('is a safe no-op for sound: never throws, stays locked', async () => {
+    const e = new AudioEngine({ seed: 5 });
     expect(e.unlocked).toBe(false);
     e.update(Number.NaN, st({ thrust: Number.NaN }));
     e.update(0.016, null as unknown as AudioState);
@@ -451,12 +615,45 @@ describe('AudioEngine without Web Audio (Node)', () => {
     await expect(e.unlock()).resolves.toBeUndefined();
     expect(e.unlocked).toBe(false);
     expect(e.analyser()).toBeNull();
-    expect(e.stats()).toMatchObject({ contextState: 'none', musicTime: null, activeCues: 0, lastError: null });
+    expect(e.stats()).toMatchObject({ contextState: 'none', musicTime: null, activeCues: 0, suspended: false, lastError: null });
     expect(JSON.stringify(e.score)).toBe(JSON.stringify(composeScore(5)));
     e.dispose();
     e.dispose();
     e.update(0.016, DEFAULT_STATE);
     await expect(e.unlock()).resolves.toBeUndefined();
+  });
+
+  it('captions what the game plays even when nothing can be heard (no Web Audio, never unlocked, muted)', () => {
+    let now = 0;
+    const captions: string[] = [];
+    const e = new AudioEngine({ seed: 5, clock: () => now, onCaption: (k) => captions.push(k.replace('audio.caption.', '')) });
+    e.setMuted(true);
+    e.setVolumes({ master: 0, music: 0, sfx: 0 });
+    e.play('alert');
+    e.play('heat-critical');
+    e.play('fuel-low');
+    e.play('nope' as unknown as 'alert');
+    e.update(1 / 60, st({ thrust: 0.5 }));
+    expect(captions).toEqual(['alert', 'heatCritical', 'fuelLow', 'engineStart']);
+    // Repeats are dropped while the caption is still on screen, then shown again.
+    e.play('alert');
+    expect(captions.filter((c) => c === 'alert')).toHaveLength(1);
+    now = 3;
+    e.play('alert');
+    expect(captions.filter((c) => c === 'alert')).toHaveLength(2);
+    // Ambience captions wait for the soundscape to start (it never does here).
+    expect(captions).not.toContain('music');
+    expect(captions).not.toContain('cabin');
+    e.dispose();
+    e.play('alert');
+    expect(captions.filter((c) => c === 'alert')).toHaveLength(2);
+  });
+
+  it('can caption only audible sound instead (captionsWhenSilent: false)', () => {
+    const captions: string[] = [];
+    const quiet = new AudioEngine({ captionsWhenSilent: false, onCaption: (k) => captions.push(k) });
+    quiet.play('alert');
+    quiet.update(0.1, st({ thrust: 1 }));
     expect(captions).toEqual([]);
   });
 

@@ -9,8 +9,9 @@
  *                                                          destination <- soft clip (|y| <= 0.95) <-+
  */
 import { hashInts } from '../../core/rng';
-import { impulseResponse, softClipCurve } from './dsp';
+import { impulseResponseWork, softClipCurve, type F32, type ReverbShape, type Work } from './dsp';
 import { volumeToGain } from './mappings';
+import { kitWork, type Kit } from './nodes';
 
 export interface Volumes {
   master: number;
@@ -22,6 +23,24 @@ export interface Volumes {
 const MASTER_TRIM = 1.6;
 /** WaveShaper input range: the curve covers +-CLIP_RANGE. */
 const CLIP_RANGE = 4;
+/** The shared long reverb. */
+const REVERB: ReverbShape = { rt60: 4.8, predelay: 0.03, brightness: 0.55 };
+
+/** Everything procedural the engine needs before it can make a sound: noise loops, waveforms, the reverb IR. */
+export interface AudioAssets {
+  readonly kit: Kit;
+  readonly ir: readonly [F32, F32];
+}
+
+/**
+ * Generate the assets for a seed as resumable work (see dsp.ts): about 30-40 ms of CPU once the code is warm, more on
+ * the first, cold run. The engine runs it in slices of a few milliseconds.
+ */
+export function* assetsWork(ctx: BaseAudioContext, seed: number): Work<AudioAssets> {
+  const kit = yield* kitWork(ctx, seed);
+  const ir = yield* impulseResponseWork(ctx.sampleRate, REVERB, hashInts(seed, 0x4ef));
+  return { kit, ir };
+}
 
 export class MixGraph {
   /** Dry music input. */
@@ -51,7 +70,7 @@ export class MixGraph {
 
   constructor(
     readonly ctx: BaseAudioContext,
-    seed: number,
+    ir: readonly [F32, F32],
     volumes: Volumes,
     muted: boolean,
   ) {
@@ -77,11 +96,11 @@ export class MixGraph {
 
     this.convolver = ctx.createConvolver();
     this.convolver.normalize = true;
-    const [l, r] = impulseResponse(ctx.sampleRate, { rt60: 4.8, predelay: 0.03, brightness: 0.55 }, hashInts(seed, 0x4ef));
-    const ir = ctx.createBuffer(2, l.length, ctx.sampleRate);
-    ir.copyToChannel(l, 0);
-    ir.copyToChannel(r, 1);
-    this.convolver.buffer = ir;
+    const [l, r] = ir;
+    const irBuffer = ctx.createBuffer(2, l.length, ctx.sampleRate);
+    irBuffer.copyToChannel(l, 0);
+    irBuffer.copyToChannel(r, 1);
+    this.convolver.buffer = irBuffer;
 
     this.highpass = ctx.createBiquadFilter();
     this.highpass.type = 'highpass';

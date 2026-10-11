@@ -3,7 +3,7 @@
  * disconnects everything it created, click-free envelopes, and the "kit" of shared noise buffers and waveforms.
  */
 import { Rng, hashInts } from '../../core/rng';
-import { buzzSpectrum, noise, padSpectrum, warmSpectrum, type F32, type Spectrum } from './dsp';
+import { buzzSpectrum, noiseWork, padSpectrum, runSync, warmSpectrum, type F32, type Spectrum, type Work } from './dsp';
 
 export interface Kit {
   readonly ctx: BaseAudioContext;
@@ -29,19 +29,25 @@ function wave(ctx: BaseAudioContext, s: Spectrum): PeriodicWave {
   return ctx.createPeriodicWave(s.real, s.imag, { disableNormalization: false });
 }
 
-export function createKit(ctx: BaseAudioContext, seed: number): Kit {
+/** Build the kit as resumable work (the noise loops are the expensive part; see dsp.ts). */
+export function* kitWork(ctx: BaseAudioContext, seed: number): Work<Kit> {
   const n = Math.floor(ctx.sampleRate * NOISE_SECONDS);
+  const white = monoBuffer(ctx, yield* noiseWork('white', n, hashInts(seed, 1)));
+  const pink = monoBuffer(ctx, yield* noiseWork('pink', n, hashInts(seed, 2)));
+  const brown = monoBuffer(ctx, yield* noiseWork('brown', n, hashInts(seed, 3)));
   return {
     ctx,
-    white: monoBuffer(ctx, noise('white', n, hashInts(seed, 1))),
-    pink: monoBuffer(ctx, noise('pink', n, hashInts(seed, 2))),
-    brown: monoBuffer(ctx, noise('brown', n, hashInts(seed, 3))),
+    white,
+    pink,
+    brown,
     pad: wave(ctx, padSpectrum()),
     warm: wave(ctx, warmSpectrum()),
     buzz: wave(ctx, buzzSpectrum()),
     rng: new Rng(hashInts(seed, 4)),
   };
 }
+
+export const createKit = (ctx: BaseAudioContext, seed: number): Kit => runSync(kitWork(ctx, seed));
 
 /**
  * Switch parameters to block-rate automation (one value per 128 samples). Used for slow glides and LFOs on filters
@@ -105,7 +111,8 @@ export class NodeGroup {
   private readonly sources: AudioScheduledSourceNode[] = [];
   private readonly paramLinks: [AudioNode, AudioParam][] = [];
   private readonly offsets = new Map<AudioBufferSourceNode, number>();
-  private stopped = false;
+  /** Scheduled stop time (Infinity until stop() is called). */
+  private stopAt = Infinity;
 
   constructor(readonly ctx: BaseAudioContext) {}
 
@@ -168,9 +175,13 @@ export class NodeGroup {
     }
   }
 
+  /**
+   * Stop every source at `at`. Calling again with an earlier time moves the stop earlier (a later time is ignored);
+   * Web Audio applies the last stop() call of a source that is still playing.
+   */
   stop(at: number): void {
-    if (this.stopped) return;
-    this.stopped = true;
+    if (!(at < this.stopAt)) return;
+    this.stopAt = at;
     for (const s of this.sources) {
       try {
         s.stop(at);

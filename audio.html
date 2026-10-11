@@ -29,9 +29,10 @@
       .lab-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 12px; flex-wrap: wrap; }
       .lab-title { display: flex; align-items: center; gap: 12px; min-width: 0; }
       .lab-mark { width: 30px; height: 30px; flex: none; }
-      .lab-title h1 { margin: 0; font-weight: 300; font-size: 1.05rem; letter-spacing: 0.34em; text-transform: uppercase; white-space: nowrap; }
+      .lab-title h1 { margin: 0; font-weight: 300; font-size: 1.05rem; letter-spacing: 0.34em; text-transform: uppercase; white-space: nowrap; display: flex; gap: 0.55em; flex-wrap: wrap; }
       .lab-title h1 .accent { color: var(--ks-accent); }
       .lab-title p { margin: 2px 0 0; color: var(--ks-dim); font-size: 0.74rem; line-height: 1.35; }
+      @media (max-width: 480px) { .lab-title h1 { font-size: 0.92rem; letter-spacing: 0.2em; gap: 0.45em; } }
       .lab-actions { display: flex; align-items: center; gap: 10px; }
 
       .btn-start {
@@ -131,10 +132,14 @@
         transition: opacity 0.45s ease, transform 0.45s ease; }
       .caption.out { opacity: 0; transform: translateY(4px); }
       .caption.hint { color: var(--ks-dim); background: rgba(0, 0, 0, 0.35); font-size: 0.72rem; }
+      .captions-hint[hidden] { display: none; }
       .score-wrap { height: 150px; border-radius: 8px; overflow: hidden; background: rgba(0, 6, 14, 0.45); border: 1px solid rgba(196, 155, 255, 0.14); }
       .score-meta { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 7px; font: 0.68rem var(--ks-mono); color: var(--ks-dim); }
       .score-meta b { color: var(--ks-generated); font-weight: 500; }
-      .spectro-wrap { height: 170px; border-radius: 8px; overflow: hidden; background: rgba(0, 6, 14, 0.55); border: 1px solid rgba(127, 212, 255, 0.12); }
+      .spectro-wrap { position: relative; height: 170px; border-radius: 8px; overflow: hidden; background: rgba(0, 6, 14, 0.55); border: 1px solid rgba(127, 212, 255, 0.12); }
+      .spectro-hint { position: absolute; inset: 0; margin: 0; padding: 0 18px; display: flex; align-items: center; justify-content: center; text-align: center;
+        font-size: 0.75rem; line-height: 1.45; color: rgba(138, 160, 192, 0.85); text-wrap: balance; pointer-events: none; }
+      .spectro-hint[hidden] { display: none; }
       .offline-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
       .offline-bar select { font: 0.72rem var(--ks-font); color: var(--ks-fg); background: rgba(8, 18, 34, 0.9); border: 1px solid var(--ks-border); border-radius: 6px; padding: 5px 6px; }
       .stats { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }

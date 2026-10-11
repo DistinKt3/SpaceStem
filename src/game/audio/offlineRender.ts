@@ -5,7 +5,7 @@
  * Browser only (OfflineAudioContext).
  */
 import { AudioEngine, type AudioCue, type AudioState, type AudioStats } from './audioEngine';
-import { clickScore, countNonFinite, fractionAbove, mixDown, peak, rms, spectralCentroid, subtract, bandEnergyFraction } from './analysis';
+import { bandEnergyFraction, clickScore, countNonFinite, fractionAbove, mixDown, peak, rms, spectralCentroid, spectralPeaks, subtract } from './analysis';
 import { DEFAULT_STATE, sanitizeState } from './mappings';
 import type { Volumes } from './graph';
 
@@ -32,7 +32,12 @@ export interface Scenario {
   updateHz?: number;
   /** Start the score this many seconds in. */
   scoreOffset?: number;
+  /** Also report the strongest spectral peaks of the difference signal between these times (seconds), see diff.peaksHz. */
+  peaksWindow?: [number, number];
 }
+
+/** The band small speakers reproduce well enough to carry low sounds (laptops and phones roll off below ~150 Hz). */
+export const MID_BAND: readonly [number, number] = [150, 600];
 
 export interface CaptionEvent {
   key: string;
@@ -59,6 +64,8 @@ export async function renderScenario(sc: Scenario): Promise<Rendered> {
     seed: sc.seed ?? 1,
     scoreOffset: sc.scoreOffset ?? 0,
     createContext: () => ctx,
+    // Caption timing follows the audio clock, which runs faster than real time here.
+    clock: () => ctx.currentTime,
     onCaption: (key, duration) => captions.push({ key, duration, at: ctx.currentTime }),
   });
   let volumes: Volumes = { ...DEFAULT_VOLUMES, ...sc.volumes };
@@ -121,10 +128,29 @@ export interface Measurement {
   hfFraction: number;
   /** RMS of consecutive 0.5 s windows (detects gaps and dropouts). */
   windowRms: number[];
+  /** RMS of the MID_BAND content over the second half of the render (after fade-ins). */
+  midBandLate: number;
   captions: CaptionEvent[];
   lastError: string | null;
   /** Present with a baseline: the same measurements on (render - baseline), i.e. what the change added. */
-  diff?: { rms: number; peak: number; centroidHz: number; hfFraction: number; rmsEarly: number; rmsLate: number; rmsTail: number };
+  diff?: {
+    rms: number;
+    peak: number;
+    centroidHz: number;
+    hfFraction: number;
+    rmsEarly: number;
+    rmsLate: number;
+    rmsTail: number;
+    midBandLate: number;
+    /** Strongest spectral peaks (Hz, loudest first) in the scenario's peaksWindow; empty without one. */
+    peaksHz: number[];
+  };
+}
+
+/** RMS of the content between lo and hi Hz in x[from, x.length). */
+function bandRms(x: Float32Array, sampleRate: number, from: number, lo: number, hi: number): number {
+  const part = x.subarray(Math.max(0, Math.floor(from)));
+  return rms(part) * Math.sqrt(bandEnergyFraction(part, sampleRate, lo, hi));
 }
 
 /**
@@ -146,6 +172,7 @@ export async function measureScenario(sc: Scenario, baseline?: Scenario): Promis
     centroidHz: spectralCentroid(m, r.sampleRate),
     hfFraction: bandEnergyFraction(m, r.sampleRate, 2000, r.sampleRate / 2),
     windowRms: [],
+    midBandLate: bandRms(m, r.sampleRate, m.length / 2, MID_BAND[0], MID_BAND[1]),
     captions: r.captions,
     lastError: r.stats.lastError,
   };
@@ -155,6 +182,7 @@ export async function measureScenario(sc: Scenario, baseline?: Scenario): Promis
     const b = await renderScenario(baseline);
     const d = subtract(m, mixDown(b.left, b.right));
     const half = Math.floor(d.length / 2);
+    const pw = sc.peaksWindow;
     out.diff = {
       rms: rms(d),
       peak: peak(d),
@@ -163,6 +191,8 @@ export async function measureScenario(sc: Scenario, baseline?: Scenario): Promis
       rmsEarly: rms(d, 0, half),
       rmsLate: rms(d, half, d.length),
       rmsTail: rms(d, d.length - Math.floor(r.sampleRate * 0.5), d.length),
+      midBandLate: bandRms(d, r.sampleRate, half, MID_BAND[0], MID_BAND[1]),
+      peaksHz: pw ? spectralPeaks(d.subarray(Math.floor(pw[0] * r.sampleRate), Math.floor(pw[1] * r.sampleRate)), r.sampleRate, 8, 100) : [],
     };
   }
   return out;

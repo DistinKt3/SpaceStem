@@ -1,22 +1,61 @@
 /**
  * One-shot cues. Each recipe builds a short node graph at audio time `t`, schedules its envelopes and returns the
  * time it falls silent. UI cues are short, soft and pitched in a consonant register; ship cues carry their sound
- * through the hull (low-passed). Every onset has an attack of at least 1 ms, so nothing clicks.
+ * through the hull (low-passed); the musical cues (codex, hyperspeed exit) sit in the score's key (tuning.ts). Every
+ * onset has an attack of at least 1 ms, so nothing clicks.
  */
 import type { AudioCue } from './audioEngine';
 import { NodeGroup, envelope, type Kit } from './nodes';
 import { midiToHz } from './score';
+import { codexNotes, exitShimmerNotes, type MusicalKey } from './tuning';
 
-export interface CueTarget {
+export interface CueTarget extends MusicalKey {
   readonly kit: Kit;
   /** Dry effects bus. */
   readonly dry: AudioNode;
   /** Reverb send. */
   readonly wet: AudioNode;
-  /** Score tonic (MIDI), so musical cues sit in the score's key. */
-  readonly tonic: number;
-  /** Score mode steps, for the codex arpeggio. */
-  readonly steps: readonly number[];
+}
+
+/**
+ * Voice priority when every cue voice is busy: 2 = warnings (always heard), 1 = ship events, 0 = interface and
+ * codex. See voiceToSteal().
+ */
+export const CUE_PRIORITY: Readonly<Record<AudioCue, 0 | 1 | 2>> = {
+  'ui-hover': 0,
+  'ui-select': 0,
+  'ui-back': 0,
+  'codex-unlock': 0,
+  'target-lock': 1,
+  'mode-change': 1,
+  'hyperspeed-spool': 1,
+  'hyperspeed-engage': 1,
+  'hyperspeed-exit': 1,
+  'landing-contact': 1,
+  'scoop-warning': 2,
+  'heat-critical': 2,
+  alert: 2,
+  'fuel-low': 2,
+};
+
+/**
+ * Which busy voice a new cue may take over when the voice limit is reached. `live` lists the playing voices oldest
+ * first with their priorities. The newcomer replaces the oldest voice of the lowest priority if that priority is
+ * below its own; a warning (priority 2) may also replace the oldest warning, so the newest warning is always heard.
+ * Returns null when the newcomer should be dropped.
+ */
+export function voiceToSteal<T>(live: Iterable<readonly [T, number]>, incoming: number): T | null {
+  let victim: T | null = null;
+  let victimPriority = Infinity;
+  for (const [voice, priority] of live) {
+    if (priority < victimPriority) {
+      victim = voice;
+      victimPriority = priority;
+    }
+  }
+  if (victim === null) return null;
+  if (victimPriority < incoming || (incoming >= 2 && victimPriority >= 2)) return victim;
+  return null;
 }
 
 interface Out {
@@ -25,6 +64,10 @@ interface Out {
 }
 
 type Recipe = (g: NodeGroup, t: number, o: Out, x: CueTarget) => number;
+
+/** Hyperspeed exit: seconds between the cascading notes, and when (after the cue starts) the chord begins to fall. */
+export const EXIT_STAGGER = 0.06;
+export const EXIT_GLIDE_AT = 0.45;
 
 interface Ping {
   hz: number;
@@ -138,23 +181,19 @@ const RECIPES: Record<AudioCue, Recipe> = {
     return end;
   },
   'hyperspeed-spool': (g, t, o, x) => {
-    const lp = g.filter('lowpass', 200, 9);
-    lp.frequency.setValueAtTime(200, t);
-    lp.frequency.exponentialRampToValueAtTime(3200, t + 2.6);
-    lp.connect(g.filter('lowpass', 4000, 0.5)).connect(o.bus);
-    const env = g.gain(0);
-    const end = envelope(env.gain, t, 0.5, 1.9, 0.9, 0.11);
-    env.connect(lp);
-    for (const [from, to, w] of [
-      [55, 220, 1],
-      [82.5, 330, 0.5],
-    ] as const) {
-      const osc = g.osc(x.kit.buzz, from);
-      osc.frequency.setValueAtTime(from, t);
-      osc.frequency.exponentialRampToValueAtTime(to, t + 2.6);
-      osc.connect(g.gain(w)).connect(env);
-    }
-    burst(g, o, t, x.kit.pink, { type: 'bandpass', hz: 400, q: 1.5, toHz: 3000, sweep: 2.6 }, { attack: 2.2, hold: 0.2, decay: 0.6, peak: 0.05 });
+    // Arming transient only: a relay clunk through the hull and a short rising sweep of resonant noise. The pitched,
+    // rising spool tone belongs to the state layer (state.hyperspeed drives HyperLayer), so this cue has no stable
+    // pitch that could beat against it.
+    const hull = g.filter('lowpass', 3200, 0.5);
+    hull.connect(o.bus);
+    const h: Out = { bus: g.gain(1) };
+    h.bus.connect(hull);
+    let end = ping(g, h, t, { hz: 64, wave: x.kit.warm, glideTo: 48, glideTime: 0.2, attack: 0.004, decay: 0.32, peak: 0.2 });
+    end = Math.max(end, burst(g, h, t, x.kit.white, { type: 'bandpass', hz: 1100, q: 2.5 }, { attack: 0.0015, decay: 0.045, peak: 0.12 }));
+    end = Math.max(
+      end,
+      burst(g, h, t + 0.06, x.kit.pink, { type: 'bandpass', hz: 180, q: 5, toHz: 2200, sweep: 1.0 }, { attack: 0.45, hold: 0.2, decay: 0.5, peak: 0.9 }, 0.4),
+    );
     return end;
   },
   'hyperspeed-engage': (g, t, o, x) => {
@@ -170,18 +209,23 @@ const RECIPES: Record<AudioCue, Recipe> = {
     return end;
   },
   'hyperspeed-exit': (g, t, o, x) => {
-    // Descending shimmer: high partials in the score's key, each gliding down an octave, staggered and spread.
-    const base = midiToHz(x.tonic + 60);
-    const ratios = [1, 1.5, 2, 2.5, 3, 4];
+    // Descending shimmer: the tonic triad over two octaves in the score's key cascades in from the top, then the whole
+    // chord glides down an octave together. The intervals stay fixed during the glide, so it stays consonant and lands
+    // back in key.
+    const notes = exitShimmerNotes(x);
+    const glideAt = t + EXIT_GLIDE_AT;
     let end = 0;
-    ratios.forEach((r, i) => {
-      const hz = Math.min(5200, base * r);
-      end = Math.max(
-        end,
-        ping(g, o, t + i * 0.07, { hz, glideTo: hz / 2, glideTime: 2.4, attack: 0.05, decay: 2.5, peak: 0.04, pan: (i % 2 === 0 ? -1 : 1) * (0.2 + 0.1 * i) }),
-      );
+    notes.forEach((m, i) => {
+      const hz = midiToHz(m);
+      const osc = g.osc('sine', hz);
+      osc.frequency.setValueAtTime(hz, glideAt);
+      osc.frequency.exponentialRampToValueAtTime(hz / 2, glideAt + 2.1);
+      const env = g.gain(0);
+      // Higher notes a little softer, so the top of the cascade sparkles without getting sharp.
+      end = Math.max(end, envelope(env.gain, t + i * EXIT_STAGGER, 0.03, 0.3, 2.3, 0.03 + 0.003 * i));
+      osc.connect(env).connect(g.pan((i % 2 === 0 ? -1 : 1) * (0.55 - 0.08 * i))).connect(o.bus);
     });
-    end = Math.max(end, burst(g, o, t, x.kit.white, { type: 'highpass', hz: 6000, q: 0.7, toHz: 1500, sweep: 1.4 }, { attack: 0.05, decay: 1.4, peak: 0.04 }));
+    end = Math.max(end, burst(g, o, t, x.kit.white, { type: 'highpass', hz: 6000, q: 0.7, toHz: 1500, sweep: 1.4 }, { attack: 0.05, decay: 1.4, peak: 0.035 }));
     return end;
   },
   'scoop-warning': (g, t, o) => {
@@ -228,11 +272,8 @@ const RECIPES: Record<AudioCue, Recipe> = {
   },
   'codex-unlock': (g, t, o, x) => {
     // Rising arpeggio in the score's key: tonic, third, fifth, ninth.
-    const root = x.tonic + 48;
-    const third = x.steps[2] ?? 4;
-    const notes = [root, root + third, root + 7, root + 14];
     let end = 0;
-    notes.forEach((m, i) => {
+    codexNotes(x).forEach((m, i) => {
       end = Math.max(end, bell(g, o, t + i * 0.11, midiToHz(m), 0.06 - i * 0.006, 1.8, -0.3 + i * 0.2));
     });
     return end;
@@ -269,7 +310,7 @@ const WET: Record<AudioCue, number> = {
  * Build and schedule a cue at audio time `t`. Returns the node group (already started and set to stop) and the time
  * the cue is silent.
  */
-export function playCue(cue: AudioCue, x: CueTarget, t: number): { group: NodeGroup; end: number } {
+export function playCue(cue: AudioCue, x: CueTarget, t: number): { group: NodeGroup; end: number; bus: GainNode } {
   const g = new NodeGroup(x.kit.ctx);
   const bus = g.gain(1);
   bus.connect(x.dry);
@@ -278,5 +319,17 @@ export function playCue(cue: AudioCue, x: CueTarget, t: number): { group: NodeGr
   const end = RECIPES[cue](g, t, { bus }, x);
   g.start(t);
   g.stop(end + 0.05);
-  return { group: g, end };
+  return { group: g, end, bus };
+}
+
+/**
+ * Fade a playing cue out over `fade` seconds from `now` and stop it (voice stealing). 20 ms is short enough to free
+ * the voice at once and long enough not to click.
+ */
+export function fadeOutCue(group: NodeGroup, bus: GainNode, now: number, fade = 0.02): void {
+  const p = bus.gain;
+  p.cancelScheduledValues(now);
+  p.setValueAtTime(p.value, now);
+  p.linearRampToValueAtTime(0, now + fade);
+  group.stop(now + fade + 0.01);
 }
