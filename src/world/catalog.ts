@@ -21,6 +21,8 @@ export interface SurfaceDef {
   cloudChannel?: 'r' | 'a';
   brdf?: 'lambert' | 'lunar';
   teffK?: number;
+  /** No imagery: a deterministic generated surface (exoplanets). Labelled Generated. */
+  generated?: { palette: 'basalt' | 'temperate' | 'ice'; seed: number };
   /** Optically thick haze deck: visible albedo (linear RGB) and how much it hides the surface (0-1). */
   haze?: { color: [number, number, number]; opacity: number; provenance: Provenance; source: string; citation: string };
 }

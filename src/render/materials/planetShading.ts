@@ -15,6 +15,8 @@ import {
   asin,
   attribute,
   clamp,
+  cos,
+  sin,
   dFdx,
   dFdy,
   cross,
@@ -424,6 +426,39 @@ export function tileAlbedo(tex: THREE.Texture, level: number, tx: number, ty: nu
 /** Albedo from an equirectangular map using the chunk's continuous lon/lat 'uv' attribute. */
 export function equirectAlbedo(tex: THREE.Texture): THREE.Node {
   return texture(tex, uv()).rgb;
+}
+
+/** Palettes for surfaces with no imagery (exoplanets). Linear albedo; every use is labelled Generated. */
+export type GeneratedPalette = 'basalt' | 'temperate' | 'ice';
+const GENERATED_PALETTES: Record<GeneratedPalette, { dark: [number, number, number]; light: [number, number, number]; cap: [number, number, number] | null; capLat: number }> = {
+  basalt: { dark: [0.055, 0.05, 0.048], light: [0.15, 0.125, 0.105], cap: null, capLat: 2 },
+  temperate: { dark: [0.08, 0.075, 0.07], light: [0.22, 0.19, 0.16], cap: [0.55, 0.57, 0.6], capLat: 1.05 },
+  ice: { dark: [0.32, 0.31, 0.33], light: [0.72, 0.75, 0.8], cap: [0.82, 0.85, 0.9], capLat: 0.9 },
+};
+
+/**
+ * Generated albedo for a body without imagery: two noise bands on the unit sphere (from the equirect 'uv' attribute,
+ * seamless across the date line), blended between a dark and a light material, with optional polar caps. The seed
+ * makes each planet distinct and deterministic. Labelled Generated wherever it is shown.
+ */
+export function generatedAlbedo(palette: GeneratedPalette, seed: number): THREE.Node {
+  const p = GENERATED_PALETTES[palette];
+  return Fn(() => {
+    const e = uv();
+    const lon = e.x.sub(0.5).mul(2 * PI);
+    const lat = e.y.sub(0.5).mul(PI);
+    const dir = vec3(cos(lat).mul(cos(lon)), cos(lat).mul(sin(lon)), sin(lat));
+    const off = vec3(((seed % 97) / 97) * 31, ((seed % 89) / 89) * 37, ((seed % 83) / 83) * 41);
+    const broad = mx_fractal_noise_float(dir.mul(1.8).add(off), 5, 2.0, 0.5, 1.0);
+    const fine = mx_fractal_noise_float(dir.mul(11).add(off.mul(1.7)), 4, 2.0, 0.55, 1.0);
+    const k = smoothstep(float(-0.25), float(0.3), broad.add(fine.mul(0.25)));
+    let col: N = mix(vec3(...p.dark), vec3(...p.light), k).mul(fine.mul(0.12).add(1));
+    if (p.cap) {
+      const capEdge = float(p.capLat).add(fine.mul(0.08)).add(broad.mul(0.1));
+      col = mix(col, vec3(...p.cap), smoothstep(capEdge.sub(0.06), capEdge.add(0.06), abs(lat)));
+    }
+    return col;
+  })();
 }
 
 /** Blackbody colour (linear sRGB, normalised) for an effective temperature, via Tanner Helland's fit. */

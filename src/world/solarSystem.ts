@@ -18,6 +18,7 @@ import {
   createStarMaterial,
   createSurfaceMaterial,
   equirectAlbedo,
+  generatedAlbedo,
   makeAtmosphere,
   tileAlbedo,
   type AtmosphereNodes,
@@ -140,6 +141,12 @@ export class SolarSystem {
     frame.add(view.renderable);
     this.views.push(view);
     this.byId.set(def.id, view);
+    const parent = def.parent ? this.byId.get(def.parent) : undefined;
+    if (parent) {
+      // Laplace sphere of influence, as for catalogue bodies.
+      const a = this.anchorRelative(def.id, parent.def.id, 0, new Vec3d()).length();
+      view.soi = Math.max(3 * def.radiusM, a * Math.pow(def.gmM3S2 / parent.def.gmM3S2, 0.4));
+    }
     return view;
   }
 
@@ -213,6 +220,8 @@ export class SolarSystem {
       tiles = new TileSet(s.tiles, maxLevel, (tex, L, x, y) => createSurfaceMaterial({ ...surfaceOpts, albedo: tileAlbedo(tex, L, x, y) }));
       await tiles.init();
       material = createSurfaceMaterial({ ...surfaceOpts, albedo: equirectAlbedo(await loadTexture(s.texture ?? def.key)) });
+    } else if (s.generated) {
+      material = createSurfaceMaterial({ ...surfaceOpts, albedo: generatedAlbedo(s.generated.palette, s.generated.seed) });
     } else {
       const tex = await loadTexture(s.texture ?? def.key);
       material = createSurfaceMaterial({ ...surfaceOpts, albedo: equirectAlbedo(tex) });
@@ -284,6 +293,14 @@ export class SolarSystem {
    * Returns the anchor's SSB position (m). Set by the game when the star catalog is loaded.
    */
   externalAnchor: ((anchor: string, t: number, out: Vec3d) => Vec3d | null) | null = null;
+  /**
+   * Relative position of two non-ephemeris anchors in the same local frame (e.g. an exoplanet and its star), so it is
+   * computed without differencing two SSB vectors of ~1e17 m (which would cost ~50 m of float64 precision). Returns
+   * null when the pair does not share a frame.
+   */
+  externalRelative: ((a: string, b: string, t: number, out: Vec3d) => Vec3d | null) | null = null;
+  /** Relative velocity for anchors handled by externalRelative (m/s); null when unknown. */
+  externalVelocity: ((a: string, b: string, t: number, out: Vec3d) => Vec3d | null) | null = null;
 
   private ephemerisIdOf(anchor: string): string {
     return this.byId.get(anchor)?.def.ephemerisId ?? anchor;
@@ -303,6 +320,9 @@ export class SolarSystem {
     const ea = this.ephemerisIdOf(a);
     const eb = this.ephemerisIdOf(b);
     if (this.ephemeris.has(ea) && this.ephemeris.has(eb)) return this.ephemeris.between(ea, eb, t, out);
+    if (a === b) return out.set(0, 0, 0);
+    const local = this.externalRelative?.(a, b, t, out);
+    if (local) return local;
     return this.anchorSsb(a, t, out).sub(this.anchorSsb(b, t, new Vec3d()));
   }
 
@@ -327,7 +347,7 @@ export class SolarSystem {
     const ea = this.ephemerisIdOf(a);
     const eb = this.ephemerisIdOf(b);
     if (this.ephemeris.has(ea) && this.ephemeris.has(eb)) return this.ephemeris.velocityBetween(ea, eb, t, out);
-    return out.set(0, 0, 0);
+    return this.externalVelocity?.(a, b, t, out) ?? out.set(0, 0, 0);
   }
 
   /** Star nearest to a position (the system's light source). */
