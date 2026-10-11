@@ -210,22 +210,34 @@ export class Hud {
       this.edgeArrow.style.display = 'none';
     }
 
-    // Body labels.
-    let used = 0;
+    // Body labels (nearest first). Text is written for all of them before any is measured (one layout); each is then
+    // put at the first of four spots around its point that is clear of the labels already placed, or hidden.
+    const shown: { node: HTMLElement; x: number; y: number }[] = [];
     for (const lab of s.labels) {
       const p = this.project(lab.rel, cam, w, h);
       if (!p || !p[2]) continue;
-      let node = this.labelPool[used];
+      let node = this.labelPool[shown.length];
       if (!node) {
         node = el('div', 'ks-label', this.markers);
         this.labelPool.push(node);
       }
       node.style.display = '';
       node.textContent = `${lab.name} · ${formatDistance(Math.max(0, lab.rel.length() - lab.radius))}`;
-      node.style.transform = `translate(${p[0] + 8}px, ${p[1] - 8}px)`;
-      used++;
+      shown.push({ node, x: p[0], y: p[1] });
     }
-    for (let i = used; i < this.labelPool.length; i++) this.labelPool[i]!.style.display = 'none';
+    for (let i = shown.length; i < this.labelPool.length; i++) this.labelPool[i]!.style.display = 'none';
+    const sizes = shown.map((l) => [l.node.offsetWidth, l.node.offsetHeight] as const);
+    const placed: LabelBox[] = [];
+    shown.forEach((l, i) => {
+      const [lw, lh] = sizes[i]!;
+      const spot = labelSpots(l.x, l.y, lw, lh).find((b) => !placed.some((q) => boxesOverlap(b, q)));
+      if (!spot) {
+        l.node.style.display = 'none';
+        return;
+      }
+      placed.push(spot);
+      l.node.style.transform = `translate(${spot.x}px, ${spot.y}px)`;
+    });
   }
 
   private place(node: HTMLElement, p: [number, number, boolean] | null): void {
@@ -236,4 +248,26 @@ export class Hud {
     node.style.display = '';
     node.style.transform = `translate(${p[0]}px, ${p[1]}px) translate(-50%, -50%)`;
   }
+}
+
+interface LabelBox {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** Candidate label boxes around a point at (x, y), in order of preference: right, left, above right, below right. */
+export function labelSpots(x: number, y: number, w: number, h: number): LabelBox[] {
+  const gap = 8;
+  return [
+    { x: x + gap, y: y - gap, w, h },
+    { x: x - gap - w, y: y - gap, w, h },
+    { x: x + gap, y: y - gap - h, w, h },
+    { x: x + gap, y: y + gap, w, h },
+  ];
+}
+
+export function boxesOverlap(a: LabelBox, b: LabelBox): boolean {
+  return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 }
