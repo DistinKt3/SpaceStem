@@ -1,8 +1,9 @@
 import { deflateSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
-import { captionFor, captionLayout, fitText, formatUtc, wrapSegments } from '../../src/game/share/caption';
+import { DEEP_SPACE_M, FAR_FROM_BODIES_M, captionFor, captionLayout, captionPlace, captionPlaceName, fitText, formatUtc, wrapSegments } from '../../src/game/share/caption';
 import { addPngText, findShareInPng, isPng, readPngText } from '../../src/game/share/pngText';
-import { screenshotFilename } from '../../src/game/share/screenshot';
+import { SUPERSAMPLE_MAX_PIXELS, screenshotFilename, supersampleScale } from '../../src/game/share/screenshot';
+import { DROP_HEAD_BYTES, DROP_MAX_BYTES, pageUrl, shareTokenFromFile, type ReadableFile } from '../../src/game/share/shareController';
 import { toastDuration } from '../../src/game/share/toast';
 import {
   SHARE_LIMITS,
@@ -355,6 +356,27 @@ describe('caption text and layout', () => {
     expect(formatUtc(NaN)).toBe('—');
   });
 
+  it('describes interstellar space by the distance to the star, whatever body is nearest (review finding)', () => {
+    const utcMs = Date.UTC(2026, 9, 11, 12, 0, 0);
+    // The game's own values for an 'ism' link 1.12 ly out: sys.nearest() returns Triton, light-years "above" it.
+    const ism = { nearName: 'Triton', nearIsStar: false, altitudeM: 1.0627e16, starName: 'Sun', starDistanceM: 1.0628e16, utcMs };
+    expect(captionPlace(ism)).toBe('deep');
+    expect(captionFor(ism).title).toBe('Interstellar space · Sun 1.123 ly away');
+    expect(captionFor(ism).title).not.toContain('Triton');
+    expect(captionPlaceName(ism)).toBe('Interstellar space');
+    // Beyond 0.01 ly from every planet and moon but still within 0.05 ly of the Sun: the Sun names the place.
+    const outer = { nearName: 'Neptune', nearIsStar: false, altitudeM: 1.5e14, starName: 'Sun', starDistanceM: 1.55e14, utcMs };
+    expect(1.5e14).toBeGreaterThan(FAR_FROM_BODIES_M);
+    expect(1.55e14).toBeLessThan(DEEP_SPACE_M);
+    expect(captionPlace(outer)).toBe('star');
+    expect(captionFor(outer).title).toBe('Sun · 1,036 au away');
+    expect(captionPlaceName(outer)).toBe('Sun');
+    // Near a planet the planet still names the place, and the boundary itself counts as interstellar.
+    const moon = { nearName: 'Moon', nearIsStar: false, altitudeM: 60, starName: 'Sun', starDistanceM: 1.496e11, utcMs };
+    expect(captionPlaceName(moon)).toBe('Moon');
+    expect(captionPlace({ nearIsStar: true, altitudeM: DEEP_SPACE_M, starDistanceM: DEEP_SPACE_M })).toBe('deep');
+  });
+
   it('scales with the image and keeps text legible on small images', () => {
     const hd = captionLayout(1920, 1080);
     const uhd = captionLayout(3840, 2160);
@@ -381,6 +403,22 @@ describe('caption text and layout', () => {
     expect(many).toEqual(['Positions: A · Stars: BBBB', 'Sky: CCCCCC', 'Some surface detail is Generated']);
   });
 
+  it('supersamples captures up to 2x, within a pixel budget, never below the scale in use', () => {
+    expect(supersampleScale(1280, 720)).toBe(2);
+    expect(supersampleScale(800, 450)).toBe(2);
+    const hd = supersampleScale(1920, 1080);
+    expect(hd).toBeCloseTo(4 / 3, 6);
+    expect(1920 * hd * 1080 * hd).toBeLessThanOrEqual(SUPERSAMPLE_MAX_PIXELS * (1 + 1e-9));
+    // A large or high-density canvas already has the pixels: no supersampling.
+    expect(supersampleScale(2560, 1440)).toBe(1);
+    expect(supersampleScale(3840, 2160)).toBe(1);
+    // The render scale in use (e.g. a quality setting) is never lowered, and tiny gains are not worth a resize.
+    expect(supersampleScale(1280, 720, 2)).toBe(2);
+    expect(supersampleScale(2400, 1400, 1)).toBe(1);
+    expect(supersampleScale(1920, 1080, 1.5)).toBe(1.5);
+    expect(supersampleScale(0, 0)).toBe(2);
+  });
+
   it('names screenshot files by local capture time', () => {
     expect(screenshotFilename(new Date(2026, 9, 11, 4, 3, 2))).toBe('knownsky-20261011-040302.png');
     expect(screenshotFilename(new Date(2027, 0, 1, 23, 59, 59))).toBe('knownsky-20270101-235959.png');
@@ -393,28 +431,90 @@ describe('caption text and layout', () => {
   });
 });
 
+function chunk(type: string, data: Uint8Array): Buffer {
+  const out = Buffer.alloc(12 + data.length);
+  out.writeUInt32BE(data.length, 0);
+  out.write(type, 4, 'latin1');
+  Buffer.from(data).copy(out, 8);
+  out.writeUInt32BE(crc32(out.subarray(4, 8 + data.length)), 8 + data.length);
+  return out;
+}
+
+/** A valid 2x1 RGBA PNG built from scratch (IHDR, IDAT, IEND). */
+function tinyPng(): Uint8Array {
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(2, 0);
+  ihdr.writeUInt32BE(1, 4);
+  ihdr.set([8, 6, 0, 0, 0], 8);
+  const raw = Buffer.from([0, 255, 0, 0, 255, 0, 0, 255, 255]);
+  return new Uint8Array(
+    Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', ihdr), chunk('IDAT', deflateSync(raw)), chunk('IEND', new Uint8Array())]),
+  );
+}
+
+describe('share controller helpers', () => {
+  it('builds links from the page alone: the sharer\'s query parameters never reach the recipient (review finding)', () => {
+    expect(pageUrl({ origin: 'https://example.org', pathname: '/known-sky/index.html' })).toBe('https://example.org/known-sky/index.html');
+    expect(pageUrl({ origin: 'null', pathname: '/tmp/index.html' })).toBe('/tmp/index.html');
+    const link = shareUrl(pageUrl({ origin: 'http://localhost:5173', pathname: '/share.html' }), base);
+    expect(link).toBe(`http://localhost:5173/share.html#${encodeShare(base)}`);
+    expect(link).not.toMatch(/reset|backend|free|\?/);
+  });
+
+  /**
+   * A file stand-in of `size` bytes that records how many bytes were read. Its content is `bytes`; a slice sees only
+   * the first `visible` of them (to place the link beyond the first slice without a megabyte fixture).
+   */
+  function fakeFile(bytes: Uint8Array, size = bytes.length, visible = bytes.length): ReadableFile & { read: number } {
+    const f = {
+      size,
+      read: 0,
+      slice(start = 0, end = size) {
+        return {
+          arrayBuffer: () => {
+            f.read += Math.min(end, size) - start;
+            return Promise.resolve(bytes.slice(start, Math.min(end, visible)).buffer);
+          },
+        };
+      },
+      arrayBuffer() {
+        f.read += size;
+        return Promise.resolve(bytes.slice().buffer);
+      },
+    };
+    return f;
+  }
+
+  it('reads only the start of a dropped file, and never a large non-PNG (review finding)', async () => {
+    const link = `Open this link to go to the place in this image: https://example.org/#${encodeShare(base)}`;
+    const png = addPngText(tinyPng(), { Comment: link });
+    // A Known Sky screenshot: the link is right after the header, found in the first slice.
+    const shot = fakeFile(png, 40 << 20);
+    expect(await shareTokenFromFile(shot)).toBe(encodeShare(base));
+    expect(shot.read).toBe(8 + DROP_HEAD_BYTES);
+    // A 3 GB video dropped by mistake: only its 8-byte signature is read.
+    const video = fakeFile(new Uint8Array(64).fill(7), 3 * 2 ** 30);
+    expect(await shareTokenFromFile(video)).toBeNull();
+    expect(video.read).toBe(8);
+    // A huge PNG without the link near the start is not read whole.
+    const big = fakeFile(tinyPng(), DROP_MAX_BYTES + 1);
+    expect(await shareTokenFromFile(big)).toBeNull();
+    expect(big.read).toBe(8 + DROP_HEAD_BYTES);
+    // A PNG re-saved by another tool, link after the image data, small enough to read whole: still found.
+    const raw = tinyPng();
+    const iend = raw.length - 12;
+    const moved = addPngText(raw.slice(0, 33), { Comment: link });
+    const resaved = new Uint8Array([...raw.subarray(0, 33), ...raw.subarray(33, iend), ...moved.subarray(33), ...raw.subarray(iend)]);
+    expect(findShareInPng(resaved.subarray(0, 33))).toBeNull();
+    const later = fakeFile(resaved, 2 * DROP_HEAD_BYTES, 33);
+    expect(await shareTokenFromFile(later)).toBe(encodeShare(base));
+    expect(later.read).toBe(8 + DROP_HEAD_BYTES + 2 * DROP_HEAD_BYTES);
+    // Nothing throws on a file that fails to read.
+    expect(await shareTokenFromFile({ size: 10, slice: () => ({ arrayBuffer: () => Promise.reject(new Error('gone')) }), arrayBuffer: () => Promise.reject(new Error('gone')) })).toBeNull();
+  });
+});
+
 describe('PNG text metadata', () => {
-  function chunk(type: string, data: Uint8Array): Buffer {
-    const out = Buffer.alloc(12 + data.length);
-    out.writeUInt32BE(data.length, 0);
-    out.write(type, 4, 'latin1');
-    Buffer.from(data).copy(out, 8);
-    out.writeUInt32BE(crc32(out.subarray(4, 8 + data.length)), 8 + data.length);
-    return out;
-  }
-
-  /** A valid 2x1 RGBA PNG built from scratch (IHDR, IDAT, IEND). */
-  function tinyPng(): Uint8Array {
-    const ihdr = Buffer.alloc(13);
-    ihdr.writeUInt32BE(2, 0);
-    ihdr.writeUInt32BE(1, 4);
-    ihdr.set([8, 6, 0, 0, 0], 8);
-    const raw = Buffer.from([0, 255, 0, 0, 255, 0, 0, 255, 255]);
-    return new Uint8Array(
-      Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', ihdr), chunk('IDAT', deflateSync(raw)), chunk('IEND', new Uint8Array())]),
-    );
-  }
-
   /** Chunk types in order, checking every CRC on the way. */
   function chunkTypes(png: Uint8Array): string[] {
     const b = Buffer.from(png);

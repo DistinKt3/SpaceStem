@@ -6,22 +6,22 @@
  * InputManager, SettingsPanel and a stand-in HUD, exactly as it would in the game. Exposes window.__ks for
  * tests/e2e/share.spec.ts.
  *
- * `?game=1`: boots the real game (App + ShipController) with createGameShare(), emulating the App.tick hook described
- * in docs/SHARE.md, to check the integration code against the WebGPU renderer.
+ * The real game runs the same controller (src/main.ts, App.tick); tests/e2e/share.spec.ts checks it on index.html.
  *
- * URL parameters: reset=1 (clear stored settings), game=1, textScale=<0.8..2>, colorblind=<mode>, reducedMotion=1.
+ * URL parameters: reset=1 (clear stored settings), textScale=<0.8..2>, colorblind=<mode>, reducedMotion=1. Links made
+ * here never carry them (ShareController builds links from the page's origin and path).
  */
 import '../game/styles.css';
 import '../game/ui/ui.css';
 import '../game/hud/hud.css';
-import { tdbSecondsSinceJ2000ToUnixMs } from '../core/time';
 import { t } from '../game/i18n';
 import { InputManager } from '../game/input/inputManager';
 import { bindingLabel } from '../game/input/labels';
 import type { ActionId } from '../game/input/actions';
 import { COLORBLIND_MODES, Settings, type ColorblindMode } from '../game/settings/settings';
 import { SettingsPanel } from '../game/ui/settingsPanel';
-import { captionFor, formatUtc } from '../game/share/caption';
+import { Captions } from '../game/ui/captions';
+import { captionFor, captionPlaceName, formatUtc, type CaptionInput } from '../game/share/caption';
 import { findShareInPng, readPngText } from '../game/share/pngText';
 import { ShareController, type ApplyResult, type ShareHost } from '../game/share/shareController';
 import { decodeShare, encodeShare, isShareId, makeShareState, parseShare, type ShareState } from '../game/share/shareLink';
@@ -373,10 +373,26 @@ function domLab(): void {
   settings.applyToDocument();
   const input = new InputManager(canvas, settings);
   const panel = new SettingsPanel(settings, input);
+  // Sound captions, as in the game (screenshot mode keeps them on screen, above the caption preview).
+  const captions = new Captions(settings);
 
   let state = place('leo');
   let selected = 'leo';
   const known = (id: string): boolean => id in BODIES || id === 'ism';
+  const captionInput = (): CaptionInput => {
+    const b = BODIES[state.anchor];
+    const dist = Math.hypot(...state.offset);
+    // Planets: the Sun at the body's stand-in distance. Stars: the star itself. Interstellar: the Sun at |offset|.
+    const starDist = b ? (b.star ? dist : (b.sunDistM ?? 1.496e11)) : dist;
+    return {
+      nearName: b ? bodyName(state.anchor) : bodyName('10'),
+      nearIsStar: !b || b.star,
+      altitudeM: b ? dist - b.radiusM : dist,
+      starName: bodyName(b?.star ? state.anchor : '10'),
+      starDistanceM: starDist,
+      utcMs: state.timeMs,
+    };
+  };
 
   const host: ShareHost = {
     currentState: () => makeShareState({ anchor: state.anchor, offset: { x: state.offset[0], y: state.offset[1], z: state.offset[2] } }, { x: state.quat[0], y: state.quat[1], z: state.quat[2], w: state.quat[3] }, state.timeMs, { target: state.target, mode: state.mode, fovDeg: 60 }),
@@ -392,21 +408,8 @@ function domLab(): void {
       drawView(canvas, state);
       return canvas.toDataURL('image/png');
     },
-    caption: () => {
-      const b = BODIES[state.anchor];
-      const dist = Math.hypot(...state.offset);
-      // Planets: the Sun at the body's stand-in distance. Stars: the star itself. Interstellar: the Sun at |offset|.
-      const starDist = b ? (b.star ? dist : (b.sunDistM ?? 1.496e11)) : dist;
-      return captionFor({
-        nearName: b ? bodyName(state.anchor) : bodyName('10'),
-        nearIsStar: !b || b.star,
-        altitudeM: b ? dist - b.radiusM : dist,
-        starName: bodyName(b?.star ? state.anchor : '10'),
-        starDistanceM: starDist,
-        utcMs: state.timeMs,
-      });
-    },
-    placeName: () => bodyName(state.anchor),
+    caption: () => captionFor(captionInput()),
+    placeName: () => captionPlaceName(captionInput()),
     setScreenshotMode: (active) => {
       if (active) input.releasePointerLock();
       document.body.dataset['mode'] = active ? 'screenshot' : 'flight';
@@ -542,6 +545,7 @@ function domLab(): void {
     settings,
     input,
     panel,
+    captions,
     boot,
     outcome: () => outcome,
     state: () => structuredClone(state),
@@ -556,67 +560,4 @@ function domLab(): void {
   };
 }
 
-// --- Game mode ----------------------------------------------------------------------------------------------------------
-
-async function bootGame(): Promise<void> {
-  await import('../game/map/map.css');
-  const boot = document.getElementById('boot')!;
-  boot.classList.remove('hidden');
-  boot.querySelector('h1')!.textContent = t('app.title');
-  document.getElementById('boot-tagline')!.textContent = t('app.tagline');
-  const [{ App }, { ShipController }, { createGameShare }] = await Promise.all([
-    import('../game/app'),
-    import('../game/ship/shipController'),
-    import('../game/share/gameShare'),
-  ]);
-  const app = new App(canvas);
-  try {
-    await app.boot();
-  } catch (e) {
-    document.getElementById('boot-status')!.textContent = t('boot.failed', { reason: e instanceof Error ? e.message : String(e) });
-    throw e;
-  }
-  app.controller = new ShipController(app);
-  const share = createGameShare(app);
-  // Emulates the App.tick hook requested in docs/SHARE.md: share.update() right after input.update(dt), and a pause
-  // press consumed by screenshot mode does not open the pause menu.
-  const input = app.input;
-  const update = input.update.bind(input);
-  const justPressed = input.justPressed.bind(input);
-  let pauseConsumed = false;
-  input.update = (dt: number): void => {
-    update(dt);
-    pauseConsumed = false;
-    pauseConsumed = share.update();
-  };
-  input.justPressed = (id: ActionId): boolean => (id === 'pause' && pauseConsumed ? false : justPressed(id));
-  const outcome = await share.applyFragment(location.hash);
-  // The view right after applying the link, before the first frame moves the ship.
-  const ship = app.controller instanceof ShipController ? app.controller : null;
-  const placed = {
-    anchor: app.cam.pos.anchor,
-    offset: [app.cam.pos.offset.x, app.cam.pos.offset.y, app.cam.pos.offset.z],
-    quat: [app.cam.quat.x, app.cam.quat.y, app.cam.quat.z, app.cam.quat.w],
-    timeMs: tdbSecondsSinceJ2000ToUnixMs(app.simTime),
-    target: ship?.targetId ?? null,
-    mode: ship?.ship.mode ?? null,
-  };
-  (window as unknown as { __ks: unknown }).__ks = {
-    app,
-    share,
-    outcome,
-    placed,
-    pending: () => app.pool.pending,
-    capture: () => {
-      app.tick();
-      return app.renderer.domElement.toDataURL('image/png');
-    },
-    pngLink: (bytes: number[]) => findShareInPng(Uint8Array.from(bytes)),
-    decode: (f: string) => decodeShare(f),
-  };
-  app.start();
-}
-
-// Dispatch last: the helpers above are module constants (temporal dead zone before this point).
-if (params.get('game') === '1') void bootGame();
-else domLab();
+domLab();
