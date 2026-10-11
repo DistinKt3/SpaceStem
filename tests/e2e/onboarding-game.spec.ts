@@ -15,6 +15,7 @@ interface Vec {
   dot(v: Vec): number;
   scale(s: number): Vec;
   set(x: number, y: number, z: number): Vec;
+  copy(v: Vec): Vec;
 }
 interface Snapshot {
   step?: string;
@@ -194,7 +195,7 @@ test.describe('guided opening in the game', () => {
   test('the landing advice matches the flight model: thrust along the nose, cut the throttle on the ground', async ({ page }) => {
     test.setTimeout(300_000);
     const errors: string[] = [];
-    await boot(page, '&tour=0', errors);
+    await boot(page, '&tour=0&t=2026-10-11T12:00:00Z', errors);
     // No tour with ?tour=0 (Settings can still start it in a ship session).
     await expect(card(page)).toHaveCount(0);
     const r = await game(page, (g) => {
@@ -215,8 +216,14 @@ test.describe('guided opening in the game', () => {
         ship.throttle = 0;
       };
       let t = app.simTime;
-      const run = (secs: number, c: object, stop: () => boolean = () => false, dt = 0.05): void => {
-        for (let i = 0; i * dt < secs && !stop(); i++) ship.update(dt, c, sys, (t += dt));
+      // One game frame without rendering: the ship, then the world (body orientations and the terrain under the ship
+      // follow the clock only through SolarSystem.update, as in App.tick). 10 frames/s, the game's slowest step.
+      const px = app.pxPerRadian();
+      const run = (secs: number, c: object, stop: () => boolean = () => false, dt = 0.1): void => {
+        for (let i = 0; i * dt < secs && !stop(); i++) {
+          ship.update(dt, c, sys, (t += dt));
+          sys.update(ship.pos, t, px);
+        }
       };
       // "The drive slows down by itself as you arrive": a full-throttle cruise arrival from 20,000 km drops out to
       // thrusters above the surface, even at 10 frames per second (it used to fly through the drop-out band).
@@ -239,10 +246,23 @@ test.describe('guided opening in the game', () => {
       const down = { agl: ship.telemetry.agl, landed: ship.landed, mode: ship.mode };
       run(1, { ...none, zeroThrottle: true }, () => ship.landed); // "cut the throttle with Backspace"
       const landed = ship.landed;
-      // "Lift off first: rise with R": the ship leaves the ground and is not caught by the touchdown rule again.
+      // "Lift off first: rise with R": the ship leaves the ground. (Drifting low over uneven ground afterwards, a slow
+      // contact can land it again: the flight model's own touchdown rule, which depends on the terrain.)
       run(0.3, { ...none, strafeY: 1 });
-      run(3, none);
-      return { arrival, agl0, strafeAgl, down, landed, afterLiftOff: { landed: ship.landed, agl: ship.telemetry.agl } };
+      const liftedOff = !ship.landed;
+      // The settled touchdown only follows a ground contact: a ship hovering just above the clearance height with the
+      // throttle cut, without touching, stays in the air.
+      setup();
+      run(0.05, none);
+      const moon = sys.byId.get('301')!;
+      const ground = moon.def.radiusM + (sys as unknown as { surfaceHeightBelow(v: unknown, p: unknown, t: number): number }).surfaceHeightBelow(moon, ship.pos, t);
+      ship.pos.offset.scale((ground + 2.8) / ship.pos.offset.length());
+      // At rest in the Moon's rotating surface frame (no drift over the terrain).
+      const omega = (ship.constructor as unknown as { bodyOmega(v: unknown, t: number): Vec & { cross(v: Vec): Vec } }).bodyOmega(moon, t);
+      ship.vel.copy(omega.cross(ship.pos.offset));
+      run(0.05, none);
+      run(1, none);
+      return { arrival, agl0, strafeAgl, down, landed, liftedOff, hovering: { landed: ship.landed, agl: ship.telemetry.agl } };
     });
     expect(r.arrival).toMatchObject({ mode: 'thrusters', throttle: 0, droppedOut: true });
     // At the edge of the 20 km drop-out band (above the mean radius; the terrain is within about 11 km of it), not
@@ -254,8 +274,9 @@ test.describe('guided opening in the game', () => {
     expect(r.down).toMatchObject({ landed: false, mode: 'thrusters' }); // on the ground, still under thrust
     expect(r.down.agl).toBeLessThan(3);
     expect(r.landed).toBe(true);
-    expect(r.afterLiftOff.landed).toBe(false);
-    expect(r.afterLiftOff.agl).toBeGreaterThanOrEqual(2.5); // airborne (the terrain clearance), drifting over terrain
+    expect(r.liftedOff).toBe(true);
+    expect(r.hovering.landed).toBe(false);
+    expect(r.hovering.agl).toBeLessThan(3); // within the settled band, yet not landed: no recent contact
     expect(errors).toEqual([]);
   });
 });

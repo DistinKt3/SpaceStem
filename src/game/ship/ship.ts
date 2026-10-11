@@ -110,6 +110,7 @@ export class Ship {
     this.angVel.set(0, 0, 0);
     this.landed = false;
     this.landedBf = null;
+    this.lastContact = -Infinity;
   }
 
   forward(out = new Vec3d()): Vec3d {

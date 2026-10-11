@@ -82,7 +82,7 @@ small hunks):
   ship up to 560 km out at 10 fps.)
 - **Settled touchdown.** A ship pressed onto the ground that cuts its throttle is held by flight assist exactly at the
   2.5 m clearance, where it never touched again and never counted as landed. Within half a second of a ground contact,
-  resting below 3 m with the throttle cut and under 4 m/s now lands. A lift-off is not caught by it (no contact).
+  resting below 3 m with the throttle cut and under 4 m/s now lands. A lift-off or a teleport is not caught by it.
 
 `tests/e2e/onboarding-game.spec.ts` checks all of this in the real flight model: strafing does not descend, forward
 thrust does, the throttle cut lands, the arrival drops out above the surface at 10 frames per second, and "rise"
@@ -162,7 +162,7 @@ reload; a skipped or finished tour stays off until Settings > Restart guided tou
   and the card stays fully readable instead of scrolling; it overlaps the HUD's top and left panels (it can be
   minimised). At 1920x1080 and 200 % the short-window rule applies: no overlap, the card scrolls.
 - With the map open (`body.ks-map-open`) the card moves to the free bottom-left corner, clear of the map's title and
-  list.
+  list (it stops 10 rem from the top, below the title even at 200 % text; at least 8 rem tall so the goal shows).
 - `section` with `aria-label="Guided tour"`; the goal is an `h2`; the strip is a `progressbar` with
   `aria-valuetext="Step n of 9"`. A separate `role="status"` / `aria-live="polite"` region announces each step (goal
   plus the hint with key names), "Done: <goal>." and the skip. The "Real science" tag is followed by a visually hidden
@@ -267,6 +267,12 @@ pressing them works. Lab buttons fake each condition, including "20 km above Moo
   a long hint scrolls behind the fade (mouse wheel over the card while the pointer is free). Below 27 rem of height
   (200 % text in windows up to about 860 px tall) the card overlaps the HUD's top and left panels instead; the HUD
   panels overlap each other there too.
+- At 800x450 with 200 % text the whole interface collides (HUD panels, the map's title and list, the Codex toast); the
+  card stays on screen, scrolls, and keeps its goal in view.
+- Opening the map unlocks a Codex entry whose toast (top right, above the map) briefly covers the map's "Show star
+  map" button, which the hyperspeed nudge names. It fades after a few seconds; the layout belongs to the Codex and map.
 - Two "next drive mode" presses within one frame count once (the input module reads `modeNext` with `justPressed`).
 - The opening start moves with the Moon (a returning player resumes the tour at a different point of the orbit); the
   `leo` view used by tests and screenshots stays fixed.
+- Lifting off nose-down ("rise with R") rises a few metres and hovers; the climb-out nudges then ask to pitch up
+  before cruising.
