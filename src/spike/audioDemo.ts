@@ -641,16 +641,17 @@ function drawSpectrogram(mono: Float32Array, sampleRate: number): void {
   for (const fr of frames) for (let k = 1; k < fr.length; k += 3) all.push(fr[k]!);
   all.sort((a, b) => a - b);
   const top = all[Math.floor(all.length * 0.995)] ?? -20;
-  const range = 85;
+  const range = 72;
   const H = 160;
+  const fLo = 40;
   const img = new ImageData(Math.max(1, frames.length), H);
   const nyq = sampleRate / 2;
   for (let fi = 0; fi < frames.length; fi++) {
     const fr = frames[fi]!;
     for (let y = 0; y < H; y++) {
-      const f = F_LO * Math.pow(20000 / F_LO, 1 - y / (H - 1));
+      const f = fLo * Math.pow(20000 / fLo, 1 - y / (H - 1));
       const bin = Math.min(bins - 1, Math.max(1, Math.round((f / nyq) * bins)));
-      const v = Math.pow(Math.max(0, (fr[bin]! - (top - range)) / range), 1.25);
+      const v = Math.pow(Math.max(0, (fr[bin]! - (top - range)) / range), 1.6);
       const [r, gg, b] = colour(v);
       const o = (y * frames.length + fi) * 4;
       img.data[o] = r;
@@ -674,7 +675,7 @@ function drawSpectrogram(mono: Float32Array, sampleRate: number): void {
     [1000, '1 kHz'],
     [10000, '10 kHz'],
   ] as const) {
-    const y = (1 - Math.log(f / F_LO) / Math.log(20000 / F_LO)) * h;
+    const y = (1 - Math.log(f / fLo) / Math.log(20000 / fLo)) * h;
     g.fillStyle = 'rgba(255,255,255,0.18)';
     g.fillRect(0, Math.round(y), w, 1);
     g.fillStyle = 'rgba(216,230,255,0.85)';
@@ -741,8 +742,19 @@ Object.assign(window, {
       return engine;
     },
     state,
+    setState: (p: Partial<AudioState>): void => {
+      Object.assign(state, p);
+      sequence = null;
+      syncUi();
+    },
     cues: AUDIO_CUES,
     measure: measureScenario,
+    /** Milliseconds to render a scenario offline (CPU cost probe). */
+    timeRender: async (sc: Scenario): Promise<number> => {
+      const t0 = performance.now();
+      await renderScenario(sc);
+      return performance.now() - t0;
+    },
     renderPreview,
     start: startAudio,
   },

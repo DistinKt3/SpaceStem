@@ -379,7 +379,7 @@ export class AudioEngine {
     const kit = this.kit!;
     const g = new NodeGroup(kit.ctx);
     const out = g.gain(1);
-    out.connect(g.pan(((b.hz % 7) / 7) * 0.8 - 0.4)).connect(this.graph!.sfx);
+    out.connect(g.pan(b.pan)).connect(this.graph!.sfx);
     out.connect(g.gain(0.25)).connect(this.graph!.sfxWet);
     let end = 0;
     for (let i = 0; i < b.count; i++) {

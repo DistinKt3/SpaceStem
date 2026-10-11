@@ -159,6 +159,10 @@ describe('audio score generator', () => {
     expect([...instrumentBlips(5, 0, 50), ...instrumentBlips(5, 50, 120)]).toEqual(a);
     expect(a.length).toBeGreaterThan(8);
     expect(a.length).toBeLessThan(40);
+    for (const b of a) {
+      expect(Math.abs(b.pan)).toBeLessThanOrEqual(0.6);
+      expect(b.count === 1 || b.count === 2).toBe(true);
+    }
   });
 
   it('maps MIDI notes to frequency', () => {

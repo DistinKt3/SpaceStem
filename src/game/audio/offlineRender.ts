@@ -124,7 +124,7 @@ export interface Measurement {
   captions: CaptionEvent[];
   lastError: string | null;
   /** Present with a baseline: the same measurements on (render - baseline), i.e. what the change added. */
-  diff?: { rms: number; peak: number; centroidHz: number; hfFraction: number; rmsEarly: number; rmsLate: number };
+  diff?: { rms: number; peak: number; centroidHz: number; hfFraction: number; rmsEarly: number; rmsLate: number; rmsTail: number };
 }
 
 /**
@@ -162,6 +162,7 @@ export async function measureScenario(sc: Scenario, baseline?: Scenario): Promis
       hfFraction: bandEnergyFraction(d, r.sampleRate, 2000, r.sampleRate / 2),
       rmsEarly: rms(d, 0, half),
       rmsLate: rms(d, half, d.length),
+      rmsTail: rms(d, d.length - Math.floor(r.sampleRate * 0.5), d.length),
     };
   }
   return out;

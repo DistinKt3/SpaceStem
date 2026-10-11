@@ -323,6 +323,8 @@ export interface Blip {
   /** 1 or 2 short tones. */
   readonly count: number;
   readonly vel: number;
+  /** -1..1: instruments sit around the pilot. */
+  readonly pan: number;
 }
 
 /** Sparse avionics blips (instrument tones) in [t0, t1): one 1.6 s slot in four on average. Pure. */
@@ -336,7 +338,13 @@ export function instrumentBlips(seed: number, t0: number, t1: number): Blip[] {
     const at = k * SLOT + toUnit(hashInts(h, 1)) * SLOT * 0.8;
     if (at < t0 || at >= t1) continue;
     const tones = [1568, 1760, 2093, 2349, 2637];
-    out.push({ at, hz: tones[hashInts(h, 2) % tones.length]!, count: toUnit(hashInts(h, 3)) < 0.35 ? 2 : 1, vel: 0.5 + 0.5 * toUnit(hashInts(h, 4)) });
+    out.push({
+      at,
+      hz: tones[hashInts(h, 2) % tones.length]!,
+      count: toUnit(hashInts(h, 3)) < 0.35 ? 2 : 1,
+      vel: 0.5 + 0.5 * toUnit(hashInts(h, 4)),
+      pan: toUnit(hashInts(h, 5)) * 1.2 - 0.6,
+    });
   }
   return out;
 }

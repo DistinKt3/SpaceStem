@@ -43,6 +43,21 @@ export function createKit(ctx: BaseAudioContext, seed: number): Kit {
   };
 }
 
+/**
+ * Switch parameters to block-rate automation (one value per 128 samples). Used for slow glides and LFOs on filters
+ * and oscillators in long-running layers: a modulated BiquadFilter otherwise recomputes its coefficients for every
+ * sample. Older browsers without automationRate simply keep a-rate.
+ */
+export function kRate(...params: AudioParam[]): void {
+  for (const p of params) {
+    try {
+      if ('automationRate' in p) p.automationRate = 'k-rate';
+    } catch {
+      // Not allowed for this parameter on this browser: keep a-rate.
+    }
+  }
+}
+
 /** Glide a parameter toward a value (exponential approach, time constant tau). Ignores non-finite values. */
 export function glide(p: AudioParam, v: number, now: number, tau: number): void {
   if (!Number.isFinite(v) || !Number.isFinite(now)) return;

@@ -5,7 +5,7 @@
  */
 import type { AudioState } from './audioEngine';
 import { cabinMix, engineMix, heatMix, hyperMix, rcsMix, windMix } from './mappings';
-import { NodeGroup, Target, type Kit } from './nodes';
+import { NodeGroup, Target, kRate, type Kit } from './nodes';
 
 const SILENT = 1e-4;
 const TEARDOWN_AFTER_S = 5;
@@ -163,6 +163,7 @@ export class EngineLayer extends Layer {
     t2.connect(toneLp);
     toneLp.connect(toneGain).connect(hull);
 
+    kRate(rumble.frequency, noiseCut.frequency, t1.frequency, t2.frequency, hull.frequency);
     this.rumbleGain = new Target(rumbleGain.gain, 0.12);
     this.rumbleHz = new Target(rumble.frequency, 0.25);
     this.noiseGain = new Target(noiseGain.gain, 0.12);
@@ -201,6 +202,7 @@ export class RcsLayer extends Layer {
     const bp = g.filter('bandpass', 900, 0.9);
     const gain = g.gain(0);
     g.noise(this.kit.white, this.offset()).connect(bp).connect(g.filter('lowpass', 2400, 0.6)).connect(gain).connect(this.out);
+    kRate(bp.frequency);
     this.gainT = new Target(gain.gain, 0.03);
     this.center = new Target(bp.frequency, 0.05);
   }
@@ -250,6 +252,7 @@ export class WindLayer extends Layer {
     g.link(pitchSwing, whistle.frequency);
     this.pitchSwing = new Target(pitchSwing.gain, 0.4);
 
+    kRate(body.frequency, whistle.frequency, lp.frequency);
     this.gainT = new Target(gain.gain, 0.35);
     this.gustT = new Target(gust.gain, 0.35);
     this.bodyHz = new Target(body.frequency, 0.4);
@@ -299,6 +302,7 @@ export class HeatLayer extends Layer {
       .connect(sizzle)
       .connect(this.out);
 
+    kRate(bp.frequency);
     this.groan = new Target(groan.gain, 0.5);
     this.groanHz = new Target(bp.frequency, 0.8);
     this.sizzle = new Target(sizzle.gain, 0.5);
@@ -351,6 +355,7 @@ export class HyperLayer extends Layer {
     swellLfo.connect(swell);
     g.link(swell, droneGain.gain);
 
+    kRate(s1.frequency, s2.frequency, spoolLp.frequency);
     this.spoolGain = new Target(spoolGain.gain, 0.15);
     this.spoolHz = new Target(s1.frequency, 0.15);
     this.spoolHz2 = new Target(s2.frequency, 0.15);

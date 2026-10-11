@@ -1,12 +1,12 @@
 /**
- * Plays the generative score (score.ts) with a look-ahead scheduler: pad chords (detuned voice pairs spread left and
- * right, slow attack, long overlapping release), a soft bass, FM bells, a pad filter that follows each chord's
- * brightness plus two slow LFOs, and gentle detune drift. Everything is scheduled on the audio clock, so timing is
+ * Plays the generative score (score.ts) with a look-ahead scheduler: pad chords (gently detuned voice pairs spread
+ * left and right, slow attack, long overlapping release), a soft bass, FM bells, a pad filter that follows each
+ * chord's brightness plus two slow LFOs, and a slow stereo drift. Everything is scheduled on the audio clock, so timing is
  * sample-accurate and the loop seam is inaudible.
  */
 import { hashInts, toUnit } from '../../core/rng';
 import { padCutoff } from './mappings';
-import { NodeGroup, envelope, type Kit } from './nodes';
+import { NodeGroup, envelope, kRate, type Kit } from './nodes';
 import { chordIndexAt, midiToHz, scoreWindow, type Score, type ScoreChord } from './score';
 
 /** Seconds of music scheduled ahead of the audio clock. */
@@ -32,8 +32,6 @@ export class ScorePlayer {
   private readonly padFilter: BiquadFilterNode;
   private readonly bassIn: GainNode;
   private readonly bellBus: GainNode;
-  private readonly detuneUp: GainNode;
-  private readonly detuneDown: GainNode;
 
   constructor(
     private readonly kit: Kit,
@@ -44,6 +42,7 @@ export class ScorePlayer {
     const g = new NodeGroup(kit.ctx);
     this.fixed = g;
     this.padFilter = g.filter('lowpass', padCutoff(score.chords[0]?.brightness ?? 0.5), 0.6);
+    kRate(this.padFilter.frequency, this.padFilter.Q);
     this.padL = g.pan(-0.45);
     this.padR = g.pan(0.45);
     this.bassIn = g.gain(1);
@@ -65,12 +64,15 @@ export class ScorePlayer {
     g.link(d1, this.padFilter.frequency);
     g.link(d2, this.padFilter.frequency);
 
-    // Gentle detune drift, opposite on left and right voices.
-    const drift = g.osc('sine', 0.083);
-    this.detuneUp = g.gain(3.5);
-    this.detuneDown = g.gain(-3.5);
-    drift.connect(this.detuneUp);
-    drift.connect(this.detuneDown);
+    // Slow stereo drift of the two pad halves. (Modulating every oscillator's detune instead would force per-sample
+    // frequency computation in each one and cost about three times the CPU of the whole score.)
+    const drift = g.osc('sine', 0.047);
+    const widen = g.gain(-0.18);
+    const widenR = g.gain(0.18);
+    drift.connect(widen);
+    drift.connect(widenR);
+    g.link(widen, this.padL.pan); // the stereo width breathes between about 0.27 and 0.63
+    g.link(widenR, this.padR.pan);
 
     this.bellBus = g.gain(1);
     const bellLp = g.filter('lowpass', 5200, 0.5);
@@ -170,15 +172,13 @@ export class ScorePlayer {
     envB.connect(this.bassIn);
     c.notes.forEach((m, i) => {
       const hz = midiToHz(m);
-      const d = 3 + 5 * toUnit(hashInts(this.score.seed, m, i));
+      const d = 2 + 3.5 * toUnit(hashInts(this.score.seed, m, i));
       const a = g.osc(kit.pad, hz, d);
       const b = g.osc(kit.pad, hz, -d);
       // The top voice sits a little back so the chord stays calm.
       const w = i === c.notes.length - 1 ? 0.75 : 1;
       a.connect(g.gain(w)).connect(envL);
       b.connect(g.gain(w)).connect(envR);
-      g.link(this.detuneUp, a.detune);
-      g.link(this.detuneDown, b.detune);
     });
     g.osc(kit.warm, midiToHz(c.bass)).connect(envB);
     this.padFilter.frequency.setTargetAtTime(padCutoff(c.brightness), start, 2.5);
