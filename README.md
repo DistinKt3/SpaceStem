@@ -17,21 +17,28 @@ npm run dev        # http://localhost:5173
 
 Useful URL parameters: `?view=moon-surface` (also `leo`, `earth-sunset`, `earthrise`, `mars`, `jupiter`, `saturn`, `sun`, `body:<NAIF id>`), `?free=1` (free camera), `?backend=webgl2`, `?t=2026-12-25T00:00:00Z`.
 
-## Controls (keyboard and mouse)
+## Controls
 
-| Action | Keys |
+Every control can be rebound in Settings (Esc), for keyboard and mouse and for gamepads (standard mapping). Defaults:
+
+| Action | Keyboard and mouse |
 |---|---|
-| Throttle up / down | W / S (X zeroes it) |
-| Yaw, pitch | A / D, arrow keys, or drag with the mouse |
+| Throttle up / down | W / S; steps with = / − or the mouse wheel; Backspace cuts it |
+| Pitch, yaw | Arrow keys and A / D, or move the mouse (click the view to capture it; Esc releases) |
 | Roll | Q / E |
-| Strafe | Z / C (sideways), R / F (up and down) |
-| Boost | Left Shift |
-| Next / previous drive mode (thrusters, impulse, cruise) | Space / B |
+| Strafe | Z / X (left, right), F / R (down, up) |
+| Boost | Shift |
+| Drive mode: next / previous (thrusters, impulse, cruise) | Space / B |
 | Flight assist on or off | G |
-| Target: cycle / nearest to reticle | Tab / T |
-| Auto-align to target | Y |
+| Target: next / previous / under the reticle | Tab / Y / T (or middle mouse) |
+| Align nose to target | N |
 | Hyperspeed to the targeted star | J |
-| Map (system and local stars) | M (Esc closes) |
+| Map (system and local stars) | M |
+| Head look | Hold the right mouse button or Alt |
+| Cockpit on or off / HUD on or off | V / H |
+| Settings and pause (controls, accessibility, audio, graphics) | Esc |
+
+Accessibility: colourblind palettes (deuteranopia, protanopia, tritanopia, high contrast), text size, subtitles for every sound, full rebinding and reduced motion (also follows the system setting).
 
 ## Develop
 

@@ -11,6 +11,12 @@ import { FrameRenderer } from '../render/frameRenderer';
 import { Starfield } from '../render/starfield';
 import { StarCatalog } from '../world/starCatalog';
 import { MapView } from './map/mapView';
+import { Settings, type SettingsData } from './settings/settings';
+import { InputManager } from './input/inputManager';
+import { SettingsPanel } from './ui/settingsPanel';
+import { Captions } from './ui/captions';
+import { AudioEngine } from './audio/audioEngine';
+import { Cockpit } from '../render/cockpit/cockpit';
 import { PARSEC_M } from '../core/constants';
 import { loadBodies } from '../world/catalog';
 import { Ephemeris } from '../world/ephemeris';
@@ -37,6 +43,9 @@ export interface Controller {
   onPlace?(app: App): void;
 }
 
+/** Fixed seed for the generative score, so every player hears the same piece (see docs/DECISIONS.md D-033). */
+const SCORE_SEED = 7;
+
 export class App {
   readonly params = new URLSearchParams(location.search);
   renderer!: THREE.WebGPURenderer;
@@ -61,8 +70,53 @@ export class App {
   private hudTimer = 0;
   paused = false;
 
+  /** Player settings (accessibility, audio, graphics, bindings), persisted in localStorage. */
+  readonly settings = new Settings();
+  readonly input: InputManager;
+  readonly panel: SettingsPanel;
+  readonly captions: Captions;
+  readonly audio: AudioEngine;
+  cockpit: Cockpit | null = null;
+
   constructor(readonly canvas: HTMLCanvasElement) {
     this.hud = document.getElementById('hud')!;
+    this.settings.applyToDocument();
+    this.input = new InputManager(canvas, this.settings);
+    this.panel = new SettingsPanel(this.settings, this.input);
+    this.captions = new Captions(this.settings);
+    this.audio = new AudioEngine({ seed: SCORE_SEED, onCaption: (key, secs) => this.captions.show(key, secs) });
+    this.reducedMotion = this.settings.data.reducedMotion;
+    // Browsers only start audio from a user gesture.
+    const unlock = (): void => {
+      void this.audio.unlock().then(() => {
+        if (!this.audio.unlocked) return;
+        window.removeEventListener('pointerdown', unlock);
+        window.removeEventListener('keydown', unlock);
+      });
+    };
+    window.addEventListener('pointerdown', unlock);
+    window.addEventListener('keydown', unlock);
+    canvas.addEventListener('click', () => {
+      if (!this.map?.isOpen && !this.panel.isOpen && this.params.get('lock') !== '0') this.input.requestPointerLock();
+    });
+    this.settings.onChange((_, changed) => this.applySettings(changed));
+  }
+
+  /** Show or hide the cockpit model (the HUD layout adapts via a body class). */
+  setCockpitVisible(v: boolean): void {
+    const on = v && this.cockpit !== null;
+    if (this.frame) this.frame.cockpitEnabled = on;
+    document.body.classList.toggle('ks-cockpit-on', on);
+  }
+
+  /** Push settings to the systems that use them (all of them when `changed` is omitted). */
+  applySettings(changed?: ReadonlySet<keyof SettingsData>): void {
+    const d = this.settings.data;
+    const has = (k: keyof SettingsData): boolean => !changed || changed.has(k);
+    if (has('reducedMotion')) this.reducedMotion = d.reducedMotion;
+    if (has('fovDeg') && this.frame) this.frame.setFov(d.fovDeg);
+    if (has('volumes')) this.audio.setVolumes(d.volumes);
+    if (has('showFps')) this.hud.style.display = d.showFps || this.params.get('free') === '1' ? 'block' : '';
   }
 
   progress(msg: string): void {
@@ -80,6 +134,12 @@ export class App {
     this.depthMode = effectiveDepthMode(requested, this.info);
     this.frame = new FrameRenderer(this.renderer, { depthMode: this.depthMode, msaaSamples: this.params.get('msaa') === '0' ? 0 : 4 });
     this.frame.bloomStrength.value = Number(this.params.get('bloom') ?? 0.5);
+    if (this.params.get('cockpit') !== '0') {
+      this.cockpit = new Cockpit({ quality: this.settings.data.quality === 'low' ? 'low' : 'high' });
+      this.frame.cockpitScene.add(this.cockpit.group);
+    }
+    this.setCockpitVisible(this.cockpit !== null);
+    this.applySettings();
     const resize = (): void => this.frame.resize(innerWidth, innerHeight);
     window.addEventListener('resize', resize);
     resize();
@@ -180,13 +240,30 @@ export class App {
     this.frameTimes.push(now - this.last);
     if (this.frameTimes.length > 240) this.frameTimes.shift();
     this.last = now;
-    if (!this.paused) this.simTime = this.sys.ephemeris.clampTime(this.simTime + dt * this.timeScale);
+    this.input.update(dt);
+    if (this.input.justPressed('pause')) {
+      if (this.map?.isOpen) this.map.close();
+      else this.panel.open();
+    }
+    if (this.input.justPressed('toggleMap') && this.map) {
+      if (!this.map.isOpen) this.input.releasePointerLock();
+      this.map.toggle();
+    }
+    const paused = this.paused || this.panel.isOpen;
+    if (!paused) this.simTime = this.sys.ephemeris.clampTime(this.simTime + dt * this.timeScale);
     if (this.map?.isOpen) {
       this.map.render();
       return;
     }
-    this.controller?.update(dt, this);
+    if (!paused) this.controller?.update(dt, this);
     this.renderFrame();
+    if (this.settings.data.showFps && this.controller?.updateHud) {
+      this.hudTimer -= dt;
+      if (this.hudTimer <= 0) {
+        this.hudTimer = 0.25;
+        this.updateHud();
+      }
+    }
     if (this.controller?.updateHud) this.controller.updateHud(this);
     else {
       this.hudTimer -= dt;

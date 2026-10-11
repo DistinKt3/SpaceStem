@@ -76,7 +76,7 @@ function loadTexture(name: string, ext = 'webp', srgb = true): Promise<THREE.Tex
 }
 
 /** Disc-averaged colours for unresolved bodies (presentation only). */
-const POINT_COLORS: Record<string, [number, number, number]> = {
+export const POINT_COLORS: Record<string, [number, number, number]> = {
   mercury: [215, 205, 195],
   venus: [255, 245, 215],
   earth: [190, 215, 255],

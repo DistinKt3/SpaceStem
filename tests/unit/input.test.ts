@@ -120,7 +120,7 @@ describe('action map', () => {
   });
 
   it('includes the actions the game needs', () => {
-    for (const id of ['pitch', 'yaw', 'roll', 'thrust', 'strafeX', 'strafeY', 'throttleUp', 'throttleDown', 'throttleZero', 'boost', 'modeNext', 'modePrev', 'targetNext', 'targetPrev', 'targetReticle', 'hyperspeed', 'flightAssist', 'landAssist', 'toggleMap', 'toggleCodex', 'howWeKnow', 'screenshot', 'toggleHud', 'toggleView', 'headLook', 'share', 'pause']) {
+    for (const id of ['pitch', 'yaw', 'roll', 'thrust', 'strafeX', 'strafeY', 'throttleUp', 'throttleDown', 'throttleZero', 'boost', 'modeNext', 'modePrev', 'targetNext', 'targetPrev', 'targetReticle', 'autoAlign', 'hyperspeed', 'flightAssist', 'landAssist', 'toggleMap', 'toggleCodex', 'howWeKnow', 'screenshot', 'toggleHud', 'toggleView', 'headLook', 'share', 'pause']) {
       expect(ACTION_IDS).toContain(id);
     }
     for (const id of ['pitch', 'yaw', 'roll', 'thrust', 'strafeX', 'strafeY'] as const) expect(ACTIONS.find((a) => a.id === id)!.kind).toBe('axis');

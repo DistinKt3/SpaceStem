@@ -19,7 +19,9 @@ export function formatDistance(m: number): string {
 
 export function formatSpeed(mps: number): string {
   const a = Math.abs(mps);
-  if (a < 1000) return t('unit.mps', { v: formatNumber(sig(mps, 3), frac(mps, 3)) });
+  // Below 5 cm/s is numerical drift for a pilot: show 0. Otherwise three significant figures, at most one decimal.
+  if (a < 0.05) return t('unit.mps', { v: formatNumber(0, 0) });
+  if (a < 1000) return t('unit.mps', { v: formatNumber(sig(mps, 3), Math.min(1, frac(mps, 3))) });
   if (a < 0.001 * SPEED_OF_LIGHT_M_PER_S) return t('unit.kmps', { v: formatNumber(sig(mps / 1000, 4), frac(mps / 1000, 4)) });
   const c = mps / SPEED_OF_LIGHT_M_PER_S;
   return t('unit.c', { v: formatNumber(sig(c, 3), frac(c, 3)) });

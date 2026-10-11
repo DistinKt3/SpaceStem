@@ -42,5 +42,6 @@
 .ks-prov-generated { color: var(--ks-generated); border-style: dotted; }
 .ks-hint { margin-top: 0.45rem; font-size: 0.62rem; color: var(--ks-dim); }
 .ks-hud-footer { position: absolute; left: 50%; bottom: 0.8rem; transform: translateX(-50%); font-size: 0.66rem; color: var(--ks-dim); white-space: nowrap; text-shadow: 0 0 3px #000; }
+body.ks-cockpit-on .ks-hud-footer { left: 1.2rem; top: 0.9rem; bottom: auto; transform: none; }
 .ks-hud-warn { position: absolute; left: 50%; top: 32%; transform: translateX(-50%); padding: 0.35rem 0.9rem; border-radius: 0.4rem; background: rgba(60, 10, 0, 0.55); border: 1px solid var(--ks-warn, #ffb347); color: var(--ks-warn, #ffb347); letter-spacing: 0.18em; text-transform: uppercase; font-size: 0.8rem; }
 #hud { display: none; }

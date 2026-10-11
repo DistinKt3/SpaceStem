@@ -28,6 +28,7 @@
   "input.action.hyperspeed": "Hyperspeed",
   "input.action.targetNext": "Next target",
   "input.action.targetPrev": "Previous target",
+  "input.action.autoAlign": "Align nose to target",
   "input.action.targetReticle": "Target under reticle",
   "input.action.toggleView": "Switch view",
   "input.action.headLook": "Head look (hold)",

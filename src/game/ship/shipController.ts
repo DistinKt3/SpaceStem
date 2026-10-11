@@ -8,24 +8,31 @@ import type { App, Controller } from '../app';
 import { Hud, type HudLabel, type HudState } from '../hud/hud';
 import { t } from '../i18n';
 import { tdbSecondsSinceJ2000ToUnixMs } from '../../core/time';
-import { KeyboardControls } from './keyboardControls';
-import { Ship, type ShipControls } from './ship';
+import { FLIGHT, Ship, type ShipControls } from './ship';
+import { SPEED_OF_LIGHT_M_PER_S } from '../../core/constants';
+import type { AudioState } from '../audio/audioEngine';
+import type { CockpitState } from '../../render/cockpit/cockpit';
+import { POINT_COLORS } from '../../world/solarSystem';
 import { Hyperspeed } from './hyperspeed';
 import { AU_M, PARSEC_M } from '../../core/constants';
 import type { Provenance } from '../../core/provenance';
 import { inferStar } from '../../world/starCatalog';
 import { MapView } from '../map/mapView';
 
-export interface ControlSource {
-  read(): ShipControls;
-  endFrame(): void;
-  pressed(code: string): boolean;
-}
+/** Mouse steering gain (control units per CSS pixel of mouse movement). */
+const MOUSE_STEER = 0.02;
+/** Head look: radians per CSS pixel, and limits (the eye sits close to the headrest beyond ~140 degrees). */
+const HEAD_LOOK_RAD_PER_PX = 0.003;
+const HEAD_YAW_MAX = (140 * Math.PI) / 180;
+const HEAD_PITCH_MAX = (75 * Math.PI) / 180;
+/** Throttle step per throttleUp/throttleDown press (keys or mouse wheel notch). */
+const THROTTLE_STEP = 0.05;
+/** Relative surface air density used for wind sound (Earth = 1). Venus, Titan and the giants clamp to 1. */
+const SURFACE_AIR: Record<string, number> = { earth: 1, mars: 0.0065, venus: 1, titan: 1 };
 
 export class ShipController implements Controller {
   readonly ship: Ship;
   readonly hud: Hud;
-  input: ControlSource;
   targetId: string | null = '301';
   readonly hyper = new Hyperspeed();
   readonly managesAnchor = true;
@@ -33,6 +40,11 @@ export class ShipController implements Controller {
   private message: { key: string; until: number } | null = null;
   /** Head-look rotation relative to the ship (cockpit view). */
   readonly headLook = new THREE.Quaternion();
+  private headYaw = 0;
+  private headPitch = 0;
+  /** Previous-frame state for audio cues. */
+  private prev = { target: null as string | null, mode: '', landed: false, phase: 'idle', alert: false };
+  private alert = 0;
 
   constructor(private readonly app: App) {
     this.ship = new Ship({ anchor: app.cam.pos.anchor, offset: app.cam.pos.offset.clone() }, app.cam.quat);
@@ -40,7 +52,6 @@ export class ShipController implements Controller {
     const anchor = app.sys.byId.get(this.ship.pos.anchor);
     if (anchor && anchor.def.kind !== 'star') this.ship.vel.copy(Ship.bodyOmega(anchor, app.simTime).cross(this.ship.pos.offset));
     this.hud = new Hud(document.body);
-    this.input = new KeyboardControls(app.canvas);
     const map = new MapView(app);
     map.onSelect = (id) => {
       if (id) this.targetId = id;
@@ -147,11 +158,46 @@ export class ShipController implements Controller {
     return angle < 0.002;
   }
 
+  /** Ship controls from the InputManager (actions follow the player's bindings). Ship axes: +yaw = left, +roll = left. */
+  private readControls(dt: number): ShipControls {
+    const inp = this.app.input;
+    const look = inp.held('headLook');
+    const m = inp.mouseDelta();
+    if (look) {
+      this.headYaw = Math.max(-HEAD_YAW_MAX, Math.min(HEAD_YAW_MAX, this.headYaw - m.x * HEAD_LOOK_RAD_PER_PX));
+      this.headPitch = Math.max(-HEAD_PITCH_MAX, Math.min(HEAD_PITCH_MAX, this.headPitch + m.y * HEAD_LOOK_RAD_PER_PX));
+    } else {
+      // Ease back to centre when released.
+      const k = Math.exp(-dt * 6);
+      this.headYaw *= k;
+      this.headPitch *= k;
+    }
+    this.headLook.setFromEuler(new THREE.Euler(this.headPitch, this.headYaw, 0, 'YXZ'));
+    const steps = inp.pressCount('throttleUp') - inp.pressCount('throttleDown');
+    if (steps !== 0) this.ship.throttle = Math.max(-0.5, Math.min(1, this.ship.throttle + steps * THROTTLE_STEP));
+    return {
+      pitch: inp.axis('pitch') + (look ? 0 : m.y * MOUSE_STEER),
+      yaw: -inp.axis('yaw') - (look ? 0 : m.x * MOUSE_STEER),
+      roll: -inp.axis('roll'),
+      throttleRate: inp.axis('thrust'),
+      strafeX: inp.axis('strafeX'),
+      strafeY: inp.axis('strafeY'),
+      boost: inp.held('boost'),
+      zeroThrottle: inp.justPressed('throttleZero'),
+      modeNext: inp.justPressed('modeNext'),
+      modePrev: inp.justPressed('modePrev'),
+      toggleFlightAssist: inp.justPressed('flightAssist'),
+    };
+  }
+
   update(dt: number, app: App): void {
-    const c = this.input.read();
+    const inp = app.input;
+    const c = this.readControls(dt);
     const ship = this.ship;
-    if (this.input.pressed('KeyY')) this.autoAlign = !this.autoAlign;
-    if (this.input.pressed('KeyJ')) this.engageHyperspeed();
+    if (inp.justPressed('autoAlign')) this.autoAlign = !this.autoAlign;
+    if (inp.justPressed('hyperspeed')) this.engageHyperspeed();
+    if (inp.justPressed('toggleHud')) this.hud.setVisible(!this.hud.isVisible);
+    if (inp.justPressed('toggleView')) app.setCockpitVisible(!app.frame.cockpitEnabled);
     if (this.autoAlign || this.hyper.active) {
       c.pitch = 0;
       c.yaw = 0;
@@ -169,18 +215,70 @@ export class ShipController implements Controller {
 
     // Targeting.
     const fwd = ship.forward();
-    if (this.input.pressed('KeyT')) this.targetId = this.candidates(fwd)[0]?.id ?? null;
-    if (this.input.pressed('Tab')) {
+    if (inp.justPressed('targetReticle')) this.targetId = this.candidates(fwd)[0]?.id ?? null;
+    const cycle = (inp.justPressed('targetNext') ? 1 : 0) - (inp.justPressed('targetPrev') ? 1 : 0);
+    if (cycle !== 0) {
       const list = this.candidates(fwd).slice(0, 8);
       const i = list.findIndex((x) => x.id === this.targetId);
-      this.targetId = list[(i + 1) % list.length]?.id ?? null;
+      this.targetId = list[(i + cycle + list.length) % list.length]?.id ?? null;
     }
-    this.input.endFrame();
 
     // Camera = ship cockpit view.
     app.cam.pos = ship.pos;
     app.cam.quat.copy(ship.quat).multiply(this.headLook);
     app.cam.speed = ship.telemetry.speed;
+    app.frame.cockpitCamera.quaternion.copy(this.headLook);
+    this.updateAudio(dt);
+  }
+
+  /** Fraction of the current drive's top speed (log scale for cruise, which spans 2 km/s to 3,000c). */
+  private speedFraction(): number {
+    const ship = this.ship;
+    const s = ship.telemetry.speed;
+    switch (ship.mode) {
+      case 'thrusters':
+        return Math.min(1, ship.telemetry.surfaceSpeed / FLIGHT.thrustersMaxSpeed);
+      case 'impulse':
+        return Math.min(1, s / FLIGHT.impulseCap);
+      case 'cruise':
+        return Math.min(1, Math.max(0, Math.log(s / FLIGHT.minCruiseSpeed) / Math.log(FLIGHT.cruiseCap / FLIGHT.minCruiseSpeed)));
+      default:
+        return this.hyper.phase === 'jump' ? Math.min(1, this.hyper.speed / (1e6 * SPEED_OF_LIGHT_M_PER_S)) : 0;
+    }
+  }
+
+  private updateAudio(dt: number): void {
+    const app = this.app;
+    const ship = this.ship;
+    const tel = ship.telemetry;
+    const [near, alt] = app.sys.nearest(ship.pos, app.simTime);
+    const atm = near.def.atmosphere;
+    const density = atm ? Math.min(1, (SURFACE_AIR[near.def.key] ?? 1) * Math.exp(-Math.max(0, alt) / atm.rayleighScaleHeightM)) : 0;
+    const state: AudioState = {
+      thrust: Math.min(1, Math.abs(tel.thrust)),
+      rcs: Math.min(1, Math.abs(tel.rcs)),
+      mode: ship.mode,
+      speedFraction: this.speedFraction(),
+      hyperspeed: this.hyper.spoolProgress,
+      atmosphereDensity: density,
+      airspeed: tel.surfaceSpeed,
+      scoopHeat: 0,
+      landed: ship.landed,
+    };
+    app.audio.update(dt, state);
+    // One-shot cues on state changes.
+    const p = this.prev;
+    if (this.targetId !== p.target && this.targetId) app.audio.play('target-lock');
+    if (p.mode && ship.mode !== p.mode && ship.mode !== 'hyperspeed' && p.mode !== 'hyperspeed') app.audio.play('mode-change');
+    if (this.hyper.phase !== p.phase) {
+      if (this.hyper.phase === 'spool') app.audio.play('hyperspeed-spool');
+      else if (this.hyper.phase === 'jump') app.audio.play('hyperspeed-engage');
+      else if (p.phase === 'jump') app.audio.play('hyperspeed-exit');
+    }
+    if (ship.landed && !p.landed) app.audio.play('landing-contact');
+    const alert = this.alert > 0.5;
+    if (alert && !p.alert) app.audio.play('alert');
+    this.prev = { target: this.targetId, mode: ship.mode, landed: ship.landed, phase: this.hyper.phase, alert };
   }
 
   /** Called by the App after the world update (body positions are camera-relative and current). */
@@ -204,6 +302,7 @@ export class ShipController implements Controller {
       .slice(0, 7);
     const warnings: string[] = [];
     if (ship.mode === 'thrusters' && !ship.landed && tel.agl < 300 && tel.verticalSpeed < -30) warnings.push(t('hud.warn.pullUp'));
+    this.alert = warnings.length > 0 ? 1 : 0;
     if (tel.droppedOut) this.dropMsgUntil = performance.now() + 3000;
     if (performance.now() < this.dropMsgUntil) warnings.push(t('hud.warn.droppedOut'));
     if (this.message && performance.now() < this.message.until) warnings.push(t(this.message.key));
@@ -230,6 +329,54 @@ export class ShipController implements Controller {
       footer: this.hyper.phase === 'jump' ? t('hyper.eta', { s: Math.ceil(this.hyper.etaSeconds) }) : '',
     };
     this.hud.update(state, app.frame.camera);
+    this.updateCockpit(app, sun.rel, sun.def.luminositySun ?? 1);
+  }
+
+  /** Drive the cockpit model: lighting from the local star and the nearest body, displays from the ship state. */
+  private updateCockpit(app: App, sunRel: Vec3d, luminositySun: number): void {
+    const cockpit = app.cockpit;
+    if (!cockpit) return;
+    const ship = this.ship;
+    const exposure = Math.max(1e-3, app.frame.exposure.value);
+    const toLocal = ship.quat.clone().invert();
+    const local = (v: Vec3d): THREE.Vector3 => new THREE.Vector3(v.x, v.y, v.z).normalize().applyQuaternion(toLocal);
+    const dSun = Math.max(sunRel.length(), 1);
+    const irr = (luminositySun * AU_M * AU_M) / (dSun * dSun);
+    // Sunlight is blocked when the nearest body sits between the ship and the star.
+    const [near] = app.sys.nearest(ship.pos, app.simTime);
+    let sunVis = 1;
+    if (near.def.kind !== 'star') {
+      const sDir = sunRel.clone().scale(1 / dSun);
+      const tc = near.rel.dot(sDir);
+      const miss = Math.sqrt(Math.max(0, near.rel.lengthSq() - tc * tc));
+      if (tc > 0 && tc < dSun) sunVis = Math.min(1, Math.max(0, (miss - near.def.radiusM * 0.995) / (near.def.radiusM * 0.01)));
+    }
+    let planetGlow: CockpitState['planetGlow'] = null;
+    if (near.def.kind !== 'star') {
+      const d = Math.max(near.rel.length(), near.def.radiusM * 1.0001);
+      const solid = 1 - Math.cos(Math.asin(Math.min(1, near.def.radiusM / d)));
+      // Fraction of the visible disc that is sunlit (phase), seen from the ship.
+      const toShip = near.rel.clone().scale(-1 / d);
+      const lit = 0.5 + 0.5 * toShip.dot(sunRel.clone().sub(near.rel).normalize());
+      const c = POINT_COLORS[near.def.key] ?? [230, 230, 230];
+      planetGlow = {
+        dirLocal: local(near.rel),
+        color: new THREE.Color(c[0] / 255, c[1] / 255, c[2] / 255),
+        intensity: Math.min(3, solid * lit * near.def.geometricAlbedo * irr * exposure * 2),
+      };
+    }
+    cockpit.exposureCompensation = 1 / exposure;
+    cockpit.update(1 / 60, {
+      time: performance.now() / 1000,
+      throttle: Math.abs(ship.throttle),
+      speedFraction: this.speedFraction(),
+      mode: ship.mode,
+      sunDirLocal: local(sunRel),
+      sunIntensity: Math.min(3, irr * exposure * sunVis),
+      planetGlow,
+      alert: this.alert,
+      reducedMotion: app.reducedMotion,
+    });
   }
 
   private dropMsgUntil = 0;

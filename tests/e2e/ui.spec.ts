@@ -3,6 +3,7 @@
  * Screenshots of the panel are written to test-results/ui-shots/ for visual review.
  */
 import { test, expect, type Page } from '@playwright/test';
+import { ACTIONS } from '../../src/game/input/actions';
 
 const SHOTS = 'test-results/ui-shots';
 
@@ -36,8 +37,8 @@ test.describe('settings panel', () => {
     await expect(page.getByRole('tabpanel', { name: 'Controls' })).toBeVisible();
     // Every action is listed with two slots.
     const actions = await page.evaluate(() => document.querySelectorAll('.ks-bind').length);
-    expect(actions).toBe(27);
-    await expect(page.locator('.ks-slot')).toHaveCount(54);
+    expect(actions).toBe(ACTIONS.length);
+    await expect(page.locator('.ks-slot')).toHaveCount(ACTIONS.length * 2);
     await page.screenshot({ path: `${SHOTS}/panel-normal.png` });
 
     await page.keyboard.press('Escape');
@@ -73,10 +74,10 @@ test.describe('settings panel', () => {
     const roll = slot(page, 'roll', 1);
     await roll.click();
     await expect(roll).toContainText('Roll left');
-    await page.keyboard.press('KeyN');
+    await page.keyboard.press('Digit9');
     await expect(roll).toContainText('Roll right');
-    await page.keyboard.press('KeyU');
-    await expect(roll.locator('kbd')).toHaveText(['N', 'U']);
+    await page.keyboard.press('Digit0');
+    await expect(roll.locator('kbd')).toHaveText(['9', '0']);
 
     // Binding a key another action uses is allowed but flagged.
     await slot(page, 'toggleCodex', 1).click();

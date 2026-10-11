@@ -4,6 +4,7 @@ import { FreeCamera } from './game/freeCamera';
 import { ShipController } from './game/ship/shipController';
 import './game/hud/hud.css';
 import './game/map/map.css';
+import './game/ui/ui.css';
 import { t } from './game/i18n';
 
 const app = new App(document.getElementById('c') as HTMLCanvasElement);
@@ -11,7 +12,6 @@ app
   .boot()
   .then(() => {
     app.controller = app.params.get('free') === '1' ? new FreeCamera(app) : new ShipController(app);
-    if (app.params.get('free') === '1') document.getElementById('hud')?.style.setProperty('display', 'block');
     (window as unknown as { __ks: unknown }).__ks = {
       app,
       setView: (name: string) => app.place(app.view(name)),

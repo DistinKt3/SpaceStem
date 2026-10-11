@@ -106,15 +106,7 @@ export class MapView {
     this.overlay.append(this.labels, this.title, this.list);
     this.overlay.style.display = 'none';
     document.body.appendChild(this.overlay);
-    // M toggles the map and Esc closes it wherever focus is (rebuilding the list can drop focus to the body).
-    window.addEventListener('keydown', (e) => {
-      const tag = (e.target as HTMLElement | null)?.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-      if (e.code === 'KeyM' || (e.code === 'Escape' && this.isOpen)) {
-        e.preventDefault();
-        this.toggle();
-      }
-    });
+    // M (toggleMap) and Esc (pause) are routed by the App through the InputManager, so they follow rebinding.
     this.overlay.addEventListener('keydown', (e) => {
       if (e.code === 'Tab' && !e.shiftKey && document.activeElement === this.overlay) {
         e.preventDefault();

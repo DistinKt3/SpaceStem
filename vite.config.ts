@@ -14,6 +14,9 @@ export default defineConfig({
       input: {
         main: resolve(import.meta.dirname, 'index.html'),
         spike: resolve(import.meta.dirname, 'spike.html'),
+        cockpit: resolve(import.meta.dirname, 'cockpit.html'),
+        audio: resolve(import.meta.dirname, 'audio.html'),
+        ui: resolve(import.meta.dirname, 'ui.html'),
       },
     },
   },
