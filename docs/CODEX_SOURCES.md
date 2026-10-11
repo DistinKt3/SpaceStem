@@ -335,5 +335,6 @@ Each row gives the key, the reference as recorded, which Codex entries (or other
 | `piaulet-ghorayeb2025` | Piaulet-Ghorayeb, C., Benneke, B., Turbet, M. et al. (2025). *Strict Limits on Potential Secondary Atmospheres on the Temperate Rocky Exo-Earth TRAPPIST-1 d*. The Astrophysical Journal 989, 181. doi:10.3847/1538-4357/adf207 | systems/trappist-1.json | yes |
 | `stassun2019` | Stassun, K. G., Oelkers, R. J., Paegert, M. et al. (2019). *The Revised TESS Input Catalog and Candidate Target List (TICv8)*. The Astronomical Journal 158, 138. doi:10.3847/1538-3881/ab3467 | systems/trappist-1.json | yes |
 | `turbet2018` | Turbet, M., Bolmont, E., Leconte, J. et al. (2018). *Modeling climate diversity, tidal dynamics and the fate of volatiles on TRAPPIST-1 planets*. Astronomy & Astrophysics 612, A86. doi:10.1051/0004-6361/201731620 | systems/trappist-1.json | yes |
+| `vinson2019` | Vinson, A. M., Tamayo, D. & Hansen, B. M. S. (2019). *The chaotic nature of TRAPPIST-1 planetary spin states*. Monthly Notices of the Royal Astronomical Society 488, 5739-5747. doi:10.1093/mnras/stz2113 | (registry only) | yes |
 
 <!-- citation-registry:end -->

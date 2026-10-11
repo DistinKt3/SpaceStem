@@ -29,8 +29,7 @@ export class CodexDirector {
     const direct = store.entry(id);
     if (direct) return direct;
     if (id.startsWith('*') && this.app.catalog) {
-      const name = this.app.catalog.name(Number(id.slice(1)));
-      return store.entries().find((e) => e.starName === name && e.kind === 'star');
+      return store.byStarName(this.app.catalog.name(Number(id.slice(1))));
     }
     return undefined;
   }

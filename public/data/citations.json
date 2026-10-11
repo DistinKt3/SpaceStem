@@ -2088,5 +2088,16 @@
   "accessed": "2026-10-11",
   "verified": true,
   "note": "Description read through the NASA Image and Video Library API on 2026-10-11 (photojournal.jpl.nasa.gov blocked automated access): Cassini ISS images 'taken using a filter centered at 938 nanometers'; 'no topographic shading is visible'; 'a data gap of about 3 to 5 percent of Titan's surface' shown as uniform grey. This is the product the USGS mosaic usgs-titan-mosaic distributes (ISIS label ProductId PIA19658)."
+ },
+ "vinson2019": {
+  "authors": "Vinson, A. M., Tamayo, D. & Hansen, B. M. S.",
+  "year": 2019,
+  "title": "The chaotic nature of TRAPPIST-1 planetary spin states",
+  "venue": "Monthly Notices of the Royal Astronomical Society 488, 5739-5747",
+  "doi": "10.1093/mnras/stz2113",
+  "url": "https://arxiv.org/abs/1905.11419",
+  "accessed": "2026-10-11",
+  "verified": true,
+  "note": "Author order and DOI checked against Crossref by tools/pipeline/exoplanets.py --verify-citations on 2026-10-11."
  }
 }
