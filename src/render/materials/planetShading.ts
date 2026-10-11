@@ -436,13 +436,20 @@ const GENERATED_PALETTES: Record<GeneratedPalette, { dark: [number, number, numb
   ice: { dark: [0.32, 0.31, 0.33], light: [0.72, 0.75, 0.8], cap: [0.82, 0.85, 0.9], capLat: 0.9 },
 };
 
+/** A generated palette from data: five linear colours (rock dark to light, then ice) and the ice cover fraction. */
+export interface CustomPalette {
+  colors: [number, number, number][];
+  iceCoverage: number;
+}
+
 /**
  * Generated albedo for a body without imagery: two noise bands on the unit sphere (from the equirect 'uv' attribute,
- * seamless across the date line), blended between a dark and a light material, with optional polar caps. The seed
- * makes each planet distinct and deterministic. Labelled Generated wherever it is shown.
+ * seamless across the date line). Named palettes blend a dark and a light material with optional polar caps. Custom
+ * palettes (exoplanets) blend rock colours and place ice on the cold side of a tidally locked planet: ice covers the
+ * given fraction of the sphere, centred on the anti-stellar point (body-fixed −x), since longitude 0 faces the star.
+ * The seed makes each planet distinct and deterministic. Labelled Generated wherever it is shown.
  */
-export function generatedAlbedo(palette: GeneratedPalette, seed: number): THREE.Node {
-  const p = GENERATED_PALETTES[palette];
+export function generatedAlbedo(palette: GeneratedPalette | CustomPalette, seed: number): THREE.Node {
   return Fn(() => {
     const e = uv();
     const lon = e.x.sub(0.5).mul(2 * PI);
@@ -452,12 +459,25 @@ export function generatedAlbedo(palette: GeneratedPalette, seed: number): THREE.
     const broad = mx_fractal_noise_float(dir.mul(1.8).add(off), 5, 2.0, 0.5, 1.0);
     const fine = mx_fractal_noise_float(dir.mul(11).add(off.mul(1.7)), 4, 2.0, 0.55, 1.0);
     const k = smoothstep(float(-0.25), float(0.3), broad.add(fine.mul(0.25)));
-    let col: N = mix(vec3(...p.dark), vec3(...p.light), k).mul(fine.mul(0.12).add(1));
-    if (p.cap) {
-      const capEdge = float(p.capLat).add(fine.mul(0.08)).add(broad.mul(0.1));
-      col = mix(col, vec3(...p.cap), smoothstep(capEdge.sub(0.06), capEdge.add(0.06), abs(lat)));
+    if (typeof palette === 'string') {
+      const p = GENERATED_PALETTES[palette];
+      let col: N = mix(vec3(...p.dark), vec3(...p.light), k).mul(fine.mul(0.12).add(1));
+      if (p.cap) {
+        const capEdge = float(p.capLat).add(fine.mul(0.08)).add(broad.mul(0.1));
+        col = mix(col, vec3(...p.cap), smoothstep(capEdge.sub(0.06), capEdge.add(0.06), abs(lat)));
+      }
+      return col;
     }
-    return col;
+    const c = palette.colors;
+    const at = (i: number): N => vec3(...(c[Math.min(i, c.length - 1)] ?? [0.2, 0.2, 0.2]));
+    const rock = mix(mix(at(0), at(1), k), at(2), smoothstep(float(0.7), float(1), k).mul(0.5)).mul(fine.mul(0.12).add(1));
+    const ice = mix(at(3), at(4), smoothstep(float(-0.3), float(0.4), fine));
+    // Coldness 0 at the substellar point, 1 at the anti-stellar point; uniform in area, so the edge at 1 − cover
+    // leaves exactly `cover` of the sphere icy.
+    const cold = float(1).sub(dir.x).mul(0.5).add(broad.mul(0.06)).add(fine.mul(0.03));
+    const edge = 1 - Math.max(0, Math.min(1, palette.iceCoverage));
+    const iceMask = palette.iceCoverage <= 0 ? float(0) : smoothstep(float(edge - 0.035), float(edge + 0.035), cold);
+    return mix(rock, ice, iceMask);
   })();
 }
 

@@ -44,13 +44,13 @@
  "agol2024": {
   "authors": "Agol, E. et al.",
   "year": 2024,
-  "title": "Updated forecast for TRAPPIST-1 times of transit for all seven exoplanets incorporating JWST data",
-  "venue": "arXiv:2409.11620 (research note; journal version not confirmed)",
-  "doi": null,
-  "url": "https://arxiv.org/abs/2409.11620",
+  "title": "Updated Forecast for TRAPPIST-1 Times of Transit for All Seven Exoplanets Incorporating JWST Data",
+  "venue": "Research Notes of the AAS 8, 274",
+  "doi": "10.3847/2515-5172/ad8b46",
+  "url": "https://doi.org/10.3847/2515-5172/ad8b46",
   "accessed": "2026-10-11",
   "verified": true,
-  "note": "Reports that TRAPPIST-1h transit times drifted by up to tens of minutes from the 2021 analysis. Not peer-reviewed as far as checked."
+  "note": "Research note (RNAAS). Crossref metadata checked 2026-10-11. Source of the TRAPPIST-1 transit forecast used for the mean ephemeris; also reports TRAPPIST-1h transit-time drift relative to Agol et al. (2021)."
  },
  "alcubierre1994": {
   "authors": "Alcubierre, M.",
@@ -1890,5 +1890,137 @@
   "accessed": "2026-10-11",
   "verified": true,
   "note": "Crossref metadata checked 2026-10-11. Used for Titan's visible albedo spectrum (haze deck colour, D-032)."
+ },
+ "costa2006": {
+  "authors": "Costa, E., Mendez, R. A., Jao, W.-C., Henry, T. J., Subasavage, J. P. & Ianna, P. A.",
+  "year": 2006,
+  "title": "The Solar Neighborhood. XVI. Parallaxes from CTIOPI: Final Results from the 1.5 m Telescope Program",
+  "venue": "The Astronomical Journal 132, 1234-1247",
+  "doi": "10.1086/505706",
+  "url": "https://ui.adsabs.harvard.edu/abs/2006AJ....132.1234C",
+  "accessed": "2026-10-11",
+  "verified": true,
+  "note": "Checked against Crossref/DataCite/arXiv by tools/pipeline/exoplanets.py on 2026-10-11."
+ },
+ "dewit2018": {
+  "authors": "de Wit, J., Wakeford, H. R., Lewis, N. K. et al.",
+  "year": 2018,
+  "title": "Atmospheric reconnaissance of the habitable-zone Earth-sized planets orbiting TRAPPIST-1",
+  "venue": "Nature Astronomy 2, 214-219",
+  "doi": "10.1038/s41550-017-0374-z",
+  "url": "https://arxiv.org/abs/1802.02250",
+  "accessed": "2026-10-11",
+  "verified": true,
+  "note": "Checked against Crossref/DataCite/arXiv by tools/pipeline/exoplanets.py on 2026-10-11."
+ },
+ "gaia-dr2": {
+  "authors": "Gaia Collaboration, Brown, A. G. A. et al.",
+  "year": 2018,
+  "title": "Gaia Data Release 2. Summary of the contents and survey properties",
+  "venue": "Astronomy & Astrophysics 616, A1",
+  "doi": "10.1051/0004-6361/201833051",
+  "url": "https://arxiv.org/abs/1804.09365",
+  "accessed": "2026-10-11",
+  "verified": true,
+  "note": "Checked against Crossref/DataCite/arXiv by tools/pipeline/exoplanets.py on 2026-10-11."
+ },
+ "gaia-dr3": {
+  "authors": "Gaia Collaboration, Vallenari, A. et al.",
+  "year": 2023,
+  "title": "Gaia Data Release 3. Summary of the content and survey properties",
+  "venue": "Astronomy & Astrophysics 674, A1",
+  "doi": "10.1051/0004-6361/202243940",
+  "url": "https://arxiv.org/abs/2208.00211",
+  "accessed": "2026-10-11",
+  "verified": true,
+  "note": "Checked against Crossref/DataCite/arXiv by tools/pipeline/exoplanets.py on 2026-10-11."
+ },
+ "garcia2022": {
+  "authors": "Garcia, L. J., Moran, S. E., Rackham, B. V. et al.",
+  "year": 2022,
+  "title": "HST/WFC3 transmission spectroscopy of the cold rocky planet TRAPPIST-1h",
+  "venue": "Astronomy & Astrophysics 665, A19",
+  "doi": "10.1051/0004-6361/202142603",
+  "url": "https://arxiv.org/abs/2203.13698",
+  "accessed": "2026-10-11",
+  "verified": true,
+  "note": "Checked against Crossref/DataCite/arXiv by tools/pipeline/exoplanets.py on 2026-10-11."
+ },
+ "gladman1996": {
+  "authors": "Gladman, B., Quinn, D. D., Nicholson, P. & Rand, R.",
+  "year": 1996,
+  "title": "Synchronous Locking of Tidally Evolving Satellites",
+  "venue": "Icarus 122, 166-192",
+  "doi": "10.1006/icar.1996.0117",
+  "accessed": "2026-10-11",
+  "verified": true,
+  "note": "Checked against Crossref/DataCite/arXiv by tools/pipeline/exoplanets.py on 2026-10-11.",
+  "url": "https://doi.org/10.1006/icar.1996.0117"
+ },
+ "grimm2018": {
+  "authors": "Grimm, S. L., Demory, B.-O., Gillon, M. et al.",
+  "year": 2018,
+  "title": "The nature of the TRAPPIST-1 exoplanets",
+  "venue": "Astronomy & Astrophysics 613, A68",
+  "doi": "10.1051/0004-6361/201732233",
+  "url": "https://arxiv.org/abs/1802.01377",
+  "accessed": "2026-10-11",
+  "verified": true,
+  "note": "Checked against Crossref/DataCite/arXiv by tools/pipeline/exoplanets.py on 2026-10-11."
+ },
+ "known-sky-exo-rules": {
+  "authors": "Known Sky contributors",
+  "year": 2026,
+  "title": "TRAPPIST-1 data pipeline: inference formulas and surface-generation rules",
+  "venue": "Known Sky source repository, docs/EXO_TRAPPIST1.md and tools/pipeline/exoplanets.py (MIT licence)",
+  "url": "https://github.com/DistinKt3/SpaceStem/blob/main/docs/EXO_TRAPPIST1.md",
+  "accessed": "2026-10-11",
+  "verified": true,
+  "note": "Self-reference for the inference formulas and the rule-based surface generator; used only for Generated or Inferred statements, never for measured facts.",
+  "doi": null
+ },
+ "piaulet-ghorayeb2025": {
+  "authors": "Piaulet-Ghorayeb, C., Benneke, B., Turbet, M. et al.",
+  "year": 2025,
+  "title": "Strict Limits on Potential Secondary Atmospheres on the Temperate Rocky Exo-Earth TRAPPIST-1 d",
+  "venue": "The Astrophysical Journal 989, 181",
+  "doi": "10.3847/1538-4357/adf207",
+  "url": "https://arxiv.org/abs/2508.08416",
+  "accessed": "2026-10-11",
+  "verified": true,
+  "note": "Checked against Crossref/DataCite/arXiv by tools/pipeline/exoplanets.py on 2026-10-11."
+ },
+ "stassun2019": {
+  "authors": "Stassun, K. G., Oelkers, R. J., Paegert, M. et al.",
+  "year": 2019,
+  "title": "The Revised TESS Input Catalog and Candidate Target List (TICv8)",
+  "venue": "The Astronomical Journal 158, 138",
+  "doi": "10.3847/1538-3881/ab3467",
+  "url": "https://arxiv.org/abs/1905.10694",
+  "accessed": "2026-10-11",
+  "verified": true,
+  "note": "Checked against Crossref/DataCite/arXiv by tools/pipeline/exoplanets.py on 2026-10-11."
+ },
+ "turbet2018": {
+  "authors": "Turbet, M., Bolmont, E., Leconte, J. et al.",
+  "year": 2018,
+  "title": "Modeling climate diversity, tidal dynamics and the fate of volatiles on TRAPPIST-1 planets",
+  "venue": "Astronomy & Astrophysics 612, A86",
+  "doi": "10.1051/0004-6361/201731620",
+  "url": "https://arxiv.org/abs/1707.06927",
+  "accessed": "2026-10-11",
+  "verified": true,
+  "note": "Checked against Crossref/DataCite/arXiv by tools/pipeline/exoplanets.py on 2026-10-11."
+ },
+ "nasa-exoplanet-archive-pscomppars": {
+  "authors": "NASA Exoplanet Science Institute",
+  "year": 2020,
+  "title": "Planetary Systems Composite Table",
+  "venue": "NASA Exoplanet Archive, IPAC/Caltech (queried through the TAP service)",
+  "doi": "10.26133/NEA13",
+  "url": "https://exoplanetarchive.ipac.caltech.edu/",
+  "accessed": "2026-10-11",
+  "verified": true,
+  "note": "Planetary Systems Composite Parameters table (DOI 10.26133/NEA13), queried by tools/pipeline/exoplanets.py on 2026-10-11."
  }
 }

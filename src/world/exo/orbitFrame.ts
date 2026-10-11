@@ -7,7 +7,8 @@
  *
  * Frame at the star: ŝ = unit vector from the Sun to the star; toward the observer is −ŝ. Sky-plane axes:
  * east ê = normalize(ẑ × ŝ), north n̂ = ŝ × ê (ICRF ẑ = celestial north pole). Node direction û = cos Ω n̂ + sin Ω ê.
- * Orbit normal: cos i·(−ŝ) + sin i·(û × (−ŝ)), perpendicular to û, so i = 90° puts the line of sight in the plane.
+ * Orbit normal: cos i·(−ŝ) + sin i·((−ŝ) × û), perpendicular to û, so i = 90° puts the line of sight in the plane
+ * (same sense as src/world/exo/systemData.ts orbitalFrameToIcrs; the sense is not measurable from transits).
  * In-plane axes: x = û, y = normal × x; position r(θ) = a (cos θ x + sin θ y) with θ = θ_T + 2π (t − T0) / P, where
  * θ_T is the in-plane angle closest to the observer direction.
  *
@@ -66,7 +67,7 @@ export class SystemFrame {
     this.normal = this.toObserver
       .clone()
       .scale(Math.cos(i))
-      .add(node.clone().cross(this.toObserver).scale(Math.sin(i)))
+      .add(this.toObserver.clone().cross(node).scale(Math.sin(i)))
       .normalize();
     this.xAxis = node;
     this.yAxis = this.normal.clone().cross(node).normalize();

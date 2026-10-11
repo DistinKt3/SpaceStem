@@ -25,12 +25,14 @@ export interface ExoPlanetSpec {
   semiMajorAxisAu: number;
   transitMidBJD: number;
   inclinationDeg: number;
-  /** Generated surface. */
-  palette: ExoPalette;
+  /** Generated surface: a named palette, or colours from the data (linear RGB, rock to ice) with ice cover. */
+  palette: ExoPalette | { colors: [number, number, number][]; iceCoverage: number };
   seed: number;
   terrain: 'cratered' | 'volcanic' | 'icy' | 'mixed';
   /** Geometric albedo used for exposure and point brightness (Generated unless measured). */
   geometricAlbedo: number;
+  /** Linear multiplier taking the palette to the planet's (generated) mean albedo. */
+  albedoScale?: number;
   tidallyLocked: boolean;
   citation: string;
 }
@@ -144,7 +146,7 @@ export class ExoSystem {
         gmM3S2: p.massEarth * EARTH_GM,
         rotation,
         geometricAlbedo: p.geometricAlbedo,
-        albedoScale: 1,
+        albedoScale: p.albedoScale ?? 1,
         surface: {
           type: 'terrain',
           terrain: p.terrain === 'mixed' ? 'cratered' : p.terrain,

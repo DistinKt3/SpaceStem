@@ -32,6 +32,17 @@ function citationOf(x: unknown, fallback: string): string {
   return fallback;
 }
 
+/** sRGB hex colour ("#rrggbb") to linear RGB. */
+export function hexToLinear(hex: string): [number, number, number] | null {
+  const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex.trim());
+  if (!m) return null;
+  const lin = (h: string): number => {
+    const c = parseInt(h, 16) / 255;
+    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  return [lin(m[1]!), lin(m[2]!), lin(m[3]!)];
+}
+
 /** Surface palette from the inferred equilibrium temperature (no-albedo case); every palette is Generated. */
 export function paletteForTeq(teqK: number | null): ExoPalette {
   if (teqK === null) return 'temperate';
@@ -70,17 +81,34 @@ export function fromSystemJson(j: Json): ExoSystemSpec | null {
     const inf = p['inferred'] as Json | undefined;
     const gen = p['generated'] as Json | undefined;
     const pid = typeof p['id'] === 'string' ? p['id'] : null;
-    const period = pick(m, ['periodDays', 'orbitalPeriodDays']);
+    // Prefer the mean ephemeris fitted to published transit forecasts (inferred) for orbital phase; the archive's
+    // N-body osculating period drifts by hours per year when extrapolated (docs/EXO_TRAPPIST1.md).
+    const period = pick(inf, ['ephemerisPeriodDays']) ?? pick(m, ['periodDays', 'orbitalPeriodDays']);
     const a = pick(m, ['semiMajorAxisAu']);
     const r = pick(m, ['radiusEarth']);
     const mm = pick(m, ['massEarth']);
-    const t0 = pick(m, ['transitMidBJD', 'transitMidpointBJD']);
+    const t0 = pick(inf, ['ephemerisTransitMidBJD']) ?? pick(m, ['transitMidBJD', 'transitMidpointBJD']);
     const inc = pick(m, ['inclinationDeg']) ?? 90;
     if (!pid || period === null || a === null || r === null || mm === null || t0 === null) continue;
     const teq = pick(inf, ['equilibriumTempK_A0', 'equilibriumTempK']);
     const terrainRaw = gen && typeof gen['terrain'] === 'string' ? gen['terrain'] : 'cratered';
     const terrain = (['cratered', 'volcanic', 'icy', 'mixed'] as const).find((x) => x === terrainRaw) ?? 'cratered';
     const locked = inf?.['tidallyLocked'];
+    const hexes = Array.isArray(gen?.['palette']) ? (gen['palette'] as unknown[]).filter((x): x is string => typeof x === 'string') : [];
+    const colors = hexes.map(hexToLinear).filter((c): c is [number, number, number] => c !== null);
+    const ice = pick(gen, ['iceCoverage']) ?? 0;
+    const albedo = pick(gen, ['albedo']);
+    let palette: ExoPlanetSpec['palette'] = paletteForTeq(teq);
+    let albedoScale = 1;
+    if (colors.length >= 5) {
+      palette = { colors, iceCoverage: ice };
+      // Scale so the palette's area-weighted mean matches the generated albedo.
+      const lum = (c: [number, number, number]): number => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+      const rock = (lum(colors[0]!) + lum(colors[1]!) + lum(colors[2]!)) / 3;
+      const iceL = (lum(colors[3]!) + lum(colors[4]!)) / 2;
+      const mean = (1 - ice) * rock + ice * iceL;
+      if (albedo !== null && mean > 0) albedoScale = Math.max(0.3, Math.min(3, albedo / mean));
+    }
     planets.push({
       id: pid,
       name: typeof p['name'] === 'string' ? p['name'] : pid,
@@ -90,10 +118,11 @@ export function fromSystemJson(j: Json): ExoSystemSpec | null {
       semiMajorAxisAu: a,
       transitMidBJD: t0,
       inclinationDeg: inc,
-      palette: paletteForTeq(teq),
+      palette,
+      albedoScale,
       seed: pick(gen, ['seed']) ?? hashId(pid),
       terrain,
-      geometricAlbedo: pick(gen, ['albedo']) ?? 0.2,
+      geometricAlbedo: albedo ?? 0.2,
       tidallyLocked: locked === false || (locked && typeof locked === 'object' && (locked as Json)['value'] === false) ? false : true,
       citation: citationOf(m?.['radiusEarth'], 'nasa-exoplanet-archive'),
     });

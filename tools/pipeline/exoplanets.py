@@ -233,7 +233,7 @@ CITATIONS: dict[str, dict[str, Any]] = {
         "year": 2026,
         "title": "TRAPPIST-1 data pipeline: inference formulas and surface-generation rules",
         "venue": "Known Sky source repository, docs/EXO_TRAPPIST1.md and tools/pipeline/exoplanets.py (MIT licence)",
-        "url": "docs/EXO_TRAPPIST1.md",
+        "url": "https://github.com/DistinKt3/SpaceStem/blob/main/docs/EXO_TRAPPIST1.md",
     },
 }
 
