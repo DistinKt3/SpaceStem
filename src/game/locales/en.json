@@ -1,7 +1,11 @@
 {
   "app.title": "Known Sky",
   "app.tagline": "The universe is real. The drive is fictional.",
+  "app.canvasLabel": "Known Sky 3D view",
   "boot.loading": "Loading {item}…",
+  "boot.item.renderer": "renderer",
+  "boot.item.ephemeris": "ephemeris",
+  "boot.item.stars": "stars",
   "boot.ready": "Ready",
   "boot.failed": "Known Sky could not start: {reason}",
   "boot.noWebgl": "This browser supports neither WebGPU nor WebGL2, which Known Sky needs.",
@@ -59,6 +63,8 @@
   "hud.speedRef.orbital": "relative to body centre",
   "hud.speedRef.drive": "drive speed",
   "hud.throttle": "Throttle",
+  "hud.throttleValue": "Throttle {v}%",
+  "hud.throttleReverse": "Reverse {v}%",
   "hud.governor": "Drive limit near {v}",
   "hud.vspeed": "Vertical speed",
   "hud.eta": "Time to arrive",
@@ -82,9 +88,11 @@
   "map.starsTitle": "Star map",
   "map.systemScale": "Laid on the planets' mean orbital plane. Distances from the star are compressed (r^0.4) so every orbit fits; directions are true.",
   "map.starsScale": "Named catalogue stars within 50 light-years at true positions, galactic plane horizontal; rings at 10, 25 and 50 ly; lines drop to the plane.",
-  "map.help": "Drag to rotate · wheel to zoom · click or choose a destination · {map} or {close} to close",
+  "map.help": "Drag or Shift+arrow keys to rotate · wheel or + and − to zoom · arrow keys and Enter choose a destination · {map} or {close} to close",
+  "map.helpPad": "Right stick to rotate · triggers to zoom · D-pad and {accept} choose a destination · {switch} switch maps · {back} or {map} to close",
   "map.showStars": "Show star map",
   "map.showSystem": "Show system map",
+  "map.destinations": "Destinations",
   "map.you": "You are here",
   "map.youAt": "You are here · {name}"
 }

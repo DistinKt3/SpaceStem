@@ -10,6 +10,7 @@ import { formatDistance, formatDuration, formatSpeed } from '../format';
 import { formatNumber, t } from '../i18n';
 import { provenanceBadge } from '../ui/badge';
 import type { FlightMode } from '../ship/ship';
+import { throttleMeter } from './throttle';
 
 export interface HudTarget {
   id: string;
@@ -97,11 +98,13 @@ export class Hud {
       '<svg viewBox="-20 -12 40 24"><circle r="5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M-14 0 H-5 M5 0 H14 M0 -5 V-11" stroke="currentColor" stroke-width="1.6"/></svg>';
     this.bracket = el('div', 'ks-bracket', this.markers);
     this.edgeArrow = el('div', 'ks-edge-arrow', this.markers);
-    this.top = el('div', 'ks-hud-panel ks-hud-top', this.root);
-    this.left = el('div', 'ks-hud-panel ks-hud-left', this.root);
-    this.right = el('div', 'ks-hud-panel ks-hud-right', this.root);
-    this.footer = el('div', 'ks-hud-footer', this.root);
-    this.warn = el('div', 'ks-hud-warn', this.root);
+    // Panels sit in one grid (hud.css), so they cannot overlap at any text scale or window size.
+    const layout = el('div', 'ks-hud-layout', this.root);
+    this.top = el('div', 'ks-hud-panel ks-hud-top', layout);
+    this.left = el('div', 'ks-hud-panel ks-hud-left', layout);
+    this.right = el('div', 'ks-hud-panel ks-hud-right', layout);
+    this.footer = el('div', 'ks-hud-footer', layout);
+    this.warn = el('div', 'ks-hud-warn', layout);
     this.warn.setAttribute('role', 'alert');
   }
 
@@ -147,7 +150,7 @@ export class Hud {
     this.top.innerHTML =
       `<div class="ks-mode">${modeName}${s.flightAssist ? '' : ` · ${t('hud.faOff')}`}${s.landed ? ` · ${t('hud.landed')}` : ''}</div>` +
       `<div class="ks-speed">${formatSpeed(s.speed)}<span class="ks-sub">${t(`hud.speedRef.${s.speedLabel}`)}${cNote}</span></div>` +
-      `<div class="ks-throttle" aria-label="${t('hud.throttle')}"><div class="ks-throttle-fill" style="width:${Math.round(Math.abs(s.throttle) * 100)}%;${s.throttle < 0 ? 'background:var(--ks-warn,#ffb347)' : ''}"></div></div>` +
+      throttleMeter(s.throttle) +
       (s.mode === 'impulse' || s.mode === 'cruise' ? `<div class="ks-sub">${t('hud.governor', { v: formatSpeed(s.governorSpeed) })}</div>` : '');
     // Left: altitude.
     this.left.innerHTML =

@@ -1,8 +1,24 @@
-.ks-hud { position: fixed; inset: 0; pointer-events: none; color: var(--ks-fg); font-family: var(--ks-mono); z-index: 2; }
+/*
+ * HUD colour tokens, overridden per palette (ui.css sets data-colorblind on :root). Values are checked by
+ * tests/unit/hudMapColors.test.ts. Decorative glows scale with --ks-glow (0% in high-contrast mode, where markers get
+ * a dark outline instead so they stay visible over bright planets).
+ */
+:root {
+  --ks-velocity: #b8ffcf;
+  --ks-hud-warn-bg: rgba(60, 10, 0, 0.55);
+}
+:root[data-colorblind='tritanopia'] {
+  --ks-velocity: #ffffff;
+}
+:root[data-colorblind='high-contrast'] {
+  --ks-hud-warn-bg: #000000;
+}
+
+.ks-hud { position: fixed; inset: 0; pointer-events: none; color: var(--ks-fg); font-family: var(--ks-mono); z-index: 2; container: ks-hud / size; }
 .ks-hud-markers { position: absolute; inset: 0; overflow: hidden; }
-.ks-reticle { position: absolute; left: 50%; top: 50%; width: 2.6rem; height: 2.6rem; transform: translate(-50%, -50%); color: var(--ks-accent); opacity: 0.75; filter: drop-shadow(0 0 4px rgba(127, 212, 255, 0.6)); }
+.ks-reticle { position: absolute; left: 50%; top: 50%; width: 2.6rem; height: 2.6rem; transform: translate(-50%, -50%); color: var(--ks-accent); opacity: 0.75; filter: drop-shadow(0 0 4px color-mix(in srgb, var(--ks-accent) calc(var(--ks-glow, 35%) * 1.7), transparent)); }
 .ks-reticle svg, .ks-vel svg { width: 100%; height: 100%; display: block; }
-.ks-vel { position: absolute; left: 0; top: 0; width: 2.4rem; height: 1.5rem; color: #b8ffcf; opacity: 0.85; filter: drop-shadow(0 0 4px rgba(120, 255, 170, 0.5)); }
+.ks-vel { position: absolute; left: 0; top: 0; width: 2.4rem; height: 1.5rem; color: var(--ks-velocity); opacity: 0.85; filter: drop-shadow(0 0 4px color-mix(in srgb, var(--ks-velocity) calc(var(--ks-glow, 35%) * 1.4), transparent)); }
 .ks-bracket {
   position: absolute; left: 0; top: 0; box-sizing: border-box;
   border: 1.5px solid transparent; border-image: none;
@@ -15,33 +31,102 @@
     linear-gradient(var(--ks-accent), var(--ks-accent)) bottom left / 1.5px 12px no-repeat,
     linear-gradient(var(--ks-accent), var(--ks-accent)) bottom right / 12px 1.5px no-repeat,
     linear-gradient(var(--ks-accent), var(--ks-accent)) bottom right / 1.5px 12px no-repeat;
-  filter: drop-shadow(0 0 4px rgba(127, 212, 255, 0.7));
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--ks-accent) calc(var(--ks-glow, 35%) * 2), transparent));
 }
-.ks-edge-arrow { position: absolute; left: 0; top: 0; width: 0; height: 0; border-left: 14px solid var(--ks-accent); border-top: 8px solid transparent; border-bottom: 8px solid transparent; margin: -8px 0 0 -7px; filter: drop-shadow(0 0 4px rgba(127, 212, 255, 0.8)); }
+.ks-edge-arrow { position: absolute; left: 0; top: 0; width: 0; height: 0; border-left: 14px solid var(--ks-accent); border-top: 8px solid transparent; border-bottom: 8px solid transparent; margin: -8px 0 0 -7px; filter: drop-shadow(0 0 4px color-mix(in srgb, var(--ks-accent) calc(var(--ks-glow, 35%) * 2.3), transparent)); }
+:root[data-colorblind='high-contrast'] :is(.ks-reticle, .ks-vel, .ks-bracket, .ks-edge-arrow) { filter: drop-shadow(0 0 1px #000) drop-shadow(0 0 1px #000); opacity: 1; }
 .ks-label { position: absolute; left: 0; top: 0; font-size: 0.68rem; letter-spacing: 0.04em; color: var(--ks-dim); white-space: nowrap; text-shadow: 0 0 4px #000, 0 0 2px #000; }
-.ks-hud-panel {
-  position: absolute; padding: 0.55rem 0.8rem; background: var(--ks-panel); border: 1px solid var(--ks-border);
-  border-radius: 0.6rem; backdrop-filter: blur(6px); font-size: 0.78rem; line-height: 1.45;
-  box-shadow: 0 0 24px rgba(0, 0, 0, 0.35), inset 0 0 18px rgba(127, 212, 255, 0.06);
+
+/*
+ * Panel layout: one grid, so panels never overlap. Columns: left panel | speed panel | target panel. The speed panel
+ * and the warning share the centre column; the side panels are centred vertically beside them. In the cockpit the
+ * footer moves to the top-left cell (the dashboard covers the bottom) and wraps to the width it has.
+ */
+.ks-hud-layout {
+  position: absolute; inset: 0; box-sizing: border-box; padding: 1rem 1.2rem 0.8rem;
+  display: grid; gap: 0.6rem 0.8rem;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    'left top right'
+    'left warn right'
+    'left . right'
+    'foot foot foot';
 }
-.ks-hud-top { left: 50%; top: 1rem; transform: translateX(-50%); min-width: 15rem; text-align: center; }
+body.ks-cockpit-on .ks-hud-layout {
+  grid-template-areas:
+    'foot top right'
+    'left warn right'
+    'left . right'
+    '. . .';
+}
+
+.ks-hud-panel {
+  padding: 0.55rem 0.8rem; background: var(--ks-panel); border: var(--ks-border-w, 1px) solid var(--ks-border);
+  border-radius: 0.6rem; backdrop-filter: blur(6px); font-size: 0.78rem; line-height: 1.45;
+  box-shadow: 0 0 24px rgba(0, 0, 0, 0.35), inset 0 0 18px color-mix(in srgb, var(--ks-accent) calc(var(--ks-glow, 35%) / 6), transparent);
+  min-width: 0; box-sizing: border-box;
+}
+.ks-hud-top { grid-area: top; align-self: start; justify-self: center; min-width: calc(16.6rem + 2px); text-align: center; }
 .ks-mode { text-transform: uppercase; letter-spacing: 0.22em; font-size: 0.72rem; color: var(--ks-accent); }
 .ks-speed { font-size: 1.35rem; font-weight: 600; letter-spacing: 0.02em; margin-top: 0.15rem; }
 .ks-sub { display: block; font-size: 0.66rem; color: var(--ks-dim); font-weight: 400; letter-spacing: 0.06em; }
 .ks-throttle { height: 0.3rem; margin: 0.4rem auto 0.1rem; width: 100%; border-radius: 0.2rem; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
-.ks-throttle-fill { height: 100%; background: linear-gradient(90deg, rgba(127, 212, 255, 0.4), var(--ks-accent)); }
-.ks-hud-left { left: 1.2rem; top: 50%; transform: translateY(-50%); min-width: 9rem; }
-.ks-hud-right { right: 1.2rem; top: 50%; transform: translateY(-50%); min-width: 11rem; max-width: 16rem; }
+.ks-throttle-fill { height: 100%; background: linear-gradient(90deg, color-mix(in srgb, var(--ks-accent) 40%, transparent), var(--ks-accent)); }
+/* Reverse thrust: fills from the right, hatched, in the warning colour (and the text below says "Reverse"). */
+.ks-throttle.is-reverse .ks-throttle-fill {
+  margin-left: auto;
+  background: repeating-linear-gradient(-45deg, var(--ks-warn, #ffb454) 0 3px, color-mix(in srgb, var(--ks-warn, #ffb454) 35%, transparent) 3px 6px);
+}
+:root[data-colorblind='high-contrast'] .ks-throttle-fill { background: var(--ks-accent); }
+:root[data-colorblind='high-contrast'] .ks-throttle { background: #000; box-shadow: inset 0 0 0 1px var(--ks-border); }
+.ks-throttle-value { margin-bottom: 0.1rem; }
+.ks-throttle.is-reverse + .ks-throttle-value { color: var(--ks-warn, #ffb454); }
+/* Side panels shrink (and wrap) to their column rather than spilling into the centre one. */
+.ks-hud-left { grid-area: left; align-self: safe center; justify-self: start; min-width: min(calc(10.6rem + 2px), 100%); }
+.ks-hud-right { grid-area: right; align-self: safe center; justify-self: end; min-width: min(calc(12.6rem + 2px), 100%); max-width: calc(17.6rem + 2px); }
 .ks-hud-panel .k { color: var(--ks-dim); text-transform: uppercase; letter-spacing: 0.1em; font-size: 0.62rem; margin-top: 0.35rem; }
 .ks-hud-panel .k:first-child { margin-top: 0; }
-.ks-hud-panel .v { font-size: 0.86rem; }
+.ks-hud-panel .v { font-size: 0.86rem; overflow-wrap: anywhere; }
 .ks-target-name { color: var(--ks-accent); font-weight: 600; }
 .ks-prov { display: inline-block; margin-top: 0.3rem; padding: 0.05rem 0.45rem; border-radius: 1rem; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.08em; border: 1.5px solid; }
 .ks-prov-measured { color: var(--ks-measured); border-style: solid; }
 .ks-prov-inferred { color: var(--ks-inferred); border-style: dashed; }
 .ks-prov-generated { color: var(--ks-generated); border-style: dotted; }
 .ks-hint { margin-top: 0.45rem; font-size: 0.62rem; color: var(--ks-dim); }
-.ks-hud-footer { position: absolute; left: 50%; bottom: 0.8rem; transform: translateX(-50%); font-size: 0.66rem; color: var(--ks-dim); white-space: nowrap; text-shadow: 0 0 3px #000; }
-body.ks-cockpit-on .ks-hud-footer { left: 1.2rem; top: 0.9rem; bottom: auto; transform: none; }
-.ks-hud-warn { position: absolute; left: 50%; top: 32%; transform: translateX(-50%); padding: 0.35rem 0.9rem; border-radius: 0.4rem; background: rgba(60, 10, 0, 0.55); border: 1px solid var(--ks-warn, #ffb347); color: var(--ks-warn, #ffb347); letter-spacing: 0.18em; text-transform: uppercase; font-size: 0.8rem; }
+.ks-hud-footer { grid-area: foot; align-self: end; justify-self: center; text-align: center; font-size: 0.66rem; color: var(--ks-dim); text-shadow: 0 0 3px #000; max-width: 100%; }
+body.ks-cockpit-on .ks-hud-footer { align-self: start; justify-self: start; text-align: left; }
+/* contain: its width follows the speed panel above it instead of widening the centre column. */
+.ks-hud-warn { grid-area: warn; align-self: start; contain: inline-size; padding: 0.35rem 0.9rem; border-radius: 0.4rem; background: var(--ks-hud-warn-bg); border: var(--ks-border-w, 1px) solid var(--ks-warn, #ffb454); color: var(--ks-warn, #ffb454); letter-spacing: 0.18em; text-transform: uppercase; font-size: 0.8rem; text-align: center; }
+/*
+ * Narrow views (small windows or large text). Below 38rem the target panel takes a right-hand column beside a left
+ * column of speed panel, footer, warning and position panel; below 30rem everything stacks.
+ */
+@container ks-hud (width < 38rem) {
+  .ks-hud-layout, body.ks-cockpit-on .ks-hud-layout {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'top right'
+      'info right'
+      'warn right'
+      'left right'
+      'foot foot';
+  }
+  /* contain: the footer wraps to the speed panel's width instead of widening its column. */
+  body.ks-cockpit-on .ks-hud-footer { grid-area: info; justify-self: stretch; contain: inline-size; }
+  .ks-hud-left, .ks-hud-right { align-self: start; }
+}
+@container ks-hud (width < 30rem) {
+  .ks-hud-layout, body.ks-cockpit-on .ks-hud-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      'top top'
+      'info info'
+      'warn warn'
+      'left right'
+      'foot foot';
+  }
+  body.ks-cockpit-on .ks-hud-footer { text-align: center; }
+}
 #hud { display: none; }

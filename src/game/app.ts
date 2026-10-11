@@ -169,16 +169,35 @@ export class App {
     if (has('showFps')) this.hud.style.display = d.showFps || this.params.get('free') === '1' ? 'block' : '';
   }
 
+  /** Boot status (#boot-status is a polite live region, so screen readers announce progress and failure). */
   progress(msg: string): void {
     const el = document.getElementById('boot-status');
     if (el) el.textContent = msg;
   }
 
+  /** Boot screen and canvas text from the locale (index.html holds English for the moment before scripts run). */
+  private localizeBootScreen(): void {
+    const set = (id: string, text: string): void => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = text;
+    };
+    set('boot-title', t('app.title'));
+    set('boot-tagline', t('app.tagline'));
+    this.canvas.setAttribute('aria-label', t('app.canvasLabel'));
+  }
+
   async boot(): Promise<void> {
     const backend = (this.params.get('backend') ?? 'auto') as BackendRequest;
     const requested = (this.params.get('depth') ?? 'reversed') as DepthMode;
-    this.progress(t('boot.loading', { item: 'renderer' }));
-    const created = await createRenderer(this.canvas, backend, requested);
+    this.localizeBootScreen();
+    this.progress(t('boot.loading', { item: t('boot.item.renderer') }));
+    let created: Awaited<ReturnType<typeof createRenderer>>;
+    try {
+      created = await createRenderer(this.canvas, backend, requested);
+    } catch (err) {
+      // Both WebGPU and the WebGL2 fallback failed: say so in the player's language (the cause stays in the console).
+      throw new Error(t('boot.noWebgl'), { cause: err });
+    }
     this.renderer = created.renderer;
     this.info = created.info;
     this.depthMode = effectiveDepthMode(requested, this.info);
@@ -195,7 +214,7 @@ export class App {
     window.addEventListener('resize', resize);
     resize();
 
-    this.progress(t('boot.loading', { item: 'ephemeris' }));
+    this.progress(t('boot.loading', { item: t('boot.item.ephemeris') }));
     // Independent downloads overlap: the ephemeris and body list (then every body's assets), the star catalogue and
     // the exoplanet systems. Nothing depends on the order in which they arrive.
     this.pool = new ChunkWorkerPool();
@@ -203,7 +222,10 @@ export class App {
       const tParam = this.params.get('t');
       const startMs = tParam ? Date.parse(tParam) : Date.now();
       this.simTime = ephemeris.clampTime(unixMsToTdbSecondsSinceJ2000(startMs));
-      return SolarSystem.create(ephemeris, bodies, this.pool, this.frame, (name) => this.progress(t('boot.loading', { item: name })));
+      return SolarSystem.create(ephemeris, bodies, this.pool, this.frame, (name) => {
+        const def = bodies.find((b) => b.name === name);
+        this.progress(t('boot.loading', { item: def ? bodyLabel(def) : name }));
+      });
     });
     const starCatalog = this.stars.load().then(async () => {
       this.frame.backgroundScene.add(this.stars.group);
