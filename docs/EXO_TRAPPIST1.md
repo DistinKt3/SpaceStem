@@ -16,14 +16,29 @@ cd tools && uv venv .venv --python 3.13 && VIRTUAL_ENV=.venv uv pip install nump
 tools/.venv/bin/python tools/pipeline/exoplanets.py             # cached responses, fetch what is missing
 tools/.venv/bin/python tools/pipeline/exoplanets.py --refresh   # query every service again
 tools/.venv/bin/python tools/pipeline/exoplanets.py --offline   # never touch the network
+tools/.venv/bin/python tools/pipeline/exoplanets.py --verify-citations   # also check author order with Crossref
+tools/.venv/bin/python tools/pipeline/exoplanets.py --write-fixtures     # refresh the committed test fixtures
 tools/.venv/bin/python -m pytest tools/pipeline/test_exoplanets.py -q
 ```
 
 The script uses only the Python standard library (pytest for its tests). Raw responses are cached under
-`tools/.cache/exoarchive/` (git-ignored), each with a `.meta.json` holding the exact URL and UTC retrieval time. The
-script exits non-zero if the cross-check finds a difference it has no explanation for, and it stops if the archive
-cites a reference that is not in its curated citation list. Either way a person must look before new values reach the
-game. The game never calls these services at runtime.
+`tools/.cache/exoarchive/` (git-ignored), each with a `.meta.json` holding the exact URL and UTC retrieval time.
+`--refresh` and `--offline` cannot be combined.
+
+**Nothing reaches the game unchecked.** Every check runs on the in-memory result before anything is written: the
+cross-check against `trappist1_verified.json` (any difference without an explanation fails), the default-parameter-set
+check (fails unless `--accept-default-set-differences` is given), a check that the stellar and system columns are
+identical on all seven planet rows (the build reads them from the first), and with `--verify-citations` a comparison
+of each citation's first three author surnames with Crossref. If any check fails, the script exits 1 and leaves
+`public/data/systems/trappist-1.json` and this document unchanged; otherwise it writes both atomically (temporary file,
+then rename). It also stops if the archive cites a reference that is not in its curated citation list. Either way a
+person must look before new values reach the game. The game never calls these services at runtime.
+
+**Test fixtures.** `tools/pipeline/fixtures/` holds the raw `pscomppars` response (45 KB) and every tenth transit of
+the Agol et al. 2024 forecast plus each planet's first and last transit and the three JWST check transits (767 rows:
+planet, transit number, BJD_TDB − 2,450,000 at full precision). `test_exoplanets.py` compares the measured values
+with the archive response and the mean ephemeris with the forecast from the cache when present and from these fixtures
+otherwise, so neither check skips on a fresh checkout. `--write-fixtures` regenerates them after a successful build.
 
 | Cache file | Service and query |
 |---|---|
@@ -41,7 +56,7 @@ unchanged (checked by the script). Agol et al. 2021 give no transit midpoint or 
 
 ## 2. Output schema
 
-`public/data/systems/trappist-1.json` (about 77 KB):
+`public/data/systems/trappist-1.json` (about 80 KB):
 
 ```
 { id, name, retrieved: 'YYYY-MM-DD', source,
@@ -112,11 +127,14 @@ Class codes: `composition` is `rocky` or `rocky-or-water-rich`; `atmosphere` is 
    ephemeris, that pair misses the transits Agol et al. 2024 forecast for October 2026 by 3 to 27 hours, up to 52° of
    orbital phase (phase check in section 8). We keep both archive values as measured, with notes, and add an inferred
    mean ephemeris per planet: a least-squares line through every transit time in the Agol et al. 2024 forecast
-   (2015-08-31 to 2027-07-25), referenced to the transit nearest 2026-01-01. It follows the forecast to within
+   (2015-08-24 to 2027-07-31 overall; each planet's own span, for example 2015-08-31 to 2027-07-25 for f, is in its
+   `ephemerisPeriodDays` source), referenced to the transit nearest 2026-01-01. It follows the forecast to within
    17-107 minutes (the transit-timing variations a line cannot follow), at most 1.4-4.6° of orbital phase.
-   `orbitalPosition` uses
-   it. The forecast CSV has no column labels; the pipeline uses only the planet, transit number and time columns,
-   and checks that the time column reproduces three JWST-measured transits listed in the paper.
+   `orbitalPosition` uses it. This departs from the original spec (phase from the archive's period and transit
+   midpoint) on purpose; the reviewer of this module agreed it is the scientifically correct choice, and it should be
+   recorded as an accepted decision. The forecast CSV has no column labels; the pipeline uses only the planet, transit
+   number and time columns, and checks that the time column reproduces three JWST-measured transits listed in the
+   paper (two of h, one of c).
 6. **Eccentricity** is Grimm et al. 2018's (the default set gives none). All are below 0.011; orbits are drawn as
    circles.
 
@@ -134,7 +152,7 @@ share the stellar-mass uncertainty).
 | `surfaceGravityG` | M / R² | `agol2021` |
 | `escapeVelocityKms` | 11.186 km/s × √(M/R) (Earth's value from the NASA Earth Fact Sheet) | `agol2021` |
 | `ephemerisPeriodDays`, `ephemerisTransitMidBJD` | Least-squares line t = T₀ + P (n − n₀) through all forecast transits of Agol et al. 2024 (an N-body fit to ground, Spitzer, K2, HST and JWST transit times), n₀ = the transit nearest 2026-01-01. Period uncertainty: formal fit error; epoch uncertainty: rms of the residuals (7-45 min). | `agol2024` |
-| `tidallyLocked` | `true`. Turbet et al. 2018 find from N-body and tidal modelling that each planet is likely in synchronous rotation. The note adds an order-of-magnitude despinning time (Gladman et al. 1996, t = ω a⁶ I Q / (3 G M*² k₂ R⁵) with I = 0.4 M R², Q = 100, k₂ = 0.3, initial 12 h spin): about 60 years for b up to about 1 million years for h, all far shorter than the 7.6 Gyr age. Not observed directly. | `turbet2018` |
+| `tidallyLocked` | `true`, shown as "Likely, not observed". Turbet et al. 2018 find from N-body and tidal modelling that each planet is likely in synchronous rotation. The note adds an order-of-magnitude despinning time (Gladman et al. 1996, t = ω a⁶ I Q / (3 G M*² k₂ R⁵) with I = 0.4 M R², Q = 100, k₂ = 0.3, initial 12 h spin): about 60 years for b up to about 1 million years for h, all far shorter than the 7.6 Gyr age. Caveat in every note: Vinson, Tamayo & Hansen 2019 show that mutual tugs in the resonant chain can push d, e and f into effectively non-synchronous spin states (libration, or circulation of the substellar point); they did not model the other planets. Not observed directly. | `turbet2018` (caveat `vinson2019`) |
 | `composition` | From density: Agol et al. 2021 find all seven consistent with one rocky composition slightly poorer in iron than Earth (core-mass fraction 21 ± 4 wt% if water-free), or Earth-like rock plus water, or iron-free oxidised rock. b, c, d (`rocky`) lie beyond the runaway-greenhouse limit, where water cannot stay condensed; e–h (`rocky-or-water-rich`) would hold 2.9–6.4 wt% water if their rock were Earth-like. Per-planet core-mass fractions and water fractions in the notes are quoted from Agol's interior table. | `agol2021` |
 | `atmosphere` | See below | per planet |
 
@@ -142,8 +160,11 @@ Atmosphere (conservative, one claim per published result; every result below was
 
 | Planet | Value | Citation | Note (summary) |
 |---|---|---|---|
-| b | `thick-co2-disfavoured` | `greene2023` | 15 µm eclipses: little or no atmosphere, no CO₂ absorption. Ducrot et al. 2025: airless fresh rock fits, but so does a hazy CO₂ atmosphere. Gillon et al. 2026 phase curves: ≥ 1 bar atmospheres strongly disfavoured. |
-| c | `thick-co2-disfavoured` | `zieba2023` | Dayside 380 ± 31 K disfavours a thick CO₂-rich atmosphere; thin or none possible. Gillon et al. 2026: ≥ 1 bar disfavoured; a thin O₂ atmosphere is still allowed. |
+| b | `thick-co2-disfavoured` | `greene2023` | 15 µm eclipses: little or no atmosphere, no CO₂ absorption. Ducrot et al. 2025: airless fresh rock fits, but so does a hazy CO₂ atmosphere. Gillon et al. 2026 phase curves: atmospheres with surface pressures ≥ 1 bar and efficient greenhouse effects strongly disfavoured. |
+| c | `thick-co2-disfavoured` | `zieba2023` | Dayside 380 ± 31 K disfavours a thick CO₂-rich atmosphere; thin or none possible. Gillon et al. 2026: ≥ 1 bar with efficient greenhouse effects strongly disfavoured; a tenuous, greenhouse-poor O₂-dominated atmosphere is still allowed. |
+
+The display label for `thick-co2-disfavoured` is "Thick CO₂ atmosphere disfavoured", hedged like the code: none of
+these results rules a thick atmosphere out outright.
 | d | `unknown` | `piaulet-ghorayeb2025` | Flat JWST spectrum rules out clear H₂-rich and many thicker atmospheres; very thin, hazy, or none possible. |
 | e | `unknown` | `espinoza2025` | Cloudy H₂-dominated atmospheres ruled out; no strong evidence for or against a secondary atmosphere (Glidden et al. 2025). |
 | f | `unknown` | `dewit2018` | HST ruled out a cloud-free H₂-dominated atmosphere; denser ones unconstrained. |
@@ -167,8 +188,9 @@ take i < 90°.
    al. 2025, and phase curves favour an airless low-albedo surface, Gillon et al. 2026), else old `cratered` rock.
 3. **Albedo.** Rock 0.05 (volcanic), 0.12 (cratered), 0.18 for c (Gillon et al. 2026 allow an airless c with a more
    reflective surface); ice 0.45 (dirty ice). Bond albedo = rock × (1 − ice) + 0.45 × ice.
-4. **Tholins.** Icy planets with S < 0.3 S⊕ (g, h) get reddish-brown ground: Turbet et al. 2018 suggest photochemical
-   hazes could settle as tholins on the coldest surfaces.
+4. **Tholins (design choice).** Turbet et al. 2018 suggest photochemical hazes could settle on TRAPPIST-1 planets and
+   build up a surface layer of tholins; they do not limit this to the coldest planets or give it a colour. As a design
+   choice we tint the bare ground reddish-brown only on icy planets with S < 0.3 S⊕ (g, h).
 5. **Night-side glow.** `volcanic` terrain only, 0.06: a faint stand-in for possible tidally driven volcanism, kept
    faint because JWST detected no night-side emission from b (Gillon et al. 2026).
 6. **No atmosphere is generated** for any planet: none is supported by the evidence.
@@ -183,16 +205,27 @@ take i < 90°.
 | g | 0.252 | 180.6 | icy (tholins) | 0.75 | 0.37 | 0 |
 | h | 0.144 | 157.1 | icy (tholins) | 0.94 | 0.43 | 0 |
 
-The demo page `exo.html` renders an artist's-impression preview from these parameters (ice placed away from the
-substellar point, since the planets are expected to be tidally locked), labelled Generated.
+The demo page `exo.html` renders an artist's-impression preview from these parameters, labelled Generated. It places
+ice away from the substellar point, assuming synchronous rotation; the rationale of every icy planet says this is
+likely but not certain (see `tidallyLocked`). The preview renders in short slices (about 8 ms each) and is cached
+per planet, so selecting a planet never blocks the page.
+
+**Provenance on the demo page.** Marks differ in shape as well as colour: a filled disc (measured), a half-filled
+dashed ring (inferred), a dotted ring (generated). Table columns sit under a Measured / Inferred / Generated group
+header (badge with mark and text; solid, dashed or dotted rule) and each cell's `headers` attribute points at it.
+Every value row carries its tier as visually hidden text, so its accessible name is "label value tier", and the
+"How do we know this?" panel is a polite live region. `tests/e2e/exo.spec.ts` checks all of this.
 
 ## 7. Orbital frame and `orbitalPosition`
 
 `src/world/exo/systemData.ts`:
 
 - `loadSystem(id)` fetches `systems/<id>.json` through `fetchJson` and runs `validateSystem`, which checks every value
-  for provenance, source and a citation that resolves, and that each block holds only its own tier. It throws on any
-  problem.
+  for provenance, source and a citation that resolves (including the planet count's and each default parameter set's),
+  and that each block holds only its own tier. It also checks what the helpers rely on: planet ids are unique and
+  equal `<system id><letter>`; planets are sorted by strictly increasing catalogued and mean period; periods,
+  semi-major axes, radii, masses, the distance and the stellar temperature, radius, mass and luminosity are positive;
+  the planet count is a positive integer with a date. It throws on any problem.
 - `equilibriumTemp(teffK, starRadiusSun, aAu, albedo)` and `insolation(lumSun, aAu)` are the formulas above.
 - `orbitalPosition(planet, tdbSecondsSinceJ2000, out?)` returns metres in the **system orbital frame**: origin at the
   star; **+x** points toward the Solar System (the line of sight projected onto the orbital plane), so a planet is on
@@ -280,7 +313,9 @@ _Generated by `tools/pipeline/exoplanets.py` from the archive query of 2026-10-1
 
 Every key used in `trappist-1.json` (the file's `citations` object has the same entries, ready to merge into
 `public/data/citations.json`). Each was checked on 2026-10-11 against Crossref (DOIs), DataCite (archive table DOI)
-or the arXiv API (titles, authors and abstracts). `known-sky-exo-rules` points to this document for generated values.
+or the arXiv API (titles, authors and abstracts); `exoplanets.py --verify-citations` re-checks the first three author
+surnames of all 20 Crossref-registered DOIs (it caught and now guards the corrected author order of `espinoza2025`
+and `glidden2025`). `known-sky-exo-rules` points to this document for generated values.
 
 | Key | Reference | DOI / URL | Used for |
 |---|---|---|---|
@@ -294,14 +329,15 @@ or the arXiv API (titles, authors and abstracts). `known-sky-exo-rules` points t
 | `gaia-dr3` | Gaia Collaboration, Vallenari, A. et al. (2023). Gaia Data Release 3. Summary of the content and survey properties. Astronomy & Astrophysics 674, A1. | doi:10.1051/0004-6361/202243940 | Gaia DR3 id; parallax cross-check |
 | `piaulet-ghorayeb2025` | Piaulet-Ghorayeb, C., Benneke, B., Turbet, M. et al. (2025). Strict Limits on Potential Secondary Atmospheres on the Temperate Rocky Exo-Earth TRAPPIST-1 d. The Astrophysical Journal 989, 181. | doi:10.3847/1538-4357/adf207 (arXiv:2508.08416) | age, [Fe/H], spectral type; d's atmosphere |
 | `costa2006` | Costa, E., Méndez, R. A., Jao, W.-C., Henry, T. J., Subasavage, J. P. & Ianna, P. A. (2006). The Solar Neighborhood. XVI. Parallaxes from CTIOPI: Final Results from the 1.5 m Telescope Program. The Astronomical Journal 132, 1234-1247. | doi:10.1086/505706 | V magnitude |
-| `turbet2018` | Turbet, M., Bolmont, E., Leconte, J. et al. (2018). Modeling climate diversity, tidal dynamics and the fate of volatiles on TRAPPIST-1 planets. Astronomy & Astrophysics 612, A86. | doi:10.1051/0004-6361/201731620 | tidal locking; tholins rule |
+| `turbet2018` | Turbet, M., Bolmont, E., Leconte, J. et al. (2018). Modeling climate diversity, tidal dynamics and the fate of volatiles on TRAPPIST-1 planets. Astronomy & Astrophysics 612, A86. | doi:10.1051/0004-6361/201731620 | tidal locking; tholins rule (inspiration) |
 | `gladman1996` | Gladman, B., Quinn, D. D., Nicholson, P. & Rand, R. (1996). Synchronous Locking of Tidally Evolving Satellites. Icarus 122, 166-192. | doi:10.1006/icar.1996.0117 | despinning time (note) |
+| `vinson2019` | Vinson, A. M., Tamayo, D. & Hansen, B. M. S. (2019). The chaotic nature of TRAPPIST-1 planetary spin states. Monthly Notices of the Royal Astronomical Society 488, 5739-5747. | doi:10.1093/mnras/stz2113 (arXiv:1905.11419) | tidal-locking caveat (note) |
 | `greene2023` | Greene, T. P., Bell, T. J., Ducrot, E. et al. (2023). Thermal emission from the Earth-sized exoplanet TRAPPIST-1 b using JWST. Nature 618, 39-42. | doi:10.1038/s41586-023-05951-7 | b's atmosphere |
 | `zieba2023` | Zieba, S., Kreidberg, L., Ducrot, E. et al. (2023). No thick carbon dioxide atmosphere on the rocky exoplanet TRAPPIST-1 c. Nature 620, 746-749. | doi:10.1038/s41586-023-06232-z | c's atmosphere |
 | `ducrot2025` | Ducrot, E., Lagage, P.-O., Min, M. et al. (2025). Combined analysis of the 12.8 and 15 µm JWST/MIRI eclipse observations of TRAPPIST-1 b. Nature Astronomy 9, 358-369 (online December 2024). | doi:10.1038/s41550-024-02428-z | b's notes; volcanic rule |
 | `gillon2026` | Gillon, M., Ducrot, E., Bell, T. J. et al. (2026). No thick atmosphere around TRAPPIST-1 b and c from JWST thermal phase curves. Nature Astronomy 10, 674-694. | doi:10.1038/s41550-026-02806-9 (arXiv:2509.02128) | b and c notes; albedo and glow rules |
-| `espinoza2025` | Espinoza, N., Glidden, A., Gressier, A. et al. (2025). JWST-TST DREAMS: NIRSpec/PRISM Transmission Spectroscopy of the Habitable Zone Planet TRAPPIST-1 e. The Astrophysical Journal Letters 990, L52. | doi:10.3847/2041-8213/adf42e | e's atmosphere |
-| `glidden2025` | Glidden, A., Espinoza, N., Gressier, A. et al. (2025). JWST-TST DREAMS: Secondary Atmosphere Constraints for the Habitable Zone Planet TRAPPIST-1 e. The Astrophysical Journal Letters 990, L53. | doi:10.3847/2041-8213/adf62e | e's note |
+| `espinoza2025` | Espinoza, N., Allen, N. H., Glidden, A. et al. (2025). JWST-TST DREAMS: NIRSpec/PRISM Transmission Spectroscopy of the Habitable Zone Planet TRAPPIST-1 e. The Astrophysical Journal Letters 990, L52. | doi:10.3847/2041-8213/adf42e | e's atmosphere |
+| `glidden2025` | Glidden, A., Ranjan, S., Seager, S. et al. (2025). JWST-TST DREAMS: Secondary Atmosphere Constraints for the Habitable Zone Planet TRAPPIST-1 e. The Astrophysical Journal Letters 990, L53. | doi:10.3847/2041-8213/adf62e | e's note |
 | `dewit2018` | de Wit, J., Wakeford, H. R., Lewis, N. K. et al. (2018). Atmospheric reconnaissance of the habitable-zone Earth-sized planets orbiting TRAPPIST-1. Nature Astronomy 2, 214-219. | doi:10.1038/s41550-017-0374-z | f and g atmospheres |
 | `garcia2022` | Garcia, L. J., Moran, S. E., Rackham, B. V. et al. (2022). HST/WFC3 transmission spectroscopy of the cold rocky planet TRAPPIST-1h. Astronomy & Astrophysics 665, A19. | doi:10.1051/0004-6361/202142603 | h's atmosphere |
 | `known-sky-exo-rules` | Known Sky contributors (2026). TRAPPIST-1 data pipeline: inference formulas and surface-generation rules. | docs/EXO_TRAPPIST1.md | `nodeDeg`; generated surfaces |
@@ -322,3 +358,9 @@ doi:10.26133/NEA12.
 - Add a `DATA_MANIFEST.md` row: NASA Exoplanet Archive (`pscomppars`, `ps`), queried 2026-10-11 by
   `tools/pipeline/exoplanets.py`, derived file `public/data/systems/trappist-1.json`. The archive asks users to cite
   its table DOIs (10.26133/NEA13, 10.26133/NEA12) and to acknowledge the NASA Exoplanet Archive.
+- Record in `docs/DECISIONS.md` that orbit phases use the inferred mean ephemeris fitted to Agol et al. 2024, not the
+  archive's period and transit midpoint (section 4, item 5), and decide the time convention (section 7).
+- **Localisation.** The English prose stored in the data file (`source`, `note`, `rationale`, citation titles) is
+  shown as is. Before the game is translated, these need translation keys (for example per field and planet, with the
+  numbers as parameters) or a per-locale copy of the system file; the UI labels and number formats already go through
+  `t()` and `Intl`.

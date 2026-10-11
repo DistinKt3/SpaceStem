@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AU_M, DAY_S, J2000_JD, PARSEC_M, SPEED_OF_LIGHT_M_PER_S } from '../../src/core/constants';
 import { hashString } from '../../src/core/rng';
-import { hasKey } from '../../src/game/i18n';
+import { hasKey, t } from '../../src/game/i18n';
 import {
   ATMOSPHERES,
   atmosphereLabelKey,
@@ -114,7 +114,7 @@ describe('trappist-1.json schema', () => {
 
   it('lists every citation with a year, a venue and a DOI or URL', () => {
     const keys = Object.keys(sys.citations);
-    expect(keys).toEqual(expect.arrayContaining(['agol2021', 'nasa-exoplanet-archive', 'greene2023', 'zieba2023', 'turbet2018']));
+    expect(keys).toEqual(expect.arrayContaining(['agol2021', 'nasa-exoplanet-archive', 'greene2023', 'zieba2023', 'turbet2018', 'vinson2019']));
     for (const [k, c] of Object.entries(sys.citations)) {
       expect(c.year, k).toBeGreaterThan(1990);
       expect(c.doi ?? c.url, k).toBeTruthy();
@@ -140,6 +140,22 @@ describe('trappist-1.json schema', () => {
     expect(atm['c']!.value).toBe('thick-co2-disfavoured');
     expect(atm['c']!.citation).toBe('zieba2023');
     for (const l of ['d', 'e', 'f', 'g', 'h']) expect(atm[l]!.value, l).toBe('unknown');
+    // Hedged as the sources are: Gillon et al. 2026 disfavour >= 1 bar atmospheres *with efficient greenhouse effects*.
+    for (const l of ['b', 'c']) expect(atm[l]!.note, l).toContain('1 bar or more and efficient greenhouse effects');
+    expect(t(atmosphereLabelKey('thick-co2-disfavoured'))).toMatch(/disfavoured/i);
+  });
+
+  it('flags tidal locking as likely, with the Vinson et al. 2019 caveat for d, e and f', () => {
+    for (const p of sys.planets) {
+      const note = p.inferred.tidallyLocked.note ?? '';
+      expect(note, p.id).toContain('Vinson et al. 2019');
+      expect(note, p.id).toContain(['d', 'e', 'f'].includes(p.letter) ? 'may not keep exactly one face' : 'did not model this planet');
+    }
+    expect(t('exo.bool.true')).toMatch(/likely/i);
+    // The tholin tint is presented as our design choice, not as Turbet et al.'s finding.
+    for (const p of sys.planets.filter((x) => x.generated.rationale.includes('tholin'))) {
+      expect(p.generated.rationale, p.id).toContain('As a design choice');
+    }
   });
 
   it('derives the generated seed from the planet id and keeps generated values in range', () => {
@@ -345,6 +361,68 @@ describe('validateSystem catches broken data', () => {
     expect(mutate((s) => (planet0(s).generated['palette'] = ['red']))).toEqual(['planets[0].generated.palette must be hex colours']);
     expect(mutate((s) => (planet0(s).generated['iceCoverage'] = 1.5))).toEqual(['planets[0].generated.iceCoverage must be in [0, 1]']);
     expect(validateSystem(null)).toEqual(['system file is not an object']);
+  });
+
+  type Count = Record<string, unknown>;
+  const count = (s: Record<string, unknown>): Count => s['exoplanetCount'] as Count;
+  const dps = (s: Record<string, unknown>): Record<string, unknown> =>
+    (s['planets'] as Record<string, Record<string, unknown>>[])[0]!['defaultParameterSet']!;
+
+  it('resolves the planet-count and default-parameter-set citations', () => {
+    expect(mutate((s) => (count(s)['citation'] = 'bogus-key'))).toEqual(['exoplanetCount.citation does not resolve']);
+    expect(mutate((s) => delete count(s)['citation'])).toEqual(['exoplanetCount.citation does not resolve']);
+    expect(mutate((s) => (dps(s)['citation'] = 'also-bogus'))).toEqual(['planets[0].defaultParameterSet.citation does not resolve']);
+    expect(mutate((s) => (dps(s)['citation'] = 'toString'))).toEqual(['planets[0].defaultParameterSet.citation does not resolve']);
+    expect(mutate((s) => delete (s['planets'] as Record<string, unknown>[])[2]!['defaultParameterSet'])).toEqual([
+      'planets[2].defaultParameterSet needs label, citation and published',
+    ]);
+  });
+
+  it('requires a positive whole planet count with a date', () => {
+    expect(mutate((s) => (count(s)['value'] = -3.5))).toEqual(['exoplanetCount.value must be a positive integer']);
+    expect(mutate((s) => (count(s)['value'] = 0))).toEqual(['exoplanetCount.value must be a positive integer']);
+    expect(mutate((s) => (count(s)['asOf'] = 'last week'))).toEqual(['exoplanetCount.asOf must be YYYY-MM-DD']);
+  });
+
+  it('requires unique planet ids of the form <system id><letter>', () => {
+    const planets = (s: Record<string, unknown>): Record<string, unknown>[] => s['planets'] as Record<string, unknown>[];
+    expect(mutate((s) => (planets(s)[1]!['id'] = 'trappist-1b'))).toEqual([
+      "planets[1].id 'trappist-1b' is not unique",
+      "planets[1].id must be 'trappist-1c'",
+    ]);
+    expect(mutate((s) => (planets(s)[3]!['id'] = 'trappist-1-e'))).toEqual(["planets[3].id must be 'trappist-1e'"]);
+  });
+
+  it('requires planets sorted by strictly increasing catalogued and mean period', () => {
+    const reversed = mutate((s) => {
+      s['planets'] = (s['planets'] as unknown[]).reverse();
+      for (const p of s['planets'] as Record<string, unknown>[]) p['id'] = `trappist-1${String(p['letter'])}`;
+    });
+    expect(reversed).toContain('planets[1]: planets must be sorted by strictly increasing period');
+    expect(reversed).toContain('planets[1]: planets must be sorted by strictly increasing mean period');
+    expect(reversed).toHaveLength(12);
+    const p = (s: Record<string, unknown>, i: number): P => (s['planets'] as P[])[i]!;
+    expect(mutate((s) => (p(s, 2).inferred['ephemerisPeriodDays']!['value'] = 2.4))).toEqual([
+      'planets[2]: planets must be sorted by strictly increasing mean period',
+    ]);
+  });
+
+  it('rejects non-positive periods, axes, sizes and masses that would break the formulas', () => {
+    expect(mutate((s) => (planet0(s).measured['periodDays']!['value'] = 0))).toEqual(['planets[0].measured.periodDays.value must be > 0']);
+    expect(mutate((s) => (planet0(s).inferred['ephemerisPeriodDays']!['value'] = -1.5))).toEqual([
+      'planets[0].inferred.ephemerisPeriodDays.value must be > 0',
+    ]);
+    expect(mutate((s) => (planet0(s).measured['semiMajorAxisAu']!['value'] = -1))).toEqual([
+      'planets[0].measured.semiMajorAxisAu.value must be > 0',
+    ]);
+    expect(mutate((s) => (planet0(s).measured['radiusEarth']!['value'] = 0))).toEqual(['planets[0].measured.radiusEarth.value must be > 0']);
+    expect(mutate((s) => (planet0(s).measured['massEarth']!['value'] = -0.2))).toEqual(['planets[0].measured.massEarth.value must be > 0']);
+    const star = (s: Record<string, unknown>): Record<string, Record<string, unknown>> => s['star'] as Record<string, Record<string, unknown>>;
+    expect(mutate((s) => (star(s)['teffK']!['value'] = 0))).toEqual(['star.teffK.value must be > 0']);
+    expect(mutate((s) => (star(s)['radiusSun']!['value'] = -0.1))).toEqual(['star.radiusSun.value must be > 0']);
+    expect(
+      mutate((s) => ((s['position'] as Record<string, Record<string, unknown>>)['distancePc']!['value'] = 0)),
+    ).toEqual(['position.distancePc.value must be > 0']);
   });
 });
 

@@ -1,7 +1,11 @@
 /**
  * TRAPPIST-1 data lab (exo.html): loads public/data/systems/trappist-1.json through loadSystem(), draws the orbits at
- * the current time with orbitalPosition(), lists every value with its provenance badge and a "How do we know this?"
+ * the current time with orbitalPosition(), lists every value with its provenance mark and a "How do we know this?"
  * panel, and previews each planet's generated surface parameters. Exposes window.__ksExo for tests/e2e/exo.spec.ts.
+ *
+ * Provenance never relies on colour alone: every value carries a mark that differs in shape (filled, half-filled,
+ * dotted ring), table columns sit under a Measured / Inferred / Generated group header whose rule is solid, dashed or
+ * dotted, and screen readers hear the tier with each value (visually hidden text) and each table column.
  */
 import { AU_M } from '../core/constants';
 import { fbm3, Rng } from '../core/rng';
@@ -38,8 +42,22 @@ function el<K extends keyof HTMLElementTagNameMap>(
   return n;
 }
 
+function attrs<T extends Element>(n: T, a: Record<string, string>): T {
+  for (const [k, v] of Object.entries(a)) n.setAttribute(k, v);
+  return n;
+}
+
+/** Text for screen readers only (exo.html defines .exo-sr). */
+const srText = (text: string): HTMLSpanElement => el('span', { cls: 'exo-sr' }, text);
+
+/** Shape mark for a provenance tier: filled disc (measured), half-filled dashed ring (inferred), dotted ring
+ * (generated). Decorative: the tier is always also given as text. */
+function mark(p: Provenance): HTMLSpanElement {
+  return attrs(el('span', { cls: `dot dot-${p}` }), { 'aria-hidden': 'true' });
+}
+
 function badge(p: Provenance): HTMLSpanElement {
-  const b = el('span', { cls: `exo-prov exo-prov-${p}` }, el('span', { cls: 'exo-prov-mark' }), t(`prov.${p}`));
+  const b = el('span', { cls: `exo-prov exo-prov-${p}` }, attrs(el('span', { cls: 'exo-prov-mark' }), { 'aria-hidden': 'true' }), t(`prov.${p}`));
   b.setAttribute('data-prov', p);
   return b;
 }
@@ -74,35 +92,79 @@ const MAX_DECIMALS = 7;
 const SUPERSCRIPT = '⁰¹²³⁴⁵⁶⁷⁸⁹';
 const superscript = (n: number): string => (n < 0 ? '⁻' : '') + String(Math.abs(n)).replace(/\d/g, (c) => SUPERSCRIPT[Number(c)] ?? c);
 
-/**
- * Value with uncertainty at the precision it was catalogued with, but no more than one digit beyond the two
- * significant digits of the uncertainty. Very small values use a power-of-ten factor.
- */
-function numberText(s: ExoSourced<number>): string {
+/** Power-of-ten form through the locale file: "{v} × 10ⁿ", or "({v}) × 10ⁿ" around a value ± uncertainty. */
+function sci(text: string, exp: number, grouped = false): string {
+  return exp === 0 ? text : t(grouped ? 'exo.sci.group' : 'exo.sci', { v: text, e: superscript(exp) });
+}
+
+const uncertainties = (s: ExoSourced<unknown>): number[] => {
   const u = s.uncertainty;
-  const us = u === undefined ? [] : typeof u === 'number' ? [u] : [u[0], u[1]];
+  return u === undefined ? [] : typeof u === 'number' ? [u] : [u[0], u[1]];
+};
+
+interface Scale {
+  /** Power of ten the value is shown with (0 unless |value| < 1e-3). */
+  readonly exp: number;
+  readonly k: number;
+  readonly d: number;
+  readonly epoch: boolean;
+}
+
+/**
+ * Precision a value is shown with: as catalogued, but no more than one digit beyond the two significant digits of
+ * its uncertainty. Very small values use a power-of-ten factor.
+ */
+function scaleOf(s: ExoSourced<number>): Scale {
   const exp = s.value !== 0 && Math.abs(s.value) < 1e-3 ? Math.floor(Math.log10(Math.abs(s.value))) : 0;
   const k = Math.pow(10, -exp);
   const clean = (x: number): number => Number((x * k).toPrecision(12));
   // JSON drops trailing zeros (0.920 -> 0.92), so the uncertainty sets the precision when there is one.
   let d = decimalsOf(clean(s.value));
-  const positive = us.filter((x) => x > 0);
+  const positive = uncertainties(s).filter((x) => x > 0);
   if (positive.length > 0) {
-    // Two significant digits of the uncertainty (fewer if catalogued so), plus at most one more digit of the value.
     const du = Math.max(...positive.map((x) => Math.min(decimalsOf(clean(x)), 1 - Math.floor(Math.log10(clean(x))))));
     d = Math.max(du, Math.min(d, du + 1));
   }
   d = Math.max(0, Math.min(MAX_DECIMALS, d));
-  const epoch = s.unit === 'BJD_TDB';
-  const f = (x: number): string => (epoch ? (x * k).toFixed(d) : formatNumber(x * k, d, d));
-  const v = f(s.value);
-  const tiny = us.some((x) => Number((x * k).toFixed(d)) === 0);
-  let text = v;
-  if (u !== undefined && !tiny && !epoch) {
-    text = typeof u === 'number' ? t('exo.pm.sym', { v, u: f(u) }) : t('exo.pm.asym', { v, lo: f(u[0]), hi: f(u[1]) });
+  return { exp, k, d, epoch: s.unit === 'BJD_TDB' };
+}
+
+// Epochs (BJD) are written without digit grouping, as is conventional.
+const scaled = (x: number, sc: Scale): string => (sc.epoch ? (x * sc.k).toFixed(sc.d) : formatNumber(x * sc.k, sc.d, sc.d));
+
+function numberText(s: ExoSourced<number>): string {
+  const sc = scaleOf(s);
+  const u = s.uncertainty;
+  const v = scaled(s.value, sc);
+  // Uncertainties too small to show at the value's precision (sky positions, epochs) appear in the detail panel only.
+  const tiny = uncertainties(s).some((x) => Number((x * sc.k).toFixed(sc.d)) === 0);
+  if (u === undefined || tiny || sc.epoch) return withUnit(sci(v, sc.exp), s.unit);
+  const text = typeof u === 'number' ? t('exo.pm.sym', { v, u: scaled(u, sc) }) : t('exo.pm.asym', { v, lo: scaled(u[0], sc), hi: scaled(u[1], sc) });
+  return withUnit(sci(text, sc.exp, true), s.unit);
+}
+
+/** Two significant digits (fewer if catalogued so); a power of ten when that needs more than MAX_DECIMALS places. */
+function shortNumber(x: number): string {
+  if (x === 0) return formatNumber(0);
+  const c = Number(x.toPrecision(12));
+  const need = 1 - Math.floor(Math.log10(c));
+  if (need > MAX_DECIMALS) {
+    const exp = Math.floor(Math.log10(c));
+    return sci(formatNumber(c * Math.pow(10, -exp), 1, 1), exp);
   }
-  if (exp !== 0) text = `(${text}) × 10${superscript(exp)}`;
-  return withUnit(text, s.unit);
+  const d = Math.max(0, Math.min(decimalsOf(c), need));
+  return formatNumber(c, d, d);
+}
+
+/** Uncertainty for the "How do we know this?" panel, in the same order (+upper / −lower) and unit as the value rows. */
+function uncertaintyText(s: ExoSourced<unknown>): string {
+  const u = s.uncertainty;
+  if (u === undefined || typeof s.value !== 'number') return t('exo.demo.none');
+  const sc = scaleOf(s as ExoSourced<number>);
+  // A value shown with a power of ten keeps the same factor here, so the two read alike.
+  const one = (x: number): string => (sc.exp !== 0 ? sci(scaled(x, sc), sc.exp) : shortNumber(x));
+  const text = typeof u === 'number' ? t('exo.pm.symOnly', { u: one(u) }) : t('exo.pm.asymOnly', { hi: one(u[1]), lo: one(u[0]) });
+  return withUnit(text, sc.epoch ? 'd' : s.unit);
 }
 
 function withUnit(text: string, unit: string): string {
@@ -138,7 +200,8 @@ const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 let playing = !reduceMotion;
 let speed = 86_400;
 let lastFrame = performance.now();
-let previewMs = 0;
+/** The orbit view needs a redraw (time, size or selection changed). */
+let orbitsDirty = true;
 
 interface Detail {
   label: string;
@@ -150,18 +213,27 @@ interface Detail {
   note: string;
 }
 
-const detailBox = el('div', { cls: 'detail' });
-const orbitCanvas = el('canvas', { cls: 'orbits' });
+const DETAIL_ID = 'exo-detail';
+const detailBox = attrs(el('div', { cls: 'detail', id: DETAIL_ID }), { 'aria-live': 'polite' });
+const orbitCanvas = attrs(el('canvas', { cls: 'orbits' }), { role: 'img' });
 const clock = el('span', { cls: 'clock' });
 const planetCard = el('div', { cls: 'planet-card' });
 const tableBody = el('tbody');
 const playBtn = el('button', { type: 'button', cls: 'chip-btn' });
+let howPanel: HTMLElement | undefined;
+const clockFormat = new Intl.DateTimeFormat(document.documentElement.lang || 'en', {
+  dateStyle: 'medium',
+  timeStyle: 'short',
+  hourCycle: 'h23',
+  timeZone: 'UTC',
+});
 
 // --- Detail panel -------------------------------------------------------------------------------------------------
 
 function citationNode(key: string): Node {
   const c = sys.citations[key];
   if (!c) return document.createTextNode(key);
+  // Bibliographic data, not translatable prose: authors (year). Title. Venue.
   const ref = `${c.authors} (${c.year}). ${c.title}. ${c.venue}.`;
   const span = el('span', {}, ref + ' ');
   const href = c.doi ? `https://doi.org/${c.doi}` : c.url && /^https?:/.test(c.url) ? c.url : undefined;
@@ -186,14 +258,19 @@ function showDetail(d: Detail): void {
   detailBox.append(dl);
 }
 
+/** After a user's click, bring the detail panel into view if it is off screen (narrow layouts put it lower). */
+function revealDetail(): void {
+  const target = howPanel ?? detailBox;
+  const r = target.getBoundingClientRect();
+  if (r.top < 0 || r.bottom > window.innerHeight) target.scrollIntoView({ block: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' });
+}
+
 function sourcedDetail(label: string, s: ExoSourced<unknown>, field: string): Detail {
-  const u = s.uncertainty;
-  const uText = u === undefined ? t('exo.demo.none') : typeof u === 'number' ? `± ${u}` : `−${u[0]} / +${u[1]}`;
   return {
     label,
     provenance: s.provenance,
     value: valueText(s, field),
-    uncertainty: uText,
+    uncertainty: uncertaintyText(s),
     source: s.source,
     citation: s.citation,
     note: s.note ?? '',
@@ -201,17 +278,18 @@ function sourcedDetail(label: string, s: ExoSourced<unknown>, field: string): De
 }
 
 function valueRow(label: string, value: string, p: Provenance, detail: () => Detail): HTMLButtonElement {
-  const b = el(
-    'button',
-    { type: 'button', cls: 'vrow' },
-    el('span', { cls: 'k' }, label),
-    el('span', { cls: 'v' }, value),
-    el('span', { cls: `dot dot-${p}` }),
-  );
-  b.addEventListener('click', () => {
-    document.querySelectorAll('.vrow.on').forEach((n) => n.classList.remove('on'));
+  // Accessible name: "<label> <value> <tier>", e.g. "Orbital plane orientation 0° Generated".
+  const b = el('button', { type: 'button', cls: 'vrow' }, el('span', { cls: 'k' }, label), el('span', { cls: 'v' }, value), mark(p), srText(t(`prov.${p}`)));
+  attrs(b, { 'data-prov': p, 'aria-controls': DETAIL_ID });
+  b.addEventListener('click', (ev) => {
+    document.querySelectorAll('.vrow.on').forEach((n) => {
+      n.classList.remove('on');
+      n.removeAttribute('aria-current');
+    });
     b.classList.add('on');
+    b.setAttribute('aria-current', 'true');
     showDetail(detail());
+    if (ev.isTrusted) revealDetail();
   });
   return b;
 }
@@ -223,7 +301,9 @@ function sourcedRow(labelKey: string, s: ExoSourced<unknown>, field: string): HT
 
 // --- Planet card ------------------------------------------------------------------------------------------------
 
-const previewCanvas = el('canvas', { cls: 'preview', width: 240, height: 240 });
+const PREVIEW_PX = 240;
+const previewCanvas = el('canvas', { cls: 'preview', width: PREVIEW_PX, height: PREVIEW_PX });
+previewCanvas.setAttribute('aria-hidden', 'true');
 
 function section(p: Provenance, captionKey: string, rows: HTMLElement[]): HTMLElement {
   return el(
@@ -256,7 +336,7 @@ function renderPlanetCard(): void {
     genRow('exo.field.iceCoverage', pct(g.iceCoverage)),
     genRow('exo.field.nightSideGlow', pct(g.nightSideGlow)),
   ];
-  const swatches = el('div', { cls: 'swatches', title: t('exo.demo.palette') });
+  const swatches = attrs(el('div', { cls: 'swatches', title: t('exo.demo.palette') }), { 'aria-hidden': 'true' });
   for (const c of g.palette) swatches.append(swatch(c));
 
   planetCard.replaceChildren(
@@ -268,12 +348,7 @@ function renderPlanetCard(): void {
     el(
       'div',
       { cls: 'pc-top' },
-      el(
-        'figure',
-        { cls: 'preview-fig' },
-        previewCanvas,
-        el('figcaption', {}, t('exo.demo.previewCaption')),
-      ),
+      el('figure', { cls: 'preview-fig' }, previewCanvas, el('figcaption', {}, t('exo.demo.previewCaption'))),
       el(
         'div',
         { cls: 'pc-gen' },
@@ -285,12 +360,16 @@ function renderPlanetCard(): void {
     section('measured', 'exo.demo.measuredCaption', measured),
     section('inferred', 'exo.demo.inferredCaption', inferred),
   );
-  const t0 = performance.now();
-  renderSurface(previewCanvas, planet);
-  previewMs = performance.now() - t0;
+  showPreview(selected);
   const first = measured[0];
   if (first) first.click();
-  for (const [i, tr] of [...tableBody.children].entries()) tr.classList.toggle('on', i === selected);
+  for (const [i, tr] of [...tableBody.children].entries()) {
+    const on = i === selected;
+    tr.classList.toggle('on', on);
+    const btn = tr.querySelector('button');
+    if (on) btn?.setAttribute('aria-current', 'true');
+    else btn?.removeAttribute('aria-current');
+  }
 }
 
 // --- Generated surface preview ------------------------------------------------------------------------------------
@@ -318,16 +397,16 @@ const smooth = (e0: number, e1: number, x: number): number => {
 
 /**
  * Artist's impression from the generated parameters: palette by height (value noise), bump-shaded craters (few on
- * young volcanic plains), ice away from the substellar point (the planets are expected to be tidally locked) covering
- * iceCoverage of the sphere, and thin glowing fissures on the night side scaled by nightSideGlow. Lit by an
- * approximately 2,566 K blackbody colour. No atmosphere is drawn because none is supported by observations.
+ * young volcanic plains), ice away from the substellar point (the planets are expected, not known, to be tidally
+ * locked) covering iceCoverage of the sphere, and thin glowing fissures on the night side scaled by nightSideGlow.
+ * Lit by an approximately 2,566 K blackbody colour. No atmosphere is drawn because none is supported by observations.
+ *
+ * A generator that fills `img` one pixel row at a time and yields after each row, so the caller can spread the work
+ * over short slices and keep the page responsive.
  */
-function renderSurface(canvas: HTMLCanvasElement, planet: ExoPlanet): void {
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return;
+function* surfaceRows(img: ImageData, planet: ExoPlanet): Generator<number, void, void> {
   const g = planet.generated;
-  const n = canvas.width;
-  const img = ctx.createImageData(n, n);
+  const n = img.width;
   const pal = g.palette.map(hexToLinear);
   // Palette layout (tools/pipeline/exoplanets.py): rock-only terrains have five rock tones; mixed and icy terrains
   // have two rock tones then three ice tones.
@@ -386,9 +465,10 @@ function renderSurface(canvas: HTMLCanvasElement, planet: ExoPlanet): void {
         const q = theta / c.r;
         if (q > 1.35) continue;
         // Tangent direction away from the crater centre.
-        let vx = x - c.x - (x * (x - c.x) + y * (y - c.y) + z * (z - c.z)) * x;
-        let vy = y - c.y - (x * (x - c.x) + y * (y - c.y) + z * (z - c.z)) * y;
-        let vz = z - c.z - (x * (x - c.x) + y * (y - c.y) + z * (z - c.z)) * z;
+        const proj = x * (x - c.x) + y * (y - c.y) + z * (z - c.z);
+        let vx = x - c.x - proj * x;
+        let vy = y - c.y - proj * y;
+        let vz = z - c.z - proj * z;
         const vl = Math.hypot(vx, vy, vz) || 1;
         vx /= vl;
         vy /= vl;
@@ -415,9 +495,7 @@ function renderSurface(canvas: HTMLCanvasElement, planet: ExoPlanet): void {
       ny /= nl;
       nz /= nl;
       const ridge = 1 - Math.abs(fbm3(seed + 17, x * 2.6, y * 2.6 + 3.3, z * 2.6, 5));
-      let col = volcanic
-        ? ramp(rockCols, 0.32 + h0 * 0.45 - smooth(0.9, 0.985, ridge) * 0.25)
-        : ramp(rockCols, 0.5 + h * 0.5);
+      let col = volcanic ? ramp(rockCols, 0.32 + h0 * 0.45 - smooth(0.9, 0.985, ridge) * 0.25) : ramp(rockCols, 0.5 + h * 0.5);
       if (g.iceCoverage > 0) {
         const edge = mu0 + fbm3(seed + 5, x * 4, y * 4, z * 4, 4) * 0.25;
         const k = smooth(iceCut + 0.03, iceCut - 0.03, edge);
@@ -443,8 +521,116 @@ function renderSurface(canvas: HTMLCanvasElement, planet: ExoPlanet): void {
       img.data[o + 2] = enc(bC);
       img.data[o + 3] = Math.round(255 * edgeA);
     }
+    yield py;
   }
-  ctx.putImageData(img, 0, 0);
+}
+
+// Previews are rendered once per planet and cached. The selected planet renders in short slices (a scan from top to
+// bottom), so selecting a planet never blocks the page; the others render in idle time afterwards.
+interface PreviewJob {
+  readonly img: ImageData;
+  readonly rows: Generator<number, void, void>;
+  cpuMs: number;
+}
+const previewCache = new Map<number, { img: ImageData; cpuMs: number }>();
+const previewJobs = new Map<number, PreviewJob>();
+const previewWaiters: (() => void)[] = [];
+const SLICE_MS = 8;
+const PREVIEW_PAINT_MS = 120;
+let lastPreviewPaint = 0;
+let maxSliceMs = 0;
+let fastQueued = false;
+let idleHandle: number | undefined;
+const fastChannel = new MessageChannel();
+fastChannel.port1.onmessage = () => {
+  fastQueued = false;
+  pumpPreview();
+};
+
+function previewContext(): CanvasRenderingContext2D | null {
+  return previewCanvas.getContext('2d');
+}
+
+function nextPreview(): number | undefined {
+  if (!previewCache.has(selected)) return selected;
+  for (let i = 0; i < sys.planets.length; i++) if (!previewCache.has(i)) return i;
+  return undefined;
+}
+
+function queuePreview(): void {
+  const next = nextPreview();
+  if (next === undefined) return;
+  if (next === selected) {
+    if (idleHandle !== undefined) cancelIdleCallback(idleHandle);
+    idleHandle = undefined;
+    if (!fastQueued) {
+      fastQueued = true;
+      fastChannel.port2.postMessage(0);
+    }
+  } else if (idleHandle === undefined && !fastQueued) {
+    idleHandle = requestIdleCallback(
+      () => {
+        idleHandle = undefined;
+        pumpPreview();
+      },
+      { timeout: 1500 },
+    );
+  }
+}
+
+function pumpPreview(): void {
+  const i = nextPreview();
+  if (i === undefined) return;
+  let job = previewJobs.get(i);
+  if (!job) {
+    const img = new ImageData(PREVIEW_PX, PREVIEW_PX);
+    job = { img, rows: surfaceRows(img, sys.planets[i]!), cpuMs: 0 };
+    previewJobs.set(i, job);
+  }
+  const t0 = performance.now();
+  let done = false;
+  while (performance.now() - t0 < SLICE_MS) {
+    if (job.rows.next().done) {
+      done = true;
+      break;
+    }
+  }
+  const dt = performance.now() - t0;
+  job.cpuMs += dt;
+  maxSliceMs = Math.max(maxSliceMs, dt);
+  if (done) {
+    previewJobs.delete(i);
+    previewCache.set(i, { img: job.img, cpuMs: job.cpuMs });
+  }
+  if (i === selected) {
+    // Show progress a few times a second, not after every slice: each paint makes the browser repaint the glass
+    // panels around the canvas, which is slow with software compositing and would starve the slices.
+    const now = performance.now();
+    if (done || now - lastPreviewPaint > PREVIEW_PAINT_MS) {
+      lastPreviewPaint = now;
+      previewContext()?.putImageData(job.img, 0, 0);
+    }
+    if (done) for (const w of previewWaiters.splice(0)) w();
+  }
+  queuePreview();
+}
+
+function showPreview(i: number): void {
+  const ctx = previewContext();
+  const cached = previewCache.get(i);
+  if (cached) {
+    ctx?.putImageData(cached.img, 0, 0);
+    for (const w of previewWaiters.splice(0)) w();
+    return;
+  }
+  const partial = previewJobs.get(i);
+  if (partial) ctx?.putImageData(partial.img, 0, 0);
+  else ctx?.clearRect(0, 0, PREVIEW_PX, PREVIEW_PX);
+  queuePreview();
+}
+
+function previewReady(): Promise<void> {
+  return previewCache.has(selected) ? Promise.resolve() : new Promise((resolve) => previewWaiters.push(resolve));
 }
 
 // --- Orbits -------------------------------------------------------------------------------------------------------
@@ -455,8 +641,10 @@ interface PlanetDot {
   y: number;
 }
 let lastDots: PlanetDot[] = [];
+let orbitDraws = 0;
 
 function drawOrbits(): void {
+  orbitDraws++;
   const c = orbitCanvas;
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   const w = Math.max(1, Math.round(c.clientWidth * dpr));
@@ -531,6 +719,7 @@ function drawOrbits(): void {
   ctx.fill();
 
   const dots: PlanetDot[] = [];
+  const labels: { text: string; x: number; y: number; on: boolean }[] = [];
   sys.planets.forEach((p, i) => {
     const r = p.measured.semiMajorAxisAu.value * AU_M * s;
     const on = i === selected;
@@ -560,27 +749,44 @@ function drawOrbits(): void {
       ctx.arc(x, y, pr + 4 * dpr, 0, Math.PI * 2);
       ctx.stroke();
     }
-    ctx.fillStyle = on ? '#e8f7ff' : 'rgba(216, 230, 255, 0.8)';
-    ctx.font = `${(on ? 12 : 11) * dpr}px ui-monospace, monospace`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    const lx = x + (x >= cx ? 1 : -1) * (pr + 9 * dpr);
-    ctx.fillText(p.letter, lx, y - (pr + 6 * dpr) * 0.6);
+    // Label on the trailing side along the orbit (planets move counter-clockwise), outside the selection ring: it
+    // stays on its own orbit instead of landing on a neighbouring one.
+    const rr = Math.hypot(x - cx, y - cy) || 1;
+    const off = pr + 11 * dpr;
+    labels.push({ text: p.letter, x: x + (-(y - cy) / rr) * off, y: y + ((x - cx) / rr) * off, on });
   });
+  // Labels last, with a dark halo, so no orbit line or dot is drawn over them.
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.lineJoin = 'round';
+  for (const l of labels) {
+    ctx.font = `${l.on ? 600 : 400} ${(l.on ? 12 : 11) * dpr}px ui-monospace, monospace`;
+    ctx.lineWidth = 3 * dpr;
+    ctx.strokeStyle = 'rgba(2, 6, 14, 0.85)';
+    ctx.strokeText(l.text, l.x, l.y);
+    ctx.fillStyle = l.on ? '#e8f7ff' : 'rgba(216, 230, 255, 0.8)';
+    ctx.fillText(l.text, l.x, l.y);
+  }
   lastDots = dots;
 }
 
 function updateClock(): void {
-  const d = new Date(tdbSecondsSinceJ2000ToUnixMs(tSim));
-  clock.textContent = t('exo.demo.utc', { date: d.toISOString().slice(0, 16).replace('T', ' ') });
+  clock.textContent = t('exo.demo.utc', { date: clockFormat.format(new Date(tdbSecondsSinceJ2000ToUnixMs(tSim))) });
 }
 
 function frame(now: number): void {
   const dt = Math.min(0.1, (now - lastFrame) / 1000);
   lastFrame = now;
-  if (playing) tSim += dt * speed;
-  drawOrbits();
-  updateClock();
+  if (playing) {
+    tSim += dt * speed;
+    orbitsDirty = true;
+  }
+  // Paused and unchanged: nothing to redraw.
+  if (orbitsDirty) {
+    orbitsDirty = false;
+    drawOrbits();
+    updateClock();
+  }
   requestAnimationFrame(frame);
 }
 
@@ -602,53 +808,89 @@ function pickPlanet(ev: MouseEvent): void {
 
 function select(i: number): void {
   selected = Math.max(0, Math.min(sys.planets.length - 1, i));
+  orbitCanvas.setAttribute('aria-label', t('exo.demo.orbitsAlt', { planet: sys.planets[selected]!.name }));
   renderPlanetCard();
   drawOrbits();
 }
 
 // --- Page ---------------------------------------------------------------------------------------------------------
 
+interface Column {
+  readonly key: string;
+  readonly prov: Provenance;
+  readonly cell: (p: ExoPlanet) => (Node | string)[];
+}
+
+/** Table columns, grouped by provenance. Units sit in the headers; cells hold numbers. */
+const COLUMNS: readonly Column[] = [
+  { key: 'radius', prov: 'measured', cell: (p) => [compact(p.measured.radiusEarth.value, 3)] },
+  { key: 'mass', prov: 'measured', cell: (p) => [compact(p.measured.massEarth.value, 3)] },
+  { key: 'period', prov: 'inferred', cell: (p) => [compact(p.inferred.ephemerisPeriodDays.value, 4)] },
+  { key: 'teq', prov: 'inferred', cell: (p) => [compact(p.inferred.equilibriumTempK_A0.value, 0)] },
+  { key: 'insolation', prov: 'inferred', cell: (p) => [compact(p.inferred.insolationEarth.value, 2)] },
+  {
+    key: 'terrain',
+    prov: 'generated',
+    cell: (p) => {
+      const sw = attrs(el('span', { cls: 'tsw' }), { 'aria-hidden': 'true' });
+      for (const c of p.generated.palette.slice(0, 5)) sw.append(swatch(c));
+      return [sw, el('span', {}, t(terrainLabelKey(p.generated.terrain)))];
+    },
+  },
+];
+
 function buildTable(): HTMLElement {
-  const head = el(
-    'tr',
-    {},
-    ...['planet', 'period', 'radius', 'mass', 'teq', 'insolation', 'terrain'].map((k) => el('th', {}, t(`exo.demo.col.${k}`))),
-  );
-  sys.planets.forEach((p, i) => {
-    const m = p.measured;
-    const inf = p.inferred;
-    const g = p.generated;
-    const sw = el('span', { cls: 'tsw' });
-    for (const c of g.palette.slice(0, 5)) sw.append(swatch(c));
-    const tr = el(
-      'tr',
-      { tabIndex: 0 },
-      el('td', { cls: 'pl', title: p.name }, el('b', {}, p.letter)),
-      el('td', { cls: 'm' }, withUnit(compact(m.periodDays.value, 3), 'd')),
-      el('td', { cls: 'm' }, withUnit(compact(m.radiusEarth.value, 3), 'R_earth')),
-      el('td', { cls: 'm' }, withUnit(compact(m.massEarth.value, 3), 'M_earth')),
-      el('td', { cls: 'i' }, withUnit(compact(inf.equilibriumTempK_A0.value, 0), 'K')),
-      el('td', { cls: 'i' }, withUnit(compact(inf.insolationEarth.value, 2), 'S_earth')),
-      el('td', { cls: 'g' }, sw, el('span', {}, t(terrainLabelKey(g.terrain)))),
+  // Group header row: one Measured / Inferred / Generated badge over its columns.
+  const groups = el('tr', { cls: 'groups' }, attrs(el('td', { cls: 'corner' }), { 'aria-hidden': 'true' }));
+  const firstOfGroup = new Set<string>();
+  for (let i = 0; i < COLUMNS.length; ) {
+    const prov = COLUMNS[i]!.prov;
+    let n = 0;
+    while (COLUMNS[i + n]?.prov === prov) n++;
+    firstOfGroup.add(COLUMNS[i]!.key);
+    groups.append(attrs(el('th', { cls: `grp grp-${prov}`, id: `pt-g-${prov}` }, badge(prov)), { scope: 'colgroup', colspan: String(n), 'data-prov': prov }));
+    i += n;
+  }
+  const head = el('tr', { cls: 'cols' }, attrs(el('th', { cls: 'pl', id: 'pt-c-planet' }, t('exo.demo.col.planet')), { scope: 'col' }));
+  for (const c of COLUMNS) {
+    const th = el(
+      'th',
+      { cls: `c c-${c.prov}${firstOfGroup.has(c.key) ? ' first' : ''}`, id: `pt-c-${c.key}` },
+      el('span', { cls: 'h' }, t(`exo.demo.col.${c.key}`)),
     );
+    const unitKey = `exo.demo.colUnit.${c.key}`;
+    if (hasKey(unitKey)) th.append(el('span', { cls: 'u' }, t(unitKey)));
+    th.append(srText(t(`prov.${c.prov}`)));
+    head.append(attrs(th, { scope: 'col', 'data-prov': c.prov }));
+  }
+  sys.planets.forEach((p, i) => {
+    const pick = attrs(el('button', { type: 'button', cls: 'pl-btn' }, p.letter), { 'aria-label': p.name, 'aria-controls': 'exo-card' });
+    const rowHead = attrs(el('th', { cls: 'pl', id: `pt-r-${p.letter}` }, pick), { scope: 'row' });
+    const tr = el('tr', {}, rowHead);
+    for (const c of COLUMNS) {
+      const td = el('td', { cls: `v-${c.prov}${firstOfGroup.has(c.key) ? ' first' : ''}${c.prov === 'generated' ? ' g' : ' num'}` }, ...c.cell(p));
+      tr.append(attrs(td, { 'data-prov': c.prov, headers: `pt-r-${p.letter} pt-g-${c.prov} pt-c-${c.key}` }));
+    }
+    // The whole row is a pointer target; keyboard users use the planet button.
     tr.addEventListener('click', () => select(i));
-    tr.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        select(i);
-      }
-    });
     tableBody.append(tr);
   });
-  const table = el('table', { cls: 'ptable' }, el('thead', {}, head), tableBody);
+  const table = el('table', { cls: 'ptable' }, el('caption', { cls: 'exo-sr' }, t('exo.demo.tableCaption')), el('thead', {}, groups, head), tableBody);
   const legend = el(
     'div',
     { cls: 'legend' },
-    el('span', {}, el('span', { cls: 'dot dot-measured' }), t('prov.measured')),
-    el('span', {}, el('span', { cls: 'dot dot-inferred' }), t('prov.inferred')),
-    el('span', {}, el('span', { cls: 'dot dot-generated' }), t('prov.generated')),
+    ...(['measured', 'inferred', 'generated'] as const).map((p) => el('span', {}, mark(p), t(`prov.${p}`))),
+    el('span', { cls: 'legend-note' }, t('exo.demo.legendNote')),
   );
-  return el('div', { cls: 'table-wrap' }, table, legend);
+  // On narrow screens the table scrolls sideways; a fade on the right edge says so until the end is reached.
+  const wrap = el('div', { cls: 'table-wrap' }, table);
+  const scroller = el('div', { cls: 'table-scroll' }, wrap);
+  const updateFade = (): void => {
+    scroller.classList.toggle('more', wrap.scrollWidth - wrap.clientWidth - wrap.scrollLeft > 2);
+  };
+  wrap.addEventListener('scroll', updateFade, { passive: true });
+  new ResizeObserver(updateFade).observe(wrap);
+  return el('div', { cls: 'table-block' }, scroller, legend);
 }
 
 function buildStar(): HTMLElement {
@@ -685,7 +927,7 @@ function buildSystem(): HTMLElement {
   );
 }
 
-function mark(): SVGSVGElement {
+function labMark(): SVGSVGElement {
   const ns = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(ns, 'svg');
   svg.setAttribute('viewBox', '0 0 32 32');
@@ -698,6 +940,11 @@ function mark(): SVGSVGElement {
   return svg;
 }
 
+function syncPlay(): void {
+  playBtn.textContent = playing ? t('exo.demo.pause') : t('exo.demo.play');
+  playBtn.setAttribute('aria-pressed', String(playing));
+}
+
 function build(): void {
   const dist = sys.position.distancePc.value;
   const header = el(
@@ -706,7 +953,7 @@ function build(): void {
     el(
       'div',
       { cls: 'lab-title' },
-      mark(),
+      labMark(),
       el('div', {}, el('h1', {}, t('exo.demo.title')), el('p', {}, t('exo.demo.tagline', { d: withUnit(formatNumber(dist, 2, 2), 'pc') }))),
     ),
     el(
@@ -723,8 +970,7 @@ function build(): void {
     ['exo.demo.speed.day', 86_400],
     ['exo.demo.speed.week', 604_800],
   ];
-  const seg = el('div', { cls: 'seg', role: 'group' });
-  seg.setAttribute('aria-label', t('exo.demo.speed'));
+  const seg = attrs(el('div', { cls: 'seg' }), { role: 'group', 'aria-label': t('exo.demo.speed') });
   for (const [k, v] of speeds) {
     const b = el('button', { type: 'button' }, t(k));
     b.setAttribute('aria-pressed', String(v === speed));
@@ -734,10 +980,6 @@ function build(): void {
     });
     seg.append(b);
   }
-  const syncPlay = (): void => {
-    playBtn.textContent = playing ? t('exo.demo.pause') : t('exo.demo.play');
-    playBtn.setAttribute('aria-pressed', String(playing));
-  };
   playBtn.addEventListener('click', () => {
     playing = !playing;
     syncPlay();
@@ -746,8 +988,12 @@ function build(): void {
   const nowBtn = el('button', { type: 'button', cls: 'chip-btn' }, t('exo.demo.now'));
   nowBtn.addEventListener('click', () => {
     tSim = unixMsToTdbSecondsSinceJ2000(Date.now());
+    orbitsDirty = true;
   });
   orbitCanvas.addEventListener('click', pickPlanet);
+  new ResizeObserver(() => {
+    orbitsDirty = true;
+  }).observe(orbitCanvas);
   orbits.body.append(
     el('div', { cls: 'orbit-wrap' }, orbitCanvas, clock),
     el('div', { cls: 'controls' }, playBtn, nowBtn, seg),
@@ -759,12 +1005,14 @@ function build(): void {
 
   const card = panel(t('exo.demo.preview'));
   card.root.classList.add('card');
+  card.root.id = 'exo-card';
   card.body.append(planetCard);
 
   const how = panel(t('exo.demo.howKnow'));
   detailBox.append(el('p', { cls: 'dim' }, t('exo.demo.howHint')));
   how.body.append(detailBox);
   how.root.classList.add('how');
+  howPanel = how.root;
 
   const star = panel(t('exo.demo.star'), t('exo.demo.starMeta'));
   star.body.append(buildStar());
@@ -779,7 +1027,7 @@ function build(): void {
     el('div', { cls: 'col col-side' }, how.root, star.root, system.root),
   );
   app.replaceChildren(header, grid);
-  renderPlanetCard();
+  select(selected);
 }
 
 // --- Boot ---------------------------------------------------------------------------------------------------------
@@ -791,7 +1039,16 @@ interface ExoHooks {
   pause(): void;
   dots(): PlanetDot[];
   selected(): number;
+  /** Resolves when the selected planet's surface preview is complete. */
+  previewReady(): Promise<void>;
+  /** Main-thread time spent rendering the selected planet's preview (ms, summed over its slices). */
   previewMs(): number;
+  /** Longest single preview slice so far (ms): how long a preview ever blocks the page at once. */
+  maxPreviewSliceMs(): number;
+  /** Planets whose preview is cached. */
+  cachedPreviews(): number[];
+  /** Number of orbit-view redraws so far (stays put while paused). */
+  orbitDraws(): number;
 }
 
 loadSystem('trappist-1')
@@ -812,11 +1069,15 @@ loadSystem('trappist-1')
       },
       pause: () => {
         playing = false;
-        playBtn.textContent = t('exo.demo.play');
+        syncPlay();
       },
       dots: () => lastDots,
       selected: () => selected,
-      previewMs: () => previewMs,
+      previewReady,
+      previewMs: () => previewCache.get(selected)?.cpuMs ?? previewJobs.get(selected)?.cpuMs ?? 0,
+      maxPreviewSliceMs: () => maxSliceMs,
+      cachedPreviews: () => [...previewCache.keys()].sort((a, b) => a - b),
+      orbitDraws: () => orbitDraws,
     };
     (window as unknown as { __ksExo: ExoHooks }).__ksExo = hooks;
   })

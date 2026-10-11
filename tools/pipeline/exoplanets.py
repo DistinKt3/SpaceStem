@@ -13,10 +13,17 @@ Sources (queried offline, cached under tools/.cache/exoarchive/, never at runtim
 Measured values are the archive's, except the CORRECTIONS listed below (each with its reason). Inferred values are
 computed here with the formulas in docs/EXO_TRAPPIST1.md. Generated surface parameters follow generate_surface().
 
+Every check (cross-check, default parameter set, stellar columns identical on every planet row, optionally the
+citation authors against Crossref) runs on the in-memory result first. The output file and the generated part of
+docs/EXO_TRAPPIST1.md are written only when all of them pass; otherwise the script exits 1 and changes nothing.
+
 Usage:
   tools/.venv/bin/python tools/pipeline/exoplanets.py             # use cached responses, fetch what is missing
   tools/.venv/bin/python tools/pipeline/exoplanets.py --refresh   # query every service again
   tools/.venv/bin/python tools/pipeline/exoplanets.py --offline   # cache only; fail if a response is missing
+  ... --verify-citations     # also compare citation author order with Crossref (network; responses cached)
+  ... --write-fixtures       # refresh tools/pipeline/fixtures/ (archive response, forecast subset) for the tests
+  ... --accept-default-set-differences   # write even if pscomppars no longer matches the default parameter set
 """
 from __future__ import annotations
 
@@ -25,9 +32,13 @@ import csv
 import io
 import json
 import math
+import os
 import re
 import sys
 import tarfile
+import time
+import unicodedata
+import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
@@ -197,7 +208,7 @@ CITATIONS: dict[str, dict[str, Any]] = {
         "url": "https://arxiv.org/abs/2509.02128",
     },
     "espinoza2025": {
-        "authors": "Espinoza, N., Glidden, A., Gressier, A. et al.",
+        "authors": "Espinoza, N., Allen, N. H., Glidden, A. et al.",
         "year": 2025,
         "title": "JWST-TST DREAMS: NIRSpec/PRISM Transmission Spectroscopy of the Habitable Zone Planet TRAPPIST-1 e",
         "venue": "The Astrophysical Journal Letters 990, L52",
@@ -205,12 +216,20 @@ CITATIONS: dict[str, dict[str, Any]] = {
         "url": "https://arxiv.org/abs/2509.05414",
     },
     "glidden2025": {
-        "authors": "Glidden, A., Espinoza, N., Gressier, A. et al.",
+        "authors": "Glidden, A., Ranjan, S., Seager, S. et al.",
         "year": 2025,
         "title": "JWST-TST DREAMS: Secondary Atmosphere Constraints for the Habitable Zone Planet TRAPPIST-1 e",
         "venue": "The Astrophysical Journal Letters 990, L53",
         "doi": "10.3847/2041-8213/adf62e",
         "url": "https://arxiv.org/abs/2509.05407",
+    },
+    "vinson2019": {
+        "authors": "Vinson, A. M., Tamayo, D. & Hansen, B. M. S.",
+        "year": 2019,
+        "title": "The chaotic nature of TRAPPIST-1 planetary spin states",
+        "venue": "Monthly Notices of the Royal Astronomical Society 488, 5739-5747",
+        "doi": "10.1093/mnras/stz2113",
+        "url": "https://arxiv.org/abs/1905.11419",
     },
     "dewit2018": {
         "authors": "de Wit, J., Wakeford, H. R., Lewis, N. K. et al.",
@@ -402,8 +421,19 @@ def cached_get(name: str, url: str, params: dict[str, str], *, refresh: bool, of
     if offline:
         raise SystemExit(f"--offline: no cached response for {name} ({full_url})")
     req = urllib.request.Request(full_url, headers={"User-Agent": USER_AGENT})
-    with urllib.request.urlopen(req, timeout=180) as r:
-        body = r.read()
+    for attempt in range(5):
+        try:
+            with urllib.request.urlopen(req, timeout=180) as r:
+                body = r.read()
+            break
+        except urllib.error.HTTPError as e:
+            # Rate limits (Crossref answers bursts with 429): wait as asked, or back off, then retry.
+            if e.code not in (429, 503) or attempt == 4:
+                raise
+            retry_after = e.headers.get("Retry-After", "")
+            time.sleep(float(retry_after) if retry_after.isdigit() else 2.0 * 2**attempt)
+    else:  # pragma: no cover - the loop either breaks or raises
+        raise SystemExit(f"could not fetch {full_url}")
     meta = {"url": full_url, "retrievedUtc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}
     body_path.write_bytes(body)
     meta_path.write_text(json.dumps(meta, indent=1) + "\n")
@@ -493,8 +523,8 @@ def read_forecast(eprint_targz: bytes) -> list[ForecastTransit]:
     return out
 
 
-# Two transit times measured by JWST and listed in Agol et al. 2024 (BJD_TDB - 2,450,000): planet h. The new
-# solution must reproduce them, which confirms which CSV column is which.
+# Three transit times measured by JWST and listed in Agol et al. 2024 (BJD_TDB - 2,450,000): two of planet h and one
+# of planet c. The new solution must reproduce them, which confirms which CSV column is which.
 JWST_CHECK = [(7, 10139.74928085), (7, 10289.88762392), (2, 10247.0939505)]
 
 # Reference instant for the fitted epochs: the forecast transit nearest 2026-01-01 (the game's era).
@@ -812,7 +842,11 @@ def build_inferred(row: dict[str, Any], star_row: dict[str, Any], eph: Ephemeris
             "Not observed. Turbet et al. 2018 find from N-body and tidal modelling that each TRAPPIST-1 planet is "
             f"likely in synchronous rotation (one face always toward the star). Order-of-magnitude check (Gladman et "
             f"al. 1996; Q = 100, k2 = 0.3, initial 12 h spin): spin-down in about {fmt_years(t_lock)} years, far "
-            f"shorter than the system's {star_row['st_age']} Gyr age."),
+            f"shorter than the system's {star_row['st_age']} Gyr age. Caveat: Vinson et al. 2019 show that mutual "
+            "tugs in the resonant chain can push d, e and f into effectively non-synchronous spin states (the "
+            "point under the star librates or even drifts around the planet)" + (
+                ", so this planet may not keep exactly one face toward the star." if letter in "def" else
+                "; they did not model this planet.")),
         "ephemerisPeriodDays": sourced(
             round(eph.period, 7), "d", "inferred",
             "Mean period: least-squares line through every transit time forecast by Agol et al. 2024 "
@@ -857,14 +891,15 @@ def atmosphere(letter: str) -> dict[str, Any]:
             "thick-co2-disfavoured", "", "inferred", "JWST/MIRI 15 um secondary eclipses", "greene2023", None,
             "JWST detected the dayside's thermal emission; it is most consistent with little or no atmosphere and no "
             "CO2 absorption (Greene et al. 2023). Adding 12.8 um eclipses, an airless fresh-rock surface fits, but so "
-            "does a hazy CO2 atmosphere (Ducrot et al. 2025); phase curves then strongly disfavoured atmospheres of 1 "
-            "bar or more (Gillon et al. 2026).")
+            "does a hazy CO2 atmosphere (Ducrot et al. 2025). Phase curves then strongly disfavoured atmospheres with "
+            "surface pressures of 1 bar or more and efficient greenhouse effects (Gillon et al. 2026).")
     if letter == "c":
         return sourced(
             "thick-co2-disfavoured", "", "inferred", "JWST/MIRI 15 um secondary eclipses", "zieba2023", None,
             "The dayside brightness temperature (380 +/- 31 K) disfavours a thick CO2-rich atmosphere; thinner "
-            "atmospheres or bare rock remain possible (Zieba et al. 2023). Phase curves disfavour atmospheres of 1 bar "
-            "or more; a thin O2-rich one is still allowed (Gillon et al. 2026).")
+            "atmospheres or bare rock remain possible (Zieba et al. 2023). Phase curves strongly disfavour atmospheres "
+            "with surface pressures of 1 bar or more and efficient greenhouse effects; a tenuous, greenhouse-poor "
+            "O2-dominated one is still allowed (Gillon et al. 2026).")
     notes = {
         "d": ("piaulet-ghorayeb2025", "JWST/NIRSpec transmission spectrum",
               "Unknown. A JWST transmission spectrum is flat: it rules out clear hydrogen-rich atmospheres and many "
@@ -957,8 +992,12 @@ def generate_surface(planet_id: str, letter: str, s_earth: float, teq30: float) 
     base = PALETTES[terrain][:]
     if ice > 0 and s_earth < THOLIN_BELOW_S:
         base[0], base[1] = THOLIN
-        why.append("Turbet et al. 2018 suggest photochemical hazes could settle as reddish tholins on the coldest "
-                   "TRAPPIST-1 surfaces, so the bare ground is tinted reddish-brown.")
+        why.append("Turbet et al. 2018 suggest photochemical hazes could settle on TRAPPIST-1 planets and build up a "
+                   "surface layer of tholins. As a design choice we tint the bare ground reddish-brown on the coldest "
+                   f"icy planets only (insolation below {THOLIN_BELOW_S} x Earth's).")
+    if ice > 0:
+        why.append("Previews draw the ice away from the point under the star, assuming one face always points at it "
+                   "(likely but not certain; see the tidal-locking note).")
     glow = 0.0
     if terrain == "volcanic":
         glow = 0.06
@@ -993,7 +1032,7 @@ def collect_citations(obj: Any, out: set[str]) -> None:
             collect_citations(v, out)
 
 
-NOTE_CITATIONS = ["agol2024", "ducrot2025", "gillon2026", "glidden2025", "gladman1996"]  # cited inside notes only
+NOTE_CITATIONS = ["agol2024", "ducrot2025", "gillon2026", "glidden2025", "gladman1996", "vinson2019"]  # notes only
 
 
 def build(data: dict[str, Any]) -> dict[str, Any]:
@@ -1263,32 +1302,148 @@ def update_doc(out: dict[str, Any], rows: list[list[str]], matches: int, default
         end,
     ]
     new = text[: text.index(begin)] + "\n".join(parts) + text[text.index(end) + len(end):]
-    DOC.write_text(new)
+    write_atomic(DOC, new)
+
+
+def write_atomic(path: Path, text: str) -> None:
+    """Write via a temporary file in the same directory and rename, so a failed run never leaves a partial file."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f".{path.name}.tmp")
+    tmp.write_text(text)
+    os.replace(tmp, path)
+
+
+# --- Test fixtures (committed, so the archive comparisons run on a fresh checkout) --------------------------------
+
+FIXTURES = ROOT / "tools" / "pipeline" / "fixtures"
+FIXTURE_ARCHIVE = FIXTURES / "pscomppars_trappist-1.json"
+FIXTURE_FORECAST = FIXTURES / "agol2024_forecast_subset.csv"
+FORECAST_FIXTURE_STRIDE = 10
+
+
+def forecast_subset(fc: list[ForecastTransit]) -> list[ForecastTransit]:
+    """Every FORECAST_FIXTURE_STRIDE-th transit of each planet, its first and last, and the JWST check transits."""
+    keep: list[ForecastTransit] = []
+    for planet in range(1, 8):
+        pts = [x for x in fc if x.planet == planet]
+        jwst = {min(pts, key=lambda x: abs(x.bjd - 2_450_000 - t)).epoch for p, t in JWST_CHECK if p == planet}
+        last = len(pts) - 1
+        keep += [x for i, x in enumerate(pts) if i % FORECAST_FIXTURE_STRIDE == 0 or i == last or x.epoch in jwst]
+    return keep
+
+
+def write_fixtures(data: dict[str, Any]) -> None:
+    """Copy the raw pscomppars response and a subset of the Agol et al. 2024 forecast (planet, transit number and
+    BJD_TDB - 2,450,000 at full precision) to tools/pipeline/fixtures/ for test_exoplanets.py."""
+    FIXTURES.mkdir(parents=True, exist_ok=True)
+    write_atomic(FIXTURE_ARCHIVE, (CACHE / "pscomppars_trappist-1.json").read_text())
+    lines = [f"{x.planet},{x.epoch},{x.bjd - 2_450_000!r}" for x in forecast_subset(data["forecast"])]
+    write_atomic(FIXTURE_FORECAST, "\n".join(lines) + "\n")
+    print(f"wrote {FIXTURE_ARCHIVE.relative_to(ROOT)} and {FIXTURE_FORECAST.relative_to(ROOT)} ({len(lines)} transits)")
+
+
+def read_forecast_fixture(path: Path = FIXTURE_FORECAST) -> list[ForecastTransit]:
+    out = []
+    for r in csv.reader(io.StringIO(path.read_text())):
+        if r:
+            out.append(ForecastTransit(int(r[0]), int(r[1]), float(r[2]) + 2_450_000))
+    return out
+
+
+# --- Citation check against Crossref (online, optional) -----------------------------------------------------------
+
+INITIALS_RE = re.compile(r"^(?:[A-Z][a-z]?\.(?:-[A-Z]\.)?\s?)+$")
+
+
+def fold(s: str) -> str:
+    """Lower-case, accents removed: 'Méndez' -> 'mendez'."""
+    return "".join(c for c in unicodedata.normalize("NFKD", s) if not unicodedata.combining(c)).lower().strip()
+
+
+def listed_surnames(authors: str) -> list[str]:
+    """Surnames in our 'Surname, I., Surname, I. et al.' strings (group names such as 'Gaia Collaboration' included)."""
+    s = authors.replace(" et al.", "").replace(" & ", ", ")
+    return [tok for tok in (t.strip() for t in s.split(",")) if tok and not INITIALS_RE.match(tok)]
+
+
+def verify_citations(refresh: bool, offline: bool) -> tuple[list[str], int]:
+    """Compare each Crossref-registered citation's first listed surnames (up to three) with Crossref's author order.
+    The archive table DOI (DataCite) and entries without a DOI are skipped. Returns (problems, DOIs checked)."""
+    problems = []
+    checked = 0
+    for key, c in CITATIONS.items():
+        doi = c.get("doi")
+        if not doi or doi.startswith("10.26133/"):
+            continue
+        r = cached_get(f"crossref_{doi.replace('/', '_')}.json", f"https://api.crossref.org/works/{doi}", {},
+                       refresh=refresh, offline=offline)
+        msg = json.loads(r.body)["message"]
+        checked += 1
+        theirs = [fold(a.get("family") or a.get("name") or "") for a in msg.get("author", [])]
+        ours = [fold(n) for n in listed_surnames(c["authors"]) if fold(n) != "gaia collaboration"]
+        if theirs and fold(theirs[0]) == "gaia collaboration":
+            theirs = theirs[1:]
+        if theirs[: len(ours[:3])] != ours[:3]:
+            problems.append(f"{key}: we list {ours[:3]}, Crossref has {theirs[:3]}")
+    return problems, checked
+
+
+def check_rows_agree(comp: list[dict[str, Any]]) -> list[str]:
+    """Stellar and system columns must be identical on every planet row, since the build reads them from the first."""
+    issues = []
+    cols = [c for c in comp[0] if c.startswith(("st_", "sy_")) or c in ("ra", "dec", "rastr", "decstr", "gaia_dr3_id")]
+    for row in comp[1:]:
+        for c in cols:
+            if row.get(c) != comp[0].get(c):
+                issues.append(f"{row['pl_name']} {c}: {row.get(c)!r} differs from {comp[0]['pl_name']} {comp[0].get(c)!r}")
+    return issues
 
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--refresh", action="store_true", help="query every service again")
-    ap.add_argument("--offline", action="store_true", help="use cached responses only")
+    mode = ap.add_mutually_exclusive_group()
+    mode.add_argument("--refresh", action="store_true", help="query every service again")
+    mode.add_argument("--offline", action="store_true", help="use cached responses only")
+    ap.add_argument("--accept-default-set-differences", action="store_true",
+                    help="write the output even if pscomppars no longer carries the default parameter set's values")
+    ap.add_argument("--verify-citations", action="store_true",
+                    help="also compare citation author order with Crossref (network, cached)")
+    ap.add_argument("--write-fixtures", action="store_true",
+                    help="refresh tools/pipeline/fixtures/ from the cache after a successful build")
     args = ap.parse_args(argv)
     print("TRAPPIST-1: querying (or reading cache) ...")
     data = query_all(args.refresh, args.offline)
+    row_issues = check_rows_agree(data["comp"])
+    if row_issues:
+        print("Stellar columns differ between planet rows; nothing written:", *row_issues, sep="\n    ")
+        return 1
     out = build(data)
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(json.dumps(out, indent=1, ensure_ascii=False) + "\n")
+    # Every check runs on the in-memory result; the output and the doc are written only if all of them pass.
     rows, matches = cross_check(out, data)
     default_issues = default_set_check(data)
     phase_rows = phase_check(out, data)
-    update_doc(out, rows, matches, default_issues, phase_rows)
-    print(f"wrote {OUT.relative_to(ROOT)} ({OUT.stat().st_size:,} bytes)")
+    unexplained = [r for r in rows if r[3].startswith("UNEXPLAINED")]
+    cite_issues, cite_checked = verify_citations(args.refresh, args.offline) if args.verify_citations else ([], 0)
     print(f"confirmed exoplanets: {out['exoplanetCount']['value']} as of {out['exoplanetCount']['asOf']}")
     print(f"cross-check: {matches} agree, {len(rows)} rows to review; corrections: {len(CORRECTIONS)}")
-    unexplained = [r for r in rows if r[3].startswith("UNEXPLAINED")]
     for r in unexplained:
         print("  UNEXPLAINED:", " | ".join(r))
     if default_issues:
         print("  default-set differences:", *default_issues, sep="\n    ")
-    return 1 if unexplained else 0
+    for p in cite_issues:
+        print("  CITATION:", p)
+    blocked = bool(unexplained or cite_issues or (default_issues and not args.accept_default_set_differences))
+    if blocked:
+        print(f"Checks failed: {OUT.relative_to(ROOT)} and {DOC.relative_to(ROOT)} were not changed.")
+        return 1
+    write_atomic(OUT, json.dumps(out, indent=1, ensure_ascii=False) + "\n")
+    update_doc(out, rows, matches, default_issues, phase_rows)
+    print(f"wrote {OUT.relative_to(ROOT)} ({OUT.stat().st_size:,} bytes)")
+    if args.verify_citations:
+        print(f"citations: author order of {cite_checked} DOIs matches Crossref")
+    if args.write_fixtures:
+        write_fixtures(data)
+    return 0
 
 
 if __name__ == "__main__":
