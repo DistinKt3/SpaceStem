@@ -11,6 +11,8 @@
     "type": "star",
     "teffK": 5772
    },
+   "luminositySun": 1.0,
+   "absMagV": 4.81,
    "ephemerisId": "10",
    "radiiM": [
     695700000.0,

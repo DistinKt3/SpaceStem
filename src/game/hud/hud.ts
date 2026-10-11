@@ -33,6 +33,8 @@ export interface HudState {
   throttle: number;
   speed: number;
   speedLabel: 'surface' | 'orbital' | 'drive';
+  /** Hyperspeed: seconds to arrival (overrides distance/speed ETA). */
+  etaOverride: number | null;
   governorSpeed: number;
   altitude: number;
   verticalSpeed: number;
@@ -45,6 +47,8 @@ export interface HudState {
   labels: HudLabel[];
   utc: string;
   sunDistance: number;
+  /** Name of the system's star (the Sun, or the star the ship is visiting). */
+  sunName: string;
   warnings: string[];
   footer: string;
 }
@@ -149,7 +153,7 @@ export class Hud {
     if (s.target) {
       const d = s.target.rel.length();
       const surf = Math.max(0, d - s.target.radius);
-      const eta = s.speed > 1 ? surf / s.speed : Infinity;
+      const eta = s.etaOverride ?? (s.speed > 1 ? surf / s.speed : Infinity);
       this.right.style.display = '';
       this.right.innerHTML =
         `<div class="k">${t('hud.target')}</div><div class="v ks-target-name">${s.target.name}</div>` +
@@ -161,7 +165,7 @@ export class Hud {
     } else {
       this.right.style.display = 'none';
     }
-    this.footer.innerHTML = `${s.utc} · ${t('hud.sunDistance')} ${formatDistance(s.sunDistance)} · ${t('hud.lightTime')} ${formatDuration(s.sunDistance / SPEED_OF_LIGHT_M_PER_S)}${s.footer ? ` · ${s.footer}` : ''}`;
+    this.footer.innerHTML = `${s.utc} · ${t('hud.starDistance', { name: s.sunName })} ${formatDistance(s.sunDistance)} · ${t('hud.lightTime')} ${formatDuration(s.sunDistance / SPEED_OF_LIGHT_M_PER_S)}${s.footer ? ` · ${s.footer}` : ''}`;
     this.warn.textContent = s.warnings.join(' · ');
     this.warn.style.display = s.warnings.length ? '' : 'none';
   }

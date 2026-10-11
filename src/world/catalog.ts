@@ -53,6 +53,10 @@ export interface BodyDef {
   provenance: Provenance;
   source: string;
   citation: string;
+  /** Stars: luminosity in solar units (1 for the Sun). */
+  luminositySun?: number;
+  /** Stars: absolute visual magnitude (for drawing as a point when unresolved). */
+  absMagV?: number;
 }
 
 export async function loadBodies(): Promise<BodyDef[]> {

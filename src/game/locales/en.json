@@ -68,5 +68,14 @@
   "hud.warn.heat": "Hull heating",
   "prov.measured": "Measured",
   "prov.inferred": "Inferred",
-  "prov.generated": "Generated"
+  "prov.generated": "Generated",
+  "hyper.error.busy": "Hyperspeed already engaged",
+  "hyper.error.landed": "Lift off before engaging hyperspeed",
+  "hyper.error.gravityWell": "Too deep in a gravity well: climb away from the planet first",
+  "hyper.error.tooClose": "Already at this star",
+  "hyper.error.noTarget": "Select a star first (Tab)",
+  "hyper.error.notStar": "Hyperspeed needs a star as destination",
+  "hyper.spooling": "Hyperspeed spooling: {name}",
+  "hyper.eta": "Arrival in {s} s",
+  "hud.starDistance": "From {name}"
 }

@@ -6,7 +6,7 @@
  * barycentric magnitudes (1e12 m) with surface-scale offsets.
  */
 import * as THREE from 'three/webgpu';
-import { AU_M } from '../core/constants';
+import { AU_M, PARSEC_M } from '../core/constants';
 import { Mat3d, Vec3d } from '../core/vec3d';
 import { dataUrl, loadHeights } from '../data/assets';
 import type { DepthRenderable, FrameRenderer } from '../render/frameRenderer';
@@ -96,6 +96,7 @@ export class SolarSystem {
   private readonly tmp = new Vec3d();
   private readonly mat3 = new THREE.Matrix3();
   private readonly mat4 = new THREE.Matrix4();
+  private lastPrimary: BodyView | null = null;
 
   private constructor(
     readonly ephemeris: Ephemeris,
@@ -129,6 +130,28 @@ export class SolarSystem {
       v.soi = Math.max(3 * v.def.radiusM, a * Math.pow(v.def.gmM3S2 / parent.def.gmM3S2, 0.4));
     }
     return sys;
+  }
+
+  /** Add a body at runtime (e.g. a star the player travelled to). */
+  async addBody(def: BodyDef, pool: ChunkWorkerPool, frame: FrameRenderer): Promise<BodyView> {
+    const existing = this.byId.get(def.id);
+    if (existing) return existing;
+    const view = await this.buildBody(def, pool);
+    frame.add(view.renderable);
+    this.views.push(view);
+    this.byId.set(def.id, view);
+    return view;
+  }
+
+  /** Remove a runtime body (frees its terrain chunks). */
+  removeBody(id: string, frame: FrameRenderer): void {
+    const v = this.byId.get(id);
+    if (!v) return;
+    frame.remove(v.renderable);
+    v.terrain.dispose();
+    this.byId.delete(id);
+    const i = this.views.indexOf(v);
+    if (i >= 0) this.views.splice(i, 1);
   }
 
   private async buildBody(def: BodyDef, pool: ChunkWorkerPool): Promise<BodyView> {
@@ -255,30 +278,78 @@ export class SolarSystem {
     return view;
   }
 
+  /**
+   * Resolver for anchors that are not in the ephemeris: catalog stars ("*<index>") and interstellar space ("ism").
+   * Returns the anchor's SSB position (m). Set by the game when the star catalog is loaded.
+   */
+  externalAnchor: ((anchor: string, t: number, out: Vec3d) => Vec3d | null) | null = null;
+
+  private ephemerisIdOf(anchor: string): string {
+    return this.byId.get(anchor)?.def.ephemerisId ?? anchor;
+  }
+
+  /** SSB position of an anchor (body centre, catalog star, or interstellar origin). */
+  anchorSsb(anchor: string, t: number, out: Vec3d): Vec3d {
+    const eid = this.ephemerisIdOf(anchor);
+    if (this.ephemeris.has(eid)) return this.ephemeris.ssb(eid, t, out);
+    const r = this.externalAnchor?.(anchor, t, out);
+    if (!r) throw new Error(`unknown anchor ${anchor}`);
+    return r;
+  }
+
+  /** Position of anchor `a` relative to anchor `b`, precise (common-ancestor) when both are in the ephemeris. */
+  anchorRelative(a: string, b: string, t: number, out: Vec3d): Vec3d {
+    const ea = this.ephemerisIdOf(a);
+    const eb = this.ephemerisIdOf(b);
+    if (this.ephemeris.has(ea) && this.ephemeris.has(eb)) return this.ephemeris.between(ea, eb, t, out);
+    return this.anchorSsb(a, t, out).sub(this.anchorSsb(b, t, new Vec3d()));
+  }
+
   /** Absolute (SSB) position of a SystemPos. */
   toSsb(p: SystemPos, t: number, out: Vec3d): Vec3d {
-    return this.ephemeris.ssb(this.byId.get(p.anchor)!.def.ephemerisId, t, out).add(p.offset);
+    return this.anchorSsb(p.anchor, t, out).add(p.offset);
   }
 
-  /** Vector from `from` to body `id`'s centre, metres, computed via the common ancestor (precise). */
+  /** Vector from `from` to body `id`'s centre, metres. */
   bodyRelative(id: string, from: SystemPos, t: number, out: Vec3d): Vec3d {
-    const target = this.byId.get(id)!.def.ephemerisId;
-    const anchor = this.byId.get(from.anchor)!.def.ephemerisId;
-    return this.ephemeris.between(target, anchor, t, out).sub(from.offset);
+    return this.anchorRelative(id, from.anchor, t, out).sub(from.offset);
   }
 
-  /** Re-express a position relative to a different anchor body without losing precision near it. */
+  /** Re-express a position relative to a different anchor without losing precision near it. */
   reanchor(p: SystemPos, anchor: string, t: number): SystemPos {
     if (p.anchor === anchor) return p;
-    const off = this.ephemeris
-      .between(this.byId.get(p.anchor)!.def.ephemerisId, this.byId.get(anchor)!.def.ephemerisId, t, new Vec3d())
-      .add(p.offset);
-    return { anchor, offset: off };
+    return { anchor, offset: this.anchorRelative(p.anchor, anchor, t, new Vec3d()).add(p.offset) };
   }
 
-  /** The most specific body whose sphere of influence contains the position. */
+  /** Velocity of anchor `a` relative to anchor `b` (m/s); catalog stars are treated as fixed. */
+  anchorVelocity(a: string, b: string, t: number, out: Vec3d): Vec3d {
+    const ea = this.ephemerisIdOf(a);
+    const eb = this.ephemerisIdOf(b);
+    if (this.ephemeris.has(ea) && this.ephemeris.has(eb)) return this.ephemeris.velocityBetween(ea, eb, t, out);
+    return out.set(0, 0, 0);
+  }
+
+  /** Star nearest to a position (the system's light source). */
+  primaryStar(p: SystemPos, t: number): BodyView {
+    let best: BodyView | undefined;
+    let bestD = Infinity;
+    for (const v of this.views) {
+      if (v.def.kind !== 'star') continue;
+      const d = this.bodyRelative(v.def.id, p, t, this.tmp).length();
+      if (d < bestD) {
+        bestD = d;
+        best = v;
+      }
+    }
+    return best!;
+  }
+
+  /**
+   * The anchor a position should use: the most specific body whose sphere of influence contains it; otherwise the
+   * nearest star if within 0.05 light-years; otherwise interstellar space ("ism").
+   */
   dominantBody(p: SystemPos, t: number): string {
-    let best = this.views.find((v) => v.def.kind === 'star')!.def.id;
+    let best: string | null = null;
     let bestSoi = Infinity;
     for (const v of this.views) {
       if (v.def.kind === 'star') continue;
@@ -288,7 +359,10 @@ export class SolarSystem {
         bestSoi = v.soi;
       }
     }
-    return best;
+    if (best) return best;
+    const star = this.primaryStar(p, t);
+    const d = this.bodyRelative(star.def.id, p, t, this.tmp).length();
+    return d < 4.7e14 ? star.def.id : 'ism';
   }
 
   /** Nearest body surface to a position: [view, altitude above mean radius (m)]. */
@@ -311,18 +385,28 @@ export class SolarSystem {
    */
   pointSources(): { dir: [number, number, number]; mag: number; color: [number, number, number] }[] {
     const out: { dir: [number, number, number]; mag: number; color: [number, number, number] }[] = [];
-    const sun = this.views.find((v) => v.def.kind === 'star')!;
+    const star = this.lastPrimary;
+    if (!star) return out;
     for (const v of this.views) {
-      if (v.def.kind === 'star' || v.angularRadiusPx > 1.5) continue;
+      if (v.angularRadiusPx > 1.5) continue;
       const delta = v.rel.length();
       if (delta < 1) continue;
-      const toSun = new Vec3d().subVectors(sun.rel, v.rel);
+      const dir: [number, number, number] = [v.rel.x / delta, v.rel.y / delta, v.rel.z / delta];
+      if (v.def.kind === 'star') {
+        // Catalog stars are drawn by the starfield; the Sun is not in the catalogue, so draw it here.
+        if (v.def.absMagV === undefined) continue;
+        const mag = v.def.absMagV + 5 * Math.log10(delta / PARSEC_M) - 5;
+        out.push({ dir, mag, color: [255, 244, 228] });
+        continue;
+      }
+      const toSun = new Vec3d().subVectors(star.rel, v.rel);
       const r = toSun.length();
       const alpha = Math.acos(Math.max(-1, Math.min(1, toSun.dot(v.rel.clone().scale(-1)) / (r * delta))));
       const phase = (Math.sin(alpha) + (Math.PI - alpha) * Math.cos(alpha)) / Math.PI;
-      const f = v.def.geometricAlbedo * (v.def.radiusM / delta) ** 2 * (AU_M / r) ** 2 * Math.max(phase, 1e-6);
+      const lum = star.def.luminositySun ?? 1;
+      const f = lum * v.def.geometricAlbedo * (v.def.radiusM / delta) ** 2 * (AU_M / r) ** 2 * Math.max(phase, 1e-6);
       const mag = -26.74 - 2.5 * Math.log10(f);
-      out.push({ dir: [v.rel.x / delta, v.rel.y / delta, v.rel.z / delta], mag, color: POINT_COLORS[v.def.key] ?? [235, 235, 235] });
+      out.push({ dir, mag, color: POINT_COLORS[v.def.key] ?? [235, 235, 235] });
     }
     return out;
   }
@@ -339,11 +423,13 @@ export class SolarSystem {
    * `cam` is the camera position; pxPerRadian = viewport height / vertical FOV.
    */
   update(cam: SystemPos, t: number, pxPerRadian: number): void {
-    const sunId = this.views.find((v) => v.def.kind === 'star')!.def.id;
-    const sunRel = this.bodyRelative(sunId, cam, t, new Vec3d());
+    const star = this.primaryStar(cam, t);
+    this.lastPrimary = star;
+    const sunRel = this.bodyRelative(star.def.id, cam, t, new Vec3d());
+    const lum = star.def.luminositySun ?? 1;
     for (const v of this.views) {
       this.bodyRelative(v.def.id, cam, t, v.rel);
-      bodyToIcrf(v.def.rotation, t, v.rotation);
+      if (v.def.rotation.poleRa.length) bodyToIcrf(v.def.rotation, t, v.rotation);
       const d = v.rel.length();
       v.angularRadiusPx = (Math.asin(Math.min(1, v.def.radiusM / Math.max(d, v.def.radiusM))) * pxPerRadian);
       v.root.position.set(v.rel.x, v.rel.y, v.rel.z);
@@ -358,7 +444,7 @@ export class SolarSystem {
       const rSun = toSun.length();
       toSun.scale(1 / Math.max(rSun, 1));
       u.sunDir.value.set(toSun.x, toSun.y, toSun.z);
-      u.sunIrradiance.value = Math.PI * (AU_M / Math.max(rSun, 1e9)) ** 2;
+      u.sunIrradiance.value = (Math.PI * lum * AU_M * AU_M) / Math.max(rSun, 1e7) ** 2;
       this.mat3.set(e[0]!, e[3]!, e[6]!, e[1]!, e[4]!, e[7]!, e[2]!, e[5]!, e[8]!); // transpose: world -> body
       u.worldToBody.value.copy(this.mat3);
       u.radPerPixel.value = 1 / pxPerRadian;

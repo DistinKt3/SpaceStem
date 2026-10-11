@@ -60,7 +60,14 @@ export class Starfield {
   readonly gain = uniform(1);
   readonly viewport = uniform(new THREE.Vector2(1920, 1080));
   readonly skyGain = uniform(1);
+  /** Hyperspeed streaks: amount (0 = none) and travel direction (world, unit). */
+  readonly streak = uniform(0);
+  readonly velDir = uniform(new THREE.Vector3(0, 0, -1));
   count = 0;
+  /** Catalogue arrays (shared with StarCatalog). */
+  positions = new Float32Array(0);
+  absMags = new Float32Array(0);
+  colors = new Uint8Array(0);
   private planetMesh?: THREE.Mesh;
   private planetDir?: THREE.InstancedBufferAttribute;
   private planetMag?: THREE.InstancedBufferAttribute;
@@ -86,6 +93,9 @@ export class Starfield {
       col[i * 4 + 2] = dv.getUint8(o + 18);
       col[i * 4 + 3] = 255;
     }
+    this.positions = pos;
+    this.absMags = mag;
+    this.colors = col;
     const stars = this.buildSprites(
       count,
       new THREE.InstancedBufferAttribute(pos, 3),
@@ -181,8 +191,21 @@ export class Starfield {
       const view = cameraViewMatrix.mul(vec4(dir.mul(RENDER_DIST), 1));
       const clip = cameraProjectionMatrix.mul(view).toVar();
       const hide = intensity.lessThan(1e-4);
-      const offset = positionGeometry.xy.mul(sizePx).mul(2).div(this.viewport).mul(clip.w);
       const s = select(hide, float(0), float(1));
+      // Hyperspeed: stretch each star along the line from the vanishing point (travel direction) through it.
+      const vpView = cameraViewMatrix.mul(vec4(this.velDir.mul(RENDER_DIST), 1));
+      const vpClip = cameraProjectionMatrix.mul(vpView);
+      const ndc = clip.xy.div(clip.w);
+      const vpNdc = vpClip.xy.div(max(vpClip.w, 1e-6));
+      const away = ndc.sub(vpNdc).mul(this.viewport).mul(0.5); // px
+      const awayLen = max(length(away), 1e-3);
+      const along = away.div(awayLen);
+      const across = vec2(along.y.negate(), along.x);
+      const streakPx = this.streak.mul(awayLen).mul(0.35).mul(select(vpClip.w.greaterThan(0), float(1), float(0)));
+      const corner = positionGeometry.xy;
+      const lenPx = sizePx.add(streakPx);
+      const offPx = along.mul(corner.y.mul(lenPx).sub(streakPx.mul(0.5))).add(across.mul(corner.x.mul(sizePx)));
+      const offset = offPx.mul(2).div(this.viewport).mul(clip.w);
       return vec4(clip.xy.add(offset.mul(s)), clip.z, clip.w);
     })();
     mat.fragmentNode = Fn(() => {

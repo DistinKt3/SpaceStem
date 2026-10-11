@@ -121,9 +121,7 @@ export class Ship {
   /** Re-express position and velocity relative to another anchor body. */
   reanchor(sys: SolarSystem, anchor: string, t: number): void {
     if (anchor === this.pos.anchor) return;
-    const oldE = sys.byId.get(this.pos.anchor)!.def.ephemerisId;
-    const newE = sys.byId.get(anchor)!.def.ephemerisId;
-    const dv = sys.ephemeris.velocityBetween(oldE, newE, t, new Vec3d());
+    const dv = sys.anchorVelocity(this.pos.anchor, anchor, t, new Vec3d());
     this.pos = sys.reanchor(this.pos, anchor, t);
     this.vel.add(dv);
     if (this.landedBf) this.landed = false;
@@ -146,7 +144,7 @@ export class Ship {
     if (c.zeroThrottle) this.throttle = 0;
     this.throttle = Math.min(1, Math.max(this.mode === 'thrusters' ? -0.5 : 0, this.throttle + c.throttleRate * dt * 0.6));
 
-    const anchor = sys.byId.get(this.pos.anchor)!;
+    const anchor = sys.byId.get(this.pos.anchor);
     const [near, alt] = sys.nearest(this.pos, t);
     const ground = sys.surfaceHeightBelow(near, this.pos, t);
     tel.near = near.def.key;
@@ -183,16 +181,17 @@ export class Ship {
     if (m !== 'thrusters' && this.throttle < 0) this.throttle = 0;
   }
 
-  private surfaceVelocity(view: BodyView, t: number, rel: Vec3d): Vec3d {
+  private surfaceVelocity(view: BodyView | undefined, t: number, rel: Vec3d): Vec3d {
     // Velocity of the co-rotating surface frame at the ship's position (relative to the body centre).
+    if (!view || view.def.kind === 'star') return new Vec3d();
     return Ship.bodyOmega(view, t).cross(rel);
   }
 
-  private updateThrusters(dt: number, c: ShipControls, anchor: BodyView, t: number): void {
+  private updateThrusters(dt: number, c: ShipControls, anchor: BodyView | undefined, t: number): void {
     const tel = this.telemetry;
     const rel = this.pos.offset; // relative to the anchor centre
-    const r = rel.length();
-    const g = new Vec3d().copy(rel).scale(-anchor.def.gmM3S2 / (r * r * r));
+    const r = Math.max(rel.length(), 1);
+    const g = anchor ? new Vec3d().copy(rel).scale(-anchor.def.gmM3S2 / (r * r * r)) : new Vec3d();
     const frame = this.surfaceVelocity(anchor, t, rel);
     const vRel = new Vec3d().subVectors(this.vel, frame);
     const boost = c.boost ? 3 : 1;
@@ -246,8 +245,7 @@ export class Ship {
       this.mode = 'thrusters';
       this.throttle = 0;
       // Match the surface frame so the transition is calm.
-      const anchor = sys.byId.get(this.pos.anchor)!;
-      this.vel.copy(this.surfaceVelocity(anchor, t, this.pos.offset));
+      this.vel.copy(this.surfaceVelocity(sys.byId.get(this.pos.anchor), t, this.pos.offset));
       tel.droppedOut = true;
     }
   }
@@ -265,8 +263,7 @@ export class Ship {
       this.pos.offset.addScaled(up, push);
       tel.agl = FLIGHT.clearanceM;
       // Remove the into-ground component of velocity relative to the surface frame.
-      const anchor = sys.byId.get(this.pos.anchor)!;
-      const frame = this.surfaceVelocity(anchor, t, this.pos.offset);
+      const frame = this.surfaceVelocity(sys.byId.get(this.pos.anchor), t, this.pos.offset);
       const vRel = new Vec3d().subVectors(this.vel, frame);
       const vn = vRel.dot(up);
       if (vn < 0) vRel.addScaled(up, -vn);
@@ -288,7 +285,11 @@ export class Ship {
   }
 
   private updateLanded(c: ShipControls, sys: SolarSystem, t: number): void {
-    const view = sys.byId.get(this.pos.anchor)!;
+    const view = sys.byId.get(this.pos.anchor);
+    if (!view) {
+      this.landed = false;
+      return;
+    }
     const rot = new Mat3d().copy(view.rotation);
     if (this.landedBf) this.pos.offset.copy(this.landedBf).applyMat3(rot);
     this.vel.copy(this.surfaceVelocity(view, t, this.pos.offset));

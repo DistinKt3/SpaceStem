@@ -9,6 +9,7 @@ import { Vec3d } from '../core/vec3d';
 import { createRenderer, effectiveDepthMode, type BackendRequest, type DepthMode, type RendererInfo } from '../render/bootstrap';
 import { FrameRenderer } from '../render/frameRenderer';
 import { Starfield } from '../render/starfield';
+import { StarCatalog } from '../world/starCatalog';
 import { PARSEC_M } from '../core/constants';
 import { loadBodies } from '../world/catalog';
 import { Ephemeris } from '../world/ephemeris';
@@ -26,6 +27,8 @@ export interface CameraState {
 }
 
 export interface Controller {
+  /** True when the controller keeps the camera anchored itself (the ship re-anchors with velocity). */
+  readonly managesAnchor?: boolean;
   update(dt: number, app: App): void;
   /** Optional per-frame HUD/overlay update after the world has been positioned. */
   updateHud?(app: App): void;
@@ -39,6 +42,8 @@ export class App {
   sys!: SolarSystem;
   pool!: ChunkWorkerPool;
   readonly stars = new Starfield();
+  catalog: StarCatalog | null = null;
+  reducedMotion = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
   depthMode: DepthMode = 'reversed';
   /** Simulation time, TDB seconds since J2000. */
   simTime = 0;
@@ -83,8 +88,18 @@ export class App {
     this.progress(t('boot.loading', { item: 'stars' }));
     await this.stars.load();
     this.frame.backgroundScene.add(this.stars.group);
+    this.catalog = new StarCatalog(this.stars.positions, this.stars.absMags);
+    await this.catalog.load();
     this.pool = new ChunkWorkerPool();
     this.sys = await SolarSystem.create(eph, bodies, this.pool, this.frame, (name) => this.progress(t('boot.loading', { item: name })));
+    const catalog = this.catalog;
+    this.sys.externalAnchor = (anchor, time, out) => {
+      if (anchor === 'ism') return out.set(0, 0, 0);
+      if (anchor.startsWith('*') && catalog) {
+        return catalog.positionM(Number(anchor.slice(1)), out).add(eph.ssb('10', time, new Vec3d()));
+      }
+      return null;
+    };
     // One update so lighting/rotation are known before placing the camera.
     this.sys.update(this.cam.pos, this.simTime, this.pxPerRadian());
     this.place(this.view(this.params.get('view') ?? 'leo'));
@@ -169,8 +184,10 @@ export class App {
 
   renderFrame(): void {
     // Keep the anchor on the dominant body so offsets stay small where precision matters.
-    const dom = this.sys.dominantBody(this.cam.pos, this.simTime);
-    if (dom !== this.cam.pos.anchor) this.cam.pos = this.sys.reanchor(this.cam.pos, dom, this.simTime);
+    if (!this.controller?.managesAnchor) {
+      const dom = this.sys.dominantBody(this.cam.pos, this.simTime);
+      if (dom !== this.cam.pos.anchor) this.cam.pos = this.sys.reanchor(this.cam.pos, dom, this.simTime);
+    }
     this.sys.update(this.cam.pos, this.simTime, this.pxPerRadian());
     this.frame.camera.quaternion.copy(this.cam.quat);
     this.frame.camera.position.set(0, 0, 0);
@@ -187,9 +204,8 @@ export class App {
    * the camera is inside a sunlit atmosphere (daytime sky) or when a bright body fills the view.
    */
   private updateSky(): void {
-    const sun = this.sys.views.find((v) => v.def.kind === 'star')!;
     const camSsb = this.sys.toSsb(this.cam.pos, this.simTime, new Vec3d());
-    const sunSsb = this.sys.ephemeris.ssb(sun.def.ephemerisId, this.simTime, new Vec3d());
+    const sunSsb = this.sys.ephemeris.ssb('10', this.simTime, new Vec3d());
     this.stars.camPc.value.set((camSsb.x - sunSsb.x) / PARSEC_M, (camSsb.y - sunSsb.y) / PARSEC_M, (camSsb.z - sunSsb.z) / PARSEC_M);
     let v = 1;
     const [near, alt] = this.sys.nearest(this.cam.pos, this.simTime);
@@ -217,8 +233,8 @@ export class App {
    * a body that fills the view (a camera exposes the Moon's dark regolith brighter than Earth's clouds). Smoothed.
    */
   private updateExposure(dt = 1 / 60): void {
-    const sun = this.sys.views.find((v) => v.def.kind === 'star')!;
-    const irr = (1.495978707e11 / Math.max(sun.rel.length(), 1e6)) ** 2;
+    const sun = this.sys.primaryStar(this.cam.pos, this.simTime);
+    const irr = ((sun.def.luminositySun ?? 1) * 1.495978707e11 ** 2) / Math.max(sun.rel.length(), 1e6) ** 2;
     let target = Math.pow(irr, -0.8);
     const [near] = this.sys.nearest(this.cam.pos, this.simTime);
     if (near.def.kind !== 'star') {
@@ -235,7 +251,7 @@ export class App {
 
   updateHud(): void {
     const [near, alt] = this.sys.nearest(this.cam.pos, this.simTime);
-    const sun = this.sys.views.find((v) => v.def.kind === 'star')!;
+    const sun = this.sys.primaryStar(this.cam.pos, this.simTime);
     const dSun = sun.rel.length();
     const utc = new Date(tdbSecondsSinceJ2000ToUnixMs(this.simTime)).toISOString().replace('T', ' ').slice(0, 19);
     const surf = this.sys.surfaceHeightBelow(near, this.cam.pos, this.simTime);

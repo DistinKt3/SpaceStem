@@ -123,7 +123,7 @@ GIANT_ATMOS = lambda color: {  # noqa: E731
 BODIES = [
     # id, key, name, kind, parent (for UI), ephemeris id, surface
     {"id": "10", "key": "sun", "name": "Sun", "kind": "star", "parent": None,
-     "surface": {"type": "star", "teffK": 5772}},
+     "surface": {"type": "star", "teffK": 5772}, "luminositySun": 1.0, "absMagV": 4.81},
     {"id": "199", "key": "mercury", "name": "Mercury", "kind": "planet", "parent": "10",
      "surface": {"type": "terrain", "texture": "mercury", "terrain": "cratered", "amplitude": 3000}},
     {"id": "299", "key": "venus", "name": "Venus", "kind": "planet", "parent": "10",
