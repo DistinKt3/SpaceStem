@@ -658,8 +658,9 @@ def build_star(row: dict[str, Any], simbad: list[dict[str, str]]) -> dict[str, A
             uncertainty(round_sig(l_hi, 2), -round_sig(l_lo, 2)),
             "Linear form of luminosityLogSun. Agol et al. 2021 list (5.53 +/- 0.19)e-4 L_sun from Ducrot et al. 2020."),
         "ageGyr": archive_measured(
-            row, "st_age", "Gyr", "Same value as Burgasser & Mamajek (2017), from kinematics, activity and "
-            "metallicity indicators; the uncertainty is large."),
+            row, "st_age", "Gyr", "Same value as Burgasser & Mamajek (2017), who combined many empirical age "
+            "indicators (colour-magnitude position, density, lithium, gravity features, metallicity, kinematics, "
+            "rotation, activity). The uncertainty is large."),
         "metallicityFeH": archive_measured(row, "st_met", "dex", f"Ratio {row['st_metratio']}, relative to the Sun."),
         "spectralType": sourced(row["st_spectype"], "", "measured",
                                 f"NASA Exoplanet Archive pscomppars (st_spectype); {spt_ref.label}", spt_ref.key),
@@ -818,9 +819,9 @@ def build_inferred(row: dict[str, Any], star_row: dict[str, Any], eph: Ephemeris
             f"({bjd_to_iso_date(eph.first)} to {bjd_to_iso_date(eph.last)})", "agol2024",
             round_sig(eph.period_sigma, 2),
             "The forecast is an N-body fit to transit times measured from the ground, Spitzer, K2, HST and JWST. A "
-            "straight line cannot follow the planets' mutual tugs (transit-timing variations): real transits stray "
-            f"from it by up to {eph.max_min:.0f} min ({eph.rms_min:.0f} min rms) over that span. The uncertainty is "
-            "the formal fit error."),
+            "straight line cannot follow the planets' mutual tugs (transit-timing variations): the forecast "
+            f"transits stray from it by up to {eph.max_min:.0f} min ({eph.rms_min:.0f} min rms) over that span. The "
+            "uncertainty is the formal fit error."),
         "ephemerisTransitMidBJD": sourced(
             round(eph.t0, 5), "BJD_TDB", "inferred",
             "Mean-ephemeris transit nearest 2026-01-01, from the same least-squares line through the Agol et al. "

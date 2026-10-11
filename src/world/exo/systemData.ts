@@ -357,7 +357,7 @@ export function bjdToTdbSeconds(bjd: number): number {
  * motion 2pi/P. Uses the mean linear ephemeris (inferred.ephemerisPeriodDays / ephemerisTransitMidBJD, fitted to the
  * Agol et al. 2024 transit forecast), not the archive's period and epoch: the archive period is an osculating N-body
  * element, and paired with the archive epoch it misses 2026 transits by 3 to 27 hours. The mean ephemeris follows
- * the forecast within about 20 to 110 minutes (transit-timing variations) through mid-2027 and drifts slowly after.
+ * the forecast within 17 to 107 minutes (transit-timing variations) through mid-2027 and drifts slowly after.
  */
 export function orbitalPhase(planet: ExoPlanet, tdbSecondsSinceJ2000: number): number {
   const periodS = planet.inferred.ephemerisPeriodDays.value * DAY_S;
@@ -373,8 +373,8 @@ export function orbitalPhase(planet: ExoPlanet, tdbSecondsSinceJ2000: number): n
  *
  * Time is the TDB instant at which a Solar System barycentre observer sees the configuration (the convention of the
  * BJD_TDB transit epochs). The system's own "now" is lightTimeSeconds() later; add it to place planets at the instant
- * their light leaves. The transit epoch is a model reference (see orbitalPhase): positions are good to about a
- * degree of orbital phase around 2026 and drift slowly beyond the forecast's end. Orbits are drawn circular
+ * their light leaves. The transit epoch is a model reference (see orbitalPhase): positions are good to a few
+ * degrees of orbital phase through mid-2027 and drift slowly beyond the forecast's end. Orbits are drawn circular
  * (e < 0.011).
  */
 export function orbitalPosition(planet: ExoPlanet, tdbSecondsSinceJ2000: number, out: Vec3d = new Vec3d()): Vec3d {

@@ -92,7 +92,7 @@
   "exo.demo.speed.day": "1 d/s",
   "exo.demo.speed.week": "1 wk/s",
   "exo.demo.utc": "{date} UTC",
-  "exo.demo.orbitFootnote": "Orbit sizes are measured. Positions follow a mean transit ephemeris fitted to published forecasts (inferred); real transits stray from it by up to two hours. Planet dots are not to scale.",
+  "exo.demo.orbitFootnote": "Orbit sizes are measured. Positions follow a mean transit ephemeris fitted to published forecasts (inferred); predicted transits stray from it by up to two hours. Planet dots are not to scale.",
   "exo.demo.planets": "Planets",
   "exo.demo.planetsMeta": "select a planet",
   "exo.demo.col.planet": "Planet",

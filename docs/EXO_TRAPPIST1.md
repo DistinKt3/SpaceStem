@@ -113,7 +113,8 @@ Class codes: `composition` is `rocky` or `rocky-or-water-rich`; `atmosphere` is 
    orbital phase (phase check in section 8). We keep both archive values as measured, with notes, and add an inferred
    mean ephemeris per planet: a least-squares line through every transit time in the Agol et al. 2024 forecast
    (2015-08-31 to 2027-07-25), referenced to the transit nearest 2026-01-01. It follows the forecast to within
-   17-107 minutes (the transit-timing variations a line cannot follow), about 1-2° of phase. `orbitalPosition` uses
+   17-107 minutes (the transit-timing variations a line cannot follow), at most 1.4-4.6° of orbital phase.
+   `orbitalPosition` uses
    it. The forecast CSV has no column labels; the pipeline uses only the planet, transit number and time columns,
    and checks that the time column reproduces three JWST-measured transits listed in the paper.
 6. **Eccentricity** is Grimm et al. 2018's (the default set gives none). All are below 0.011; orbits are drawn as
@@ -128,7 +129,7 @@ share the stellar-mass uncertainty).
 | Field | Formula and assumptions | Source |
 |---|---|---|
 | `equilibriumTempK_A0`, `_A030` | Teq = Teff √(R*/(2a)) (1 − A)^¼ with Bond albedo A = 0 and 0.3; full day-night heat redistribution, emissivity 1, no greenhouse effect. R☉ = 695,700 km (IAU 2015 B3), au = 149,597,870.7 km (IAU 2012 B2). A = 0 reproduces the archive's Ducrot et al. 2020 values within 0.3 K. For b and c the notes add JWST's measured dayside brightness temperatures (490 ± 17 K, Gillon et al. 2026; 380 ± 31 K, Zieba et al. 2023). | `agol2021` |
-| `insolationEarth` | S = L / a² in Earth units (1 L☉ at 1 au). Matches Agol et al. 2021's table within 0.1%. | `agol2021` |
+| `insolationEarth` | S = L / a² in Earth units (1 L☉ at 1 au). Matches Agol et al. 2021's table to its rounding (within 0.3%). | `agol2021` |
 | `densityRelEarth` | M / R³ (Earth = 5.513 g/cm³) | `agol2021` |
 | `surfaceGravityG` | M / R² | `agol2021` |
 | `escapeVelocityKms` | 11.186 km/s × √(M/R) (Earth's value from the NASA Earth Fact Sheet) | `agol2021` |
@@ -203,7 +204,7 @@ substellar point, since the planets are expected to be tidally locked), labelled
   (`lightTimeSeconds(system)`); to place planets at the instant their light leaves, add that to `t`. Which convention
   the game uses is a design choice for the integrator.
 - **Phase accuracy.** Through mid-2027 the mean ephemeris stays within 17-107 minutes of the published forecast
-  (about 1-2° of orbital phase). After the forecast ends the error grows slowly with the transit-timing variations;
+  (at most 1.4-4.6° of orbital phase, depending on the planet). After the forecast ends the error grows slowly with the transit-timing variations;
   rerun the pipeline when a newer forecast is published.
 - `orbitalFrameToIcrs(system)` gives the frame's unit vectors in ICRS (the game's world axes). With ô the unit vector
   from the star to the Sun, Ω = `nodeDeg` and i = `inclinationDeg`: ŷ = cos Ω N̂ + sin Ω Ê (the ascending node,

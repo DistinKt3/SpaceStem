@@ -62,7 +62,7 @@
    "provenance": "measured",
    "source": "NASA Exoplanet Archive pscomppars (st_age); Piaulet-Ghorayeb et al. 2025",
    "citation": "piaulet-ghorayeb2025",
-   "note": "Same value as Burgasser & Mamajek (2017), from kinematics, activity and metallicity indicators; the uncertainty is large."
+   "note": "Same value as Burgasser & Mamajek (2017), who combined many empirical age indicators (colour-magnitude position, density, lithium, gravity features, metallicity, kinematics, rotation, activity). The uncertainty is large."
   },
   "metallicityFeH": {
    "value": 0.052,
@@ -308,7 +308,7 @@
      "provenance": "inferred",
      "source": "Mean period: least-squares line through every transit time forecast by Agol et al. 2024 (2015-08-24 to 2027-07-31)",
      "citation": "agol2024",
-     "note": "The forecast is an N-body fit to transit times measured from the ground, Spitzer, K2, HST and JWST. A straight line cannot follow the planets' mutual tugs (transit-timing variations): real transits stray from it by up to 23 min (8 min rms) over that span. The uncertainty is the formal fit error."
+     "note": "The forecast is an N-body fit to transit times measured from the ground, Spitzer, K2, HST and JWST. A straight line cannot follow the planets' mutual tugs (transit-timing variations): the forecast transits stray from it by up to 23 min (8 min rms) over that span. The uncertainty is the formal fit error."
     },
     "ephemerisTransitMidBJD": {
      "value": 2461040.78284,
@@ -499,7 +499,7 @@
      "provenance": "inferred",
      "source": "Mean period: least-squares line through every transit time forecast by Agol et al. 2024 (2015-08-24 to 2027-07-31)",
      "citation": "agol2024",
-     "note": "The forecast is an N-body fit to transit times measured from the ground, Spitzer, K2, HST and JWST. A straight line cannot follow the planets' mutual tugs (transit-timing variations): real transits stray from it by up to 17 min (7 min rms) over that span. The uncertainty is the formal fit error."
+     "note": "The forecast is an N-body fit to transit times measured from the ground, Spitzer, K2, HST and JWST. A straight line cannot follow the planets' mutual tugs (transit-timing variations): the forecast transits stray from it by up to 17 min (7 min rms) over that span. The uncertainty is the formal fit error."
     },
     "ephemerisTransitMidBJD": {
      "value": 2461041.45366,
@@ -690,7 +690,7 @@
      "provenance": "inferred",
      "source": "Mean period: least-squares line through every transit time forecast by Agol et al. 2024 (2015-08-26 to 2027-07-27)",
      "citation": "agol2024",
-     "note": "The forecast is an N-body fit to transit times measured from the ground, Spitzer, K2, HST and JWST. A straight line cannot follow the planets' mutual tugs (transit-timing variations): real transits stray from it by up to 74 min (32 min rms) over that span. The uncertainty is the formal fit error."
+     "note": "The forecast is an N-body fit to transit times measured from the ground, Spitzer, K2, HST and JWST. A straight line cannot follow the planets' mutual tugs (transit-timing variations): the forecast transits stray from it by up to 74 min (32 min rms) over that span. The uncertainty is the formal fit error."
     },
     "ephemerisTransitMidBJD": {
      "value": 2461043.38064,
@@ -882,7 +882,7 @@
      "provenance": "inferred",
      "source": "Mean period: least-squares line through every transit time forecast by Agol et al. 2024 (2015-08-29 to 2027-07-26)",
      "citation": "agol2024",
-     "note": "The forecast is an N-body fit to transit times measured from the ground, Spitzer, K2, HST and JWST. A straight line cannot follow the planets' mutual tugs (transit-timing variations): real transits stray from it by up to 63 min (28 min rms) over that span. The uncertainty is the formal fit error."
+     "note": "The forecast is an N-body fit to transit times measured from the ground, Spitzer, K2, HST and JWST. A straight line cannot follow the planets' mutual tugs (transit-timing variations): the forecast transits stray from it by up to 63 min (28 min rms) over that span. The uncertainty is the formal fit error."
     },
     "ephemerisTransitMidBJD": {
      "value": 2461039.5138,
@@ -1073,7 +1073,7 @@
      "provenance": "inferred",
      "source": "Mean period: least-squares line through every transit time forecast by Agol et al. 2024 (2015-08-31 to 2027-07-25)",
      "citation": "agol2024",
-     "note": "The forecast is an N-body fit to transit times measured from the ground, Spitzer, K2, HST and JWST. A straight line cannot follow the planets' mutual tugs (transit-timing variations): real transits stray from it by up to 80 min (32 min rms) over that span. The uncertainty is the formal fit error."
+     "note": "The forecast is an N-body fit to transit times measured from the ground, Spitzer, K2, HST and JWST. A straight line cannot follow the planets' mutual tugs (transit-timing variations): the forecast transits stray from it by up to 80 min (32 min rms) over that span. The uncertainty is the formal fit error."
     },
     "ephemerisTransitMidBJD": {
      "value": 2461041.08824,
@@ -1264,7 +1264,7 @@
      "provenance": "inferred",
      "source": "Mean period: least-squares line through every transit time forecast by Agol et al. 2024 (2015-09-04 to 2027-07-19)",
      "citation": "agol2024",
-     "note": "The forecast is an N-body fit to transit times measured from the ground, Spitzer, K2, HST and JWST. A straight line cannot follow the planets' mutual tugs (transit-timing variations): real transits stray from it by up to 75 min (31 min rms) over that span. The uncertainty is the formal fit error."
+     "note": "The forecast is an N-body fit to transit times measured from the ground, Spitzer, K2, HST and JWST. A straight line cannot follow the planets' mutual tugs (transit-timing variations): the forecast transits stray from it by up to 75 min (31 min rms) over that span. The uncertainty is the formal fit error."
     },
     "ephemerisTransitMidBJD": {
      "value": 2461037.84636,
@@ -1452,7 +1452,7 @@
      "provenance": "inferred",
      "source": "Mean period: least-squares line through every transit time forecast by Agol et al. 2024 (2015-09-02 to 2027-07-17)",
      "citation": "agol2024",
-     "note": "The forecast is an N-body fit to transit times measured from the ground, Spitzer, K2, HST and JWST. A straight line cannot follow the planets' mutual tugs (transit-timing variations): real transits stray from it by up to 107 min (45 min rms) over that span. The uncertainty is the formal fit error."
+     "note": "The forecast is an N-body fit to transit times measured from the ground, Spitzer, K2, HST and JWST. A straight line cannot follow the planets' mutual tugs (transit-timing variations): the forecast transits stray from it by up to 107 min (45 min rms) over that span. The uncertainty is the formal fit error."
     },
     "ephemerisTransitMidBJD": {
      "value": 2461040.61597,
