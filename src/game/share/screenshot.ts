@@ -161,6 +161,8 @@ export class ScreenshotMode {
     const q = (sel: string): HTMLElement => root.querySelector<HTMLElement>(sel)!;
     this.root = root;
     this.preview = q('.ks-shot-preview') as HTMLCanvasElement;
+    // The preview canvas joins the page only while the mode is on: the game's canvas stays the page's only canvas.
+    this.preview.remove();
     this.flash = q('.ks-shot-flash');
     this.captureBtn = q('.ks-shot-capture') as HTMLButtonElement;
     this.captureLabel = q('.ks-shot-capture .ks-shot-label');
@@ -200,6 +202,7 @@ export class ScreenshotMode {
     this._active = true;
     this.restoreFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     document.body.classList.add('ks-screenshot');
+    this.root.prepend(this.preview);
     this.root.hidden = false;
     this.root.classList.toggle('is-still', this.still());
     this.refreshHints();
@@ -236,6 +239,7 @@ export class ScreenshotMode {
     body.style.removeProperty('--ks-shot-caption-h');
     const hadFocus = this.root.contains(document.activeElement);
     this.root.hidden = true;
+    this.preview.remove();
     this.root.classList.remove('is-idle');
     this.announce(t('share.shot.exited'));
     if (hadFocus) this.restoreFocus?.focus({ preventScroll: true });

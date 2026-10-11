@@ -752,6 +752,8 @@ test.describe('real game (index.html)', () => {
     expect(await page.evaluate(() => (window as unknown as { __ks: GameKs }).__ks.app.frame.cockpitEnabled)).toBe(hasCockpit);
     await page.mouse.click(400, 300);
     expect(await clicks()).toBe(1);
+    // Outside screenshot mode the game's canvas is the page's only canvas (the preview joins only while the mode is on).
+    await expect(page.locator('canvas')).toHaveCount(1);
     await page.waitForTimeout(1500);
     expect(await page.evaluate(() => (window as unknown as { __ks: GameKs }).__ks.app.panel.isOpen)).toBe(false);
     await page.keyboard.press('Escape');
