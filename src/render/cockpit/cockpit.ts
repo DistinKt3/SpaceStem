@@ -42,6 +42,8 @@ export interface CockpitState {
   mode: FlightMode;
   sunDirLocal: THREE.Vector3 /*unit vector toward the Sun in ship-local axes*/;
   sunIntensity: number /*0..~3, already exposure-adjusted*/;
+  /** Colour of the star's light relative to sunlight at equal luminance (planetShading.starlightTint); default white. */
+  sunTint?: THREE.Color;
   planetGlow: { dirLocal: THREE.Vector3; color: THREE.Color; intensity: number } | null;
   alert: number /*0..1*/;
   reducedMotion: boolean;
@@ -240,6 +242,7 @@ export class Cockpit {
     const sunI = sunDisplay * comp;
     u.sunI.value = sunI;
     u.sunColor.value.copy(SUN_COLOR).multiplyScalar(sunI * Math.PI);
+    if (s.sunTint) u.sunColor.value.multiply(s.sunTint);
     for (const l of [this.lights.sunShadowed, this.lights.sunPlain]) {
       l.position.copy(sun).multiplyScalar(5);
       l.intensity = 1;

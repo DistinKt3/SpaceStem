@@ -432,7 +432,8 @@ export class ShipController implements Controller {
       const c = POINT_COLORS[near.def.key] ?? [230, 230, 230];
       planetGlow = {
         dirLocal: local(near.rel),
-        color: new THREE.Color(c[0] / 255, c[1] / 255, c[2] / 255),
+        // Reflected starlight takes the star's colour too.
+        color: new THREE.Color(c[0] / 255, c[1] / 255, c[2] / 255).multiply(app.sys.starTint),
         intensity: Math.min(3, solid * lit * near.def.geometricAlbedo * irr * exposure * 2),
       };
     }
@@ -444,6 +445,7 @@ export class ShipController implements Controller {
       mode: ship.mode,
       sunDirLocal: local(sunRel),
       sunIntensity: Math.min(3, irr * exposure * sunVis),
+      sunTint: app.sys.starTint,
       planetGlow,
       alert: this.alert,
       reducedMotion: app.reducedMotion,

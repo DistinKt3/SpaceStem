@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { bolometricCorrectionV, bvToTeff, inferStar } from '../../src/world/starCatalog';
+import { starlightTint } from '../../src/render/materials/planetShading';
 
 const R_SUN = 6.957e8;
 
@@ -33,5 +34,23 @@ describe('star inference', () => {
     expect(s.luminositySun / 1.52).toBeLessThan(1.15);
     expect(s.radiusM / R_SUN / 1.22).toBeGreaterThan(0.85);
     expect(s.radiusM / R_SUN / 1.22).toBeLessThan(1.15);
+  });
+});
+
+describe('starlight tint', () => {
+  const lum = (c: { r: number; g: number; b: number }): number => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+
+  it('is exactly white for the Sun and keeps luminance 1 for every star', () => {
+    const sun = starlightTint(5772);
+    expect([sun.r, sun.g, sun.b].map((x) => Number(x.toFixed(12)))).toEqual([1, 1, 1]);
+    for (const t of [2566, 3042, 4400, 9940, 25000]) expect(lum(starlightTint(t))).toBeCloseTo(1, 9);
+  });
+
+  it('lights worlds orange under a cool M dwarf and blue-white under a hot star', () => {
+    const trappist = starlightTint(2566);
+    expect(trappist.r).toBeGreaterThan(1.5);
+    expect(trappist.b).toBeLessThan(0.3);
+    const sirius = starlightTint(9940);
+    expect(sirius.b).toBeGreaterThan(sirius.r);
   });
 });

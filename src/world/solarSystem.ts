@@ -20,6 +20,7 @@ import {
   createSurfaceMaterial,
   equirectAlbedo,
   generatedAlbedo,
+  starlightTint,
   makeAtmosphere,
   tileAlbedo,
   type AtmosphereNodes,
@@ -106,6 +107,14 @@ export class SolarSystem {
   private readonly mat3 = new THREE.Matrix3();
   private readonly mat4 = new THREE.Matrix4();
   private lastPrimary: BodyView | null = null;
+  /** Starlight colour of the current primary star (planetShading.starlightTint), recomputed when the star changes. */
+  private readonly tint = new THREE.Color(1, 1, 1);
+  private tintTeff = 5772;
+
+  /** Starlight colour at the camera's primary star, as set by the last update() (white for the Sun). */
+  get starTint(): THREE.Color {
+    return this.tint;
+  }
   /** Textures, materials and geometries each body owns (released by removeBody). */
   private readonly owned = new Map<string, Disposable[]>();
 
@@ -499,6 +508,11 @@ export class SolarSystem {
     this.lastPrimary = star;
     const sunRel = this.bodyRelative(star.def.id, cam, t, new Vec3d());
     const lum = star.def.luminositySun ?? 1;
+    const teff = star.def.surface.teffK ?? 5772;
+    if (teff !== this.tintTeff) {
+      this.tintTeff = teff;
+      starlightTint(teff, this.tint);
+    }
     this.updateRotations(t);
     for (const v of this.views) {
       this.bodyRelative(v.def.id, cam, t, v.rel);
@@ -517,6 +531,7 @@ export class SolarSystem {
       toSun.scale(1 / Math.max(rSun, 1));
       u.sunDir.value.set(toSun.x, toSun.y, toSun.z);
       u.sunIrradiance.value = (Math.PI * lum * AU_M * AU_M) / Math.max(rSun, 1e7) ** 2;
+      u.starTint.value.copy(this.tint);
       this.mat3.set(e[0]!, e[3]!, e[6]!, e[1]!, e[4]!, e[7]!, e[2]!, e[5]!, e[8]!); // transpose: world -> body
       u.worldToBody.value.copy(this.mat3);
       u.radPerPixel.value = 1 / pxPerRadian;

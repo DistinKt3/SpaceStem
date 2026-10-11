@@ -68,6 +68,8 @@ export class BodyUniforms {
   readonly sunDir = uniform(new THREE.Vector3(1, 0, 0));
   /** Solar irradiance at the body relative to 1 au, times pi (so a white Lambertian surface at 1 au -> 1.0). */
   readonly sunIrradiance = uniform(Math.PI);
+  /** Colour of the starlight relative to sunlight, at equal luminance (white for the Sun; see starlightTint). */
+  readonly starTint = uniform(new THREE.Color(1, 1, 1));
   /** World (ICRF) -> body-fixed rotation, for lat/lon lookups of analytic layers. */
   readonly worldToBody = uniform(new THREE.Matrix3());
   /** Radians per pixel (vertical FOV / viewport height), for explicit texture LOD. */
@@ -164,7 +166,7 @@ export function makeAtmosphere(spec: AtmosphereSpec, radiusM: number, u: BodyUni
       inscatter.addAssign(s.mul(tView).mul(tSun).mul(step));
       odView.addAssign(odStep);
     });
-    return { inscatter: inscatter.mul(u.sunIrradiance), transmittance: exp(extinction(odView).negate()) };
+    return { inscatter: inscatter.mul(u.starTint.mul(u.sunIrradiance)), transmittance: exp(extinction(odView).negate()) };
   };
 
   return { scatter, sunTransmittance, Rt, R };
@@ -274,7 +276,7 @@ export function createSurfaceMaterial(o: SurfaceOptions): THREE.MeshBasicNodeMat
     } else {
       diffuse = max(ndl, 0);
     }
-    const color = albedo.mul(diffuse).mul(sunHere).mul(u.sunIrradiance.div(PI)).toVar();
+    const color = albedo.mul(diffuse).mul(sunHere).mul(u.starTint.mul(u.sunIrradiance.div(PI))).toVar();
     // Ambient fill so night sides are not pure black (earthshine/starlight scale).
     color.addAssign(albedo.mul(u.ambient));
 
@@ -283,7 +285,7 @@ export function createSurfaceMaterial(o: SurfaceOptions): THREE.MeshBasicNodeMat
       const h = normalize(l.sub(rd));
       const spec = pow(max(dot(nGeo, h), 0), 300).mul(18).add(pow(max(dot(nGeo, h), 0), 40).mul(0.25));
       const fres = float(0.02).add(pow(float(1).sub(max(dot(nGeo, rd.negate()), 0)), 5).mul(0.98));
-      color.addAssign(sunHere.mul(spec.mul(fres).mul(isOcean).mul(max(ndl, 0)).mul(u.sunIrradiance.div(PI))));
+      color.addAssign(sunHere.mul(spec.mul(fres).mul(isOcean).mul(max(ndl, 0)).mul(u.starTint.mul(u.sunIrradiance.div(PI)))));
     }
 
     if (o.clouds) {
@@ -303,7 +305,7 @@ export function createSurfaceMaterial(o: SurfaceOptions): THREE.MeshBasicNodeMat
         const cn = normalize(cp);
         const cSun = o.atmosphere ? o.atmosphere.sunTransmittance(cp) : vec3(1);
         const lit = max(dot(cn, l), 0).mul(0.9).add(0.04);
-        const cloudColor = cSun.mul(lit).mul(u.sunIrradiance.div(PI)).add(u.ambient);
+        const cloudColor = cSun.mul(lit).mul(u.starTint.mul(u.sunIrradiance.div(PI))).add(u.ambient);
         color.assign(mix(color, cloudColor, smoothstep(0.05, 0.9, a)));
       });
     }
@@ -369,7 +371,7 @@ export function createSkyMaterial(radiusM: number, atm: AtmosphereNodes, u: Body
           const a = cloudSample(clouds, u, cp, tc, cloudR);
           const cSun = atm.sunTransmittance(cp);
           const lit = max(dot(normalize(cp), u.sunDir), 0).mul(0.85).add(0.05);
-          const cloudColor = cSun.mul(lit).mul(u.sunIrradiance.div(PI));
+          const cloudColor = cSun.mul(lit).mul(u.starTint.mul(u.sunIrradiance.div(PI)));
           const k = smoothstep(0.05, 0.9, a).mul(select(below, float(1), float(0.7)));
           const frac = clamp(tc.sub(t0).div(max(tEnd.sub(t0), 1e-6)), 0, 1);
           outColor.assign(mix(outColor, cloudColor.add(s.inscatter.mul(frac)), k));
@@ -409,7 +411,7 @@ export function createRingMaterial(tex: THREE.Texture, innerM: number, outerM: n
     const sample = texture(tex, vec2(t, 0.5));
     const blocked = raySphere(pRel, u.sunDir, float(radiusM / 1000)).x.greaterThan(0);
     const light = select(blocked, float(0.03), float(1));
-    const col = sample.rgb.mul(light).mul(u.sunIrradiance.div(PI)).mul(0.9).add(sample.rgb.mul(u.ambient));
+    const col = sample.rgb.mul(light).mul(u.starTint.mul(u.sunIrradiance.div(PI))).mul(0.9).add(sample.rgb.mul(u.ambient));
     return vec4(col, sample.a.mul(0.95));
   })();
   return m;
@@ -514,6 +516,19 @@ export function generatedAlbedo(palette: GeneratedPalette | CustomPalette, seed:
 }
 
 /** Blackbody colour (linear sRGB, normalised) for an effective temperature, via Tanner Helland's fit. */
+/**
+ * Colour of a star's light relative to the Sun's, at equal luminance (linear RGB): blackbody(T) / blackbody(5772 K),
+ * scaled so its Rec. 709 luminance is 1. Brightness stays in the irradiance; this only changes the hue, so a world
+ * under a cool M dwarf is lit orange, as a camera balanced for sunlight would record it (D-039).
+ */
+export function starlightTint(teffK: number, out = new THREE.Color()): THREE.Color {
+  const star = blackbodyColor(teffK);
+  const sun = blackbodyColor(5772);
+  out.setRGB(star.r / sun.r, star.g / sun.g, star.b / sun.b);
+  const lum = 0.2126 * out.r + 0.7152 * out.g + 0.0722 * out.b;
+  return lum > 0 ? out.multiplyScalar(1 / lum) : out.setRGB(1, 1, 1);
+}
+
 export function blackbodyColor(teffK: number): THREE.Color {
   const t = teffK / 100;
   let r: number;
