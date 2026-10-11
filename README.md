@@ -4,6 +4,8 @@ A browser space-exploration game built on real astronomical data. The universe i
 
 Fly from low Earth orbit to the Moon, across the Solar System and to nearby stars. Planets and moons sit at their true positions for the current date (JPL Horizons). Surfaces use spacecraft imagery and elevation data. More than 100,000 catalogued stars sit at their measured distances. Wherever the game fills a gap with inferred or generated content, it says so.
 
+**Play:** https://distinkt3.github.io/SpaceStem/ (Chrome or Edge recommended).
+
 **Status:** proof of concept, in development. Milestones and demo notes are in `docs/`.
 
 ## Run it
