@@ -547,25 +547,22 @@ export class SettingsPanel {
       active.dispatchEvent(new Event('change', { bubbles: true }));
       return;
     }
-    if (active?.getAttribute('role') === 'tab' && (dir === 'left' || dir === 'right')) {
-      this.stepTab(dir === 'right' ? 1 : -1);
-      return;
-    }
-    const items = this.focusables(false).filter((el) => el !== active);
+    // Containers are focusable for scrolling but are not navigation stops.
+    const items = this.focusables(false).filter((el) => el !== active && !el.classList.contains('ks-pane'));
     if (!active) {
       items[0]?.focus({ focusVisible: true });
       return;
     }
-    const i = pickSpatial(
-      active.getBoundingClientRect(),
-      items.map((el) => el.getBoundingClientRect()),
-      dir,
-    );
+    // Visually hidden radios and switches navigate by their visible card or track.
+    const rectOf = (el: HTMLElement): DOMRect => (el.closest('.ks-choice, .ks-switch') ?? el).getBoundingClientRect();
+    const i = pickSpatial(rectOf(active), items.map(rectOf), dir);
     const target = items[i];
-    if (target) {
-      target.focus({ focusVisible: true });
-      target.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-    }
+    if (!target) return;
+    target.focus({ focusVisible: true });
+    target.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    // Tabs activate on focus, as they do with the arrow keys.
+    const tab = target.dataset['tab'] as SettingsTab | undefined;
+    if (target.getAttribute('role') === 'tab' && tab) this.selectTab(tab, false);
   }
 
   // --- Controls -----------------------------------------------------------------------------------------------------

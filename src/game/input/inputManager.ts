@@ -700,7 +700,9 @@ export class InputManager {
       return;
     }
     swallow(e);
-    this.swallowNext(['mouseup', 'click', 'auxclick', 'contextmenu'], () => true);
+    // Only the follow-ups of this button: a later click with another button must still work.
+    const button = e.button;
+    this.swallowNext(['mouseup', 'click', 'auxclick', 'contextmenu'], (x) => x.type === 'contextmenu' ? button === 2 : (x as MouseEvent).button === button);
     if (cap.context === 'pad' || cap.step !== 'any') return; // Mouse buttons cannot drive axes.
     this.endCapture({ type: 'mouseButton', button: e.button });
   };
