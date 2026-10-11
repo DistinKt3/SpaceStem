@@ -1,6 +1,6 @@
 # Known Sky: Codex Sources and Verification
 
-This document explains where every fact in the Codex comes from, how each citation was checked, and what could not be verified. It covers `public/data/codex/en.json` (53 entries, 414 facts, 235 "how we know" claims) and the citation registry `public/data/citations.json` (198 keys, 182 of them cited by the Codex; the others are used by other data files or kept for reference). All checks were made on **2026-10-11**; every citation records `"accessed": "2026-10-11"`.
+This document explains where every fact in the Codex comes from, how each citation was checked, and what could not be verified. It covers `public/data/codex/en.json` (53 entries, 414 facts, 236 "how we know" claims) and the citation registry `public/data/citations.json` (198 keys, 182 of them cited by the Codex; the others are used by other data files or kept for reference). All checks were made on **2026-10-11**; every citation records `"accessed": "2026-10-11"`.
 
 There was no human science reviewer. The rules below are what replace one: every Measured claim must trace to a fetched, verified source, numbers are copied from the source rather than from memory, and anything uncertain says so in the text.
 

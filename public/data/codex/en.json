@@ -255,7 +255,7 @@
    "kind": "body",
    "bodyId": "299",
    "unlock": "visit",
-   "summary": "Earth's near-twin in size, wrapped in a crushing carbon-dioxide atmosphere that makes it the hottest planet in the Solar System.",
+   "summary": "Earth's near-twin in size, wrapped in a crushing carbon-dioxide atmosphere, and the hottest planet in the Solar System.",
    "body": [
     "Venus is 95% of Earth's diameter and 81% of its mass, but its surface is hostile: the average temperature is about 737 K (464 °C) and the surface pressure is about 90 times Earth's.",
     "Its atmosphere is 96.5% carbon dioxide. Scientists explain the heat by a runaway greenhouse effect: the thick blanket traps heat, which is why Venus is hotter than Mercury even though it is almost twice as far from the Sun.",
@@ -2666,7 +2666,7 @@
     "TRAPPIST-1 is an ultracool dwarf star of spectral type M8 V. It has about 9% of the Sun's mass and 12% of its radius, a surface temperature near 2,570 K, and about 1/1,800 of the Sun's luminosity. It is faint in visible light but relatively bright in the infrared.",
     "In 2016 astronomers reported three Earth-sized planets transiting the star. A year later, an intensive campaign with NASA's Spitzer Space Telescope and ground-based telescopes revealed seven. K2 then measured the period of the outermost planet, h: it matched the value predicted if all seven orbits are linked in a chain of resonances. Such an architecture suggests that the planets formed farther from the star and migrated inward.",
     "Because all seven planets transit, their sizes are measured. Because they tug on one another, their transit times shift slightly from orbit to orbit, and modelling those shifts gives masses precise to 3-5%. Both are scaled by the star's own radius and mass, which rest partly on an empirical relation for red dwarfs. All seven have similar densities, consistent with rocky worlds somewhat poorer in iron than Earth, or Earth-like worlds with extra light material such as water.",
-    "The star is old, about 7.6 ± 2.2 billion years, and magnetically active. Starspots, bright faculae and flares contaminate JWST transit spectra of its planets, which is one reason their atmospheres are so hard to study.",
+    "Age indicators suggest the star is old, about 7.6 ± 2.2 billion years, and it is magnetically active. Starspots, bright faculae and flares contaminate JWST transit spectra of its planets, which is one reason their atmospheres are so hard to study.",
     "In the game, every planet surface you see in this system is **Generated**: no telescope can image them."
    ],
    "facts": [
@@ -3099,9 +3099,9 @@
    "kind": "exoplanet",
    "systemId": "trappist-1",
    "unlock": "visit",
-   "summary": "A small planet at the inner edge of TRAPPIST-1's habitable zone whose JWST spectrum is flat: no clear sign of an atmosphere.",
+   "summary": "A small planet at the inner edge of TRAPPIST-1's estimated habitable zone whose JWST spectrum is flat: no clear sign of an atmosphere.",
    "body": [
-    "TRAPPIST-1 d is about 79% of Earth's width and 39% of its mass, and receives about 1.1 times the starlight Earth does. That places it at the inner edge of the star's habitable zone.",
+    "TRAPPIST-1 d is about 79% of Earth's width and 39% of its mass, and receives about 1.1 times the starlight Earth does. That places it at the inner edge of the star's estimated habitable zone.",
     "JWST observed two transits with its near-infrared spectrograph. After correcting for the star's spots, which add slopes of 500-1,000 parts per million, the spectrum is flat to within about 100-150 ppm.",
     "That rules out clear hydrogen-rich atmospheres and many heavier ones resembling a haze-free Titan, a cloud-free Venus, early Mars, or cloud-free versions of ancient and modern Earth. If d has an atmosphere, it is probably very thin or hidden by high-altitude haze or clouds.",
     "**The surface you see in the game is Generated.** Whether TRAPPIST-1 d has any atmosphere is unknown."
@@ -3207,6 +3207,12 @@
      "citation": "piaulet2025"
     },
     {
+     "claim": "It lies at the edge of the habitable zone.",
+     "method": "Equilibrium temperature compared with habitable-zone limits",
+     "provenance": "inferred",
+     "citation": "piaulet2025"
+    },
+    {
      "claim": "The planet's surface in the game is not an observation.",
      "method": "Procedural generation within the measured size and temperature",
      "provenance": "generated",
@@ -3226,9 +3232,9 @@
    "kind": "exoplanet",
    "systemId": "trappist-1",
    "unlock": "visit",
-   "summary": "A habitable-zone planet that could keep liquid water on its surface if it has an atmosphere. Whether it has one is still unknown.",
+   "summary": "A planet in the estimated habitable zone of its star: it could keep liquid water on its surface if it has an atmosphere. Whether it has one is still unknown.",
    "body": [
-    "TRAPPIST-1 e is a little smaller than Earth and receives about two thirds of the starlight Earth gets. It lies in the star's habitable zone, where liquid water could exist on the surface if the planet has a suitable atmosphere.",
+    "TRAPPIST-1 e is a little smaller than Earth and receives about two thirds of the starlight Earth gets. It lies in the star's estimated habitable zone, where liquid water could exist on the surface if the planet has a suitable atmosphere.",
     "JWST observed four transits in 2023. The spectra are strongly affected by the star's spots, which current star models cannot fully explain, so the team modelled that contamination statistically.",
     "The data rule out cloudy, hydrogen-dominated atmospheres. They do not show strong evidence for or against any atmosphere: a bare rock fits, and so does a nitrogen-rich atmosphere with traces of carbon dioxide and methane. Carbon-dioxide-rich atmospheres as thick as Venus's are weakly disfavoured.",
     "A longer JWST programme is now observing e right after transits of planet b, which is unlikely to have a substantial atmosphere, to correct for the star's contamination more directly.",
@@ -3360,9 +3366,9 @@
    "kind": "exoplanet",
    "systemId": "trappist-1",
    "unlock": "visit",
-   "summary": "An Earth-sized planet in the cooler part of TRAPPIST-1's habitable zone, whose first JWST transit spectra were published in 2026; its atmosphere is still unknown.",
+   "summary": "An Earth-sized planet in the cooler part of TRAPPIST-1's estimated habitable zone, whose first JWST transit spectra were published in 2026; its atmosphere is still unknown.",
    "body": [
-    "TRAPPIST-1 f is almost exactly Earth's size and mass and receives about 37% of the starlight Earth gets, in the cooler part of the habitable zone.",
+    "TRAPPIST-1 f is almost exactly Earth's size and mass and receives about 37% of the starlight Earth gets, in the cooler part of the estimated habitable zone.",
     "The first JWST transit spectra of f, from five transits, were published in September 2026. Every visit included at least one stellar flare, but unlike for the inner planets, the team saw no sign of contamination from unseen starspots.",
     "The cleanest visits rule out hydrogen- and helium-rich atmospheres with surface pressures above about 20 millibars. Limits on heavier atmospheres depend on how the data are processed, so whether f has an atmosphere remains open.",
     "**The surface you see in the game is Generated.** Its atmosphere is unknown."
@@ -3487,10 +3493,10 @@
    "kind": "exoplanet",
    "systemId": "trappist-1",
    "unlock": "visit",
-   "summary": "The largest TRAPPIST-1 planet, slightly bigger than Earth, in the outer part of the habitable zone; very little is known about its atmosphere.",
+   "summary": "The largest TRAPPIST-1 planet, slightly bigger than Earth, in the outer part of the estimated habitable zone; very little is known about its atmosphere.",
    "body": [
     "TRAPPIST-1 g is about 13% wider and 32% more massive than Earth, the largest planet in the system, and receives about a quarter of the starlight Earth gets.",
-    "It counts as one of the system's habitable-zone planets, together with e and f. Its equilibrium temperature of about 200 K means it would be frozen unless an atmosphere keeps it warmer.",
+    "Climate-model estimates place it in the system's habitable zone, together with e and f. Its equilibrium temperature of about 200 K means it would be frozen unless an atmosphere keeps it warmer.",
     "Earlier transit spectra taken from space and from the ground ruled out cloud-free, hydrogen-rich atmospheres for every TRAPPIST-1 planet, including g. JWST has observed all seven planets, but this Codex's sources contain no published JWST measurement of g's atmosphere as of October 2026.",
     "**The surface you see in the game is Generated.** Its atmosphere is unknown."
    ],
@@ -3751,7 +3757,7 @@
     "Sirius A is a hot, metallic-line A-type star about twice the Sun's mass. Seen from Earth it is the brightest star in the night sky, because it is both luminous and close.",
     "It has a companion, **Sirius B**, a white dwarf: the dense core left behind by a star that has already finished its life. Sirius B has about the Sun's mass, and it is the brightest and nearest white dwarf known.",
     "The two stars orbit each other every 50.13 years. Combining nearly two decades of Hubble images with historical measurements back to the 19th century gives their masses to about 1%.",
-    "The system is young, roughly 230 million years old. Sirius B's progenitor must have been more massive than Sirius A to have evolved first, and how the two interacted while keeping such an eccentric orbit is still a puzzle.",
+    "Models put the system's age at roughly 230 million years, young for a star. Sirius B's progenitor is thought to have been more massive than Sirius A, since it evolved first, and how the two interacted while keeping such an eccentric orbit is still a puzzle.",
     "In the game, Sirius's position and brightness come from the HYG catalogue, based on Hipparcos measurements."
    ],
    "facts": [
@@ -4060,7 +4066,7 @@
    "summary": "The closest star to the Sun: a small, flaring red dwarf 4.25 light-years away with at least two planets, including Proxima b, which has at least about one Earth mass.",
    "body": [
     "Proxima Centauri is a red dwarf with about 12% of the Sun's mass, 14% of its radius and a surface near 3,050 K. It gives out only about 0.1% of the Sun's light, so although it is our nearest star it is far too faint to see without a telescope.",
-    "Gaia measured its parallax to better than 0.01%, putting it 4.2465 light-years away. Proxima is gravitationally bound to Alpha Centauri A and B, circling them roughly every 550,000 years; today it is near the far point of that orbit, about 13,000 au from the pair.",
+    "Gaia measured its parallax to better than 0.01%, putting it 4.2465 light-years away. Measurements of its motion indicate that Proxima is gravitationally bound to Alpha Centauri A and B, circling them roughly every 550,000 years; today it is near the far point of that orbit, about 13,000 au from the pair.",
     "Two planets are confirmed by the radial-velocity method. **Proxima b** (2016) has at least 1.06 Earth masses and orbits every 11.2 days, within what climate models count as the star's habitable zone. **Proxima d**, confirmed in 2025, has at least 0.26 Earth masses and orbits every 5.1 days. A third signal, a candidate called Proxima c with a period of about 5 years, is not confirmed.",
     "Proxima is an active flare star. In March 2016 a superflare made it about 68 times brighter in visible light, briefly reaching naked-eye brightness. Repeated flares like this could strip the ozone from an Earth-like atmosphere on Proxima b, so its habitability is very uncertain.",
     "In the game, Proxima is placed using the HYG catalogue's Hipparcos parallax (4.23 ly), about 0.5% closer than Gaia's value. When you arrive, the game estimates its size from magnitude and colour at about 0.07 solar radii, half the measured size (see Star brightness in the game)."
@@ -4647,7 +4653,7 @@
    "summary": "A bright white star 25 light-years away that spins so fast it bulges at the equator, seen almost pole-on, and surrounded by a wide disc of dust.",
    "body": [
     "Vega has long served as a standard star: astronomers used it to calibrate both stellar spectra and brightness measurements.",
-    "Interferometers revealed that Vega rotates at more than 90% of the speed at which it would start to fly apart, and that we happen to look almost straight down on its pole. Its poles are about 2,250 K hotter than its equator, which explains why it looked oddly bright for its type.",
+    "Interferometers revealed that Vega is a rapid rotator. Models fitted to the data put its spin at more than 90% of the speed at which it would start to fly apart, show that we happen to look almost straight down on its pole, and make its poles about 2,250 K hotter than its equator, which explains why it looked oddly bright for its type.",
     "In 1984 the IRAS satellite found that Vega gives off far more infrared light than a star of its temperature should: the first such excess seen around a normal main-sequence star. It comes from solid particles orbiting the star, thought to be material left over from its formation.",
     "JWST images show the disc to be remarkably smooth and symmetric, with a broad outer belt from about 80 to 170 au. That argues against Saturn-mass planets beyond about 10 au, though a smaller planet could still be hiding closer in.",
     "In the game, Vega is placed using the HYG catalogue's Hipparcos distance."
@@ -5405,10 +5411,10 @@
    "unlock": "scan",
    "summary": "The range of distances from a star where a rocky planet with the right atmosphere could keep liquid water on its surface. Being in it does not make a planet habitable.",
    "body": [
-    "Every star has a habitable zone: too close and water boils away, too far and it freezes. Hotter, brighter stars have wider zones farther out; dim red dwarfs have narrow zones very close in.",
+    "In climate models every star has a habitable zone: too close and water boils away, too far and it freezes. Hotter, brighter stars have wider zones farther out; dim red dwarfs have narrow zones very close in.",
     "The edges come from climate models. A widely used 2013 calculation puts the conservative habitable zone of our Sun between about 0.99 and 1.70 au, which places Earth near the inner edge.",
     "Astronomers compare the starlight a planet receives with what Earth receives rather than its temperature, because the real temperature depends on unknowns such as clouds, reflectivity and greenhouse gases.",
-    "Being in the zone is not enough. Mars lies inside the Sun's conservative habitable zone, yet it is a cold desert today. Planets of red dwarfs also face strong flares: superflares from Proxima Centauri could strip the ozone from an Earth-like atmosphere.",
+    "Being in the zone is not enough. By that estimate Mars lies inside the Sun's conservative habitable zone, yet it is a cold desert today. Planets of red dwarfs also face strong flares: superflares from Proxima Centauri could strip the ozone from an Earth-like atmosphere.",
     "By the estimates cited in this Codex, TRAPPIST-1 e, f and g lie in their star's habitable zone (d at its inner edge), and so does Proxima b. Whether any of them has an atmosphere, let alone water, is unknown."
    ],
    "facts": [

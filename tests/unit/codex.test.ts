@@ -400,7 +400,7 @@ describe('codex provenance rules', () => {
       /\bwater ice\b/i,
       /\btidal (heating|flexing|dissipation)\b|\bheated\b[^.]*\btides\b/i,
       /\bgreenhouse\b/i,
-      /\bhabitable zone\b/i,
+      /\bhabitable[- ]zone\b/i,
       /\bcaptur/i,
       /\bfusion\b/i,
       /\bgiant[- ]impact\b/i,
