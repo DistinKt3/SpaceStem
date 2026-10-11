@@ -1483,10 +1483,10 @@
    "rings": {
     "texture": "saturn_rings",
     "innerM": 74658000,
-    "outerM": 136775000,
+    "outerM": 136780000,
     "provenance": "measured",
     "source": "Ring radii (C ring inner edge to A ring outer edge)",
-    "citation": "nasa-saturn-factsheet"
+    "citation": "nasa-saturn-rings-factsheet"
    },
    "ephemerisId": "699",
    "radiiM": [
@@ -1556,7 +1556,7 @@
      0.0
     ]
    },
-   "geometricAlbedo": 1.38,
+   "geometricAlbedo": 1.0,
    "albedoScale": 3.871,
    "provenance": "measured",
    "source": "NAIF PCK pck00011 (IAU WGCCRE 2015) radii and rotation; JPL DE440 GM",

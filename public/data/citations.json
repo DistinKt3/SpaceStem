@@ -1783,5 +1783,112 @@
   "url": "https://arxiv.org/abs/2306.10150",
   "accessed": "2026-10-11",
   "verified": true
+ },
+ "usgs-titan-mosaic": {
+  "authors": "Cassini Imaging Science Subsystem team; USGS Astrogeology Science Center",
+  "year": null,
+  "title": "Titan Cassini ISS global mosaic, 4 km (P19658)",
+  "venue": "USGS Astrogeology Science Center, planetarymaps.usgs.gov",
+  "doi": null,
+  "url": "https://planetarymaps.usgs.gov/mosaic/Titan_ISS_P19658_Mosaic_Global_4km.tif",
+  "accessed": "2026-10-11",
+  "verified": true,
+  "license": "Public domain (USGS)",
+  "note": "File downloaded and its GeoTIFF georeferencing read on 2026-10-11 (tools/pipeline/textures.py)."
+ },
+ "usgs-enceladus-mosaic": {
+  "authors": "Cassini Imaging Science Subsystem team; USGS Astrogeology Science Center",
+  "year": null,
+  "title": "Enceladus Cassini ISS global mosaic, 100 m (high-pass filtered)",
+  "venue": "USGS Astrogeology Science Center, planetarymaps.usgs.gov",
+  "doi": null,
+  "url": "https://planetarymaps.usgs.gov/mosaic/Enceladus_Cassini_ISS_Global_Mosaic_100m_HPF.tif",
+  "accessed": "2026-10-11",
+  "verified": true,
+  "license": "Public domain (USGS)",
+  "note": "File downloaded and its GeoTIFF georeferencing read on 2026-10-11 (tools/pipeline/textures.py)."
+ },
+ "usgs-io-mosaic": {
+  "authors": "Galileo SSI and Voyager imaging teams; USGS Astrogeology Science Center",
+  "year": null,
+  "title": "Io Galileo SSI / Voyager global colour mosaic, 1 km",
+  "venue": "USGS Astrogeology Science Center, planetarymaps.usgs.gov",
+  "doi": null,
+  "url": "https://planetarymaps.usgs.gov/mosaic/Io_GalileoSSI-Voyager_Global_Mosaic_ClrMerge_1km.tif",
+  "accessed": "2026-10-11",
+  "verified": true,
+  "license": "Public domain (USGS)",
+  "note": "File downloaded and its GeoTIFF georeferencing read on 2026-10-11 (tools/pipeline/textures.py)."
+ },
+ "usgs-europa-mosaic": {
+  "authors": "Voyager and Galileo SSI imaging teams; USGS Astrogeology Science Center",
+  "year": null,
+  "title": "Europa Voyager / Galileo SSI global mosaic, 500 m",
+  "venue": "USGS Astrogeology Science Center, planetarymaps.usgs.gov",
+  "doi": null,
+  "url": "https://planetarymaps.usgs.gov/mosaic/Europa_Voyager_GalileoSSI_global_mosaic_500m.tif",
+  "accessed": "2026-10-11",
+  "verified": true,
+  "license": "Public domain (USGS)",
+  "note": "File downloaded and its GeoTIFF georeferencing read on 2026-10-11 (tools/pipeline/textures.py)."
+ },
+ "usgs-ganymede-mosaic": {
+  "authors": "Voyager and Galileo SSI imaging teams; USGS Astrogeology Science Center",
+  "year": null,
+  "title": "Ganymede Voyager / Galileo SSI global mosaic, 1 km",
+  "venue": "USGS Astrogeology Science Center, planetarymaps.usgs.gov",
+  "doi": null,
+  "url": "https://planetarymaps.usgs.gov/mosaic/Ganymede_Voyager_GalileoSSI_global_mosaic_1km.tif",
+  "accessed": "2026-10-11",
+  "verified": true,
+  "license": "Public domain (USGS)",
+  "note": "File downloaded and its GeoTIFF georeferencing read on 2026-10-11 (tools/pipeline/textures.py)."
+ },
+ "usgs-callisto-mosaic": {
+  "authors": "Voyager and Galileo SSI imaging teams; USGS Astrogeology Science Center",
+  "year": null,
+  "title": "Callisto Voyager / Galileo SSI global mosaic, 1 km",
+  "venue": "USGS Astrogeology Science Center, planetarymaps.usgs.gov",
+  "doi": null,
+  "url": "https://planetarymaps.usgs.gov/mosaic/Callisto_Voyager_GalileoSSI_global_mosaic_1km.tif",
+  "accessed": "2026-10-11",
+  "verified": true,
+  "license": "Public domain (USGS)",
+  "note": "File downloaded and its GeoTIFF georeferencing read on 2026-10-11 (tools/pipeline/textures.py)."
+ },
+ "usgs-triton-mosaic": {
+  "authors": "Voyager 2 imaging team; USGS Astrogeology Science Center",
+  "year": null,
+  "title": "Triton Voyager 2 colour mosaic, 600 m",
+  "venue": "USGS Astrogeology Science Center, planetarymaps.usgs.gov",
+  "doi": null,
+  "url": "https://planetarymaps.usgs.gov/mosaic/Triton_Voyager2_ClrMosaic_GlobalFill_600m.tif",
+  "accessed": "2026-10-11",
+  "verified": true,
+  "license": "Public domain (USGS)",
+  "note": "File downloaded and its GeoTIFF georeferencing read on 2026-10-11 (tools/pipeline/textures.py)."
+ },
+ "usgs-phobos-mosaic": {
+  "authors": "Viking Orbiter imaging team; USGS Astrogeology Science Center",
+  "year": null,
+  "title": "Phobos Viking global mosaic, 40 pixels per degree (DLR control)",
+  "venue": "USGS Astrogeology Science Center, planetarymaps.usgs.gov",
+  "doi": null,
+  "url": "https://planetarymaps.usgs.gov/mosaic/Phobos_Viking_Mosaic_40ppd_DLRcontrol.tif",
+  "accessed": "2026-10-11",
+  "verified": true,
+  "license": "Public domain (USGS)",
+  "note": "File downloaded and its GeoTIFF georeferencing read on 2026-10-11 (tools/pipeline/textures.py)."
+ },
+ "karkoschka1994": {
+  "authors": "Karkoschka, E.",
+  "year": 1994,
+  "title": "Spectrophotometry of the Jovian Planets and Titan at 300- to 1000-nm Wavelength: The Methane Spectrum",
+  "venue": "Icarus 111, 174-192",
+  "doi": "10.1006/icar.1994.1139",
+  "url": "https://doi.org/10.1006/icar.1994.1139",
+  "accessed": "2026-10-11",
+  "verified": true,
+  "note": "Crossref metadata checked 2026-10-11. Used for Titan's visible albedo spectrum (haze deck colour, D-032)."
  }
 }

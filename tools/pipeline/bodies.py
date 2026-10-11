@@ -157,8 +157,8 @@ BODIES = [
      "surface": {"type": "terrain", "texture": "callisto", "terrain": "cratered", "amplitude": 1500}},
     {"id": "699", "key": "saturn", "name": "Saturn", "kind": "planet", "parent": "10",
      "surface": {"type": "gas", "texture": "saturn"}, "atmosphere": GIANT_ATMOS([0.95, 0.88, 0.7]),
-     "rings": {"texture": "saturn_rings", "innerM": 74_658_000, "outerM": 136_775_000,
-               "provenance": "measured", "source": "Ring radii (C ring inner edge to A ring outer edge)", "citation": "nasa-saturn-factsheet"}},
+     "rings": {"texture": "saturn_rings", "innerM": 74_658_000, "outerM": 136_780_000,
+               "provenance": "measured", "source": "Ring radii (C ring inner edge to A ring outer edge)", "citation": "nasa-saturn-rings-factsheet"}},
     {"id": "602", "key": "enceladus", "name": "Enceladus", "kind": "moon", "parent": "699",
      "surface": {"type": "terrain", "texture": "enceladus", "terrain": "icy", "amplitude": 600}},
     {"id": "606", "key": "titan", "name": "Titan", "kind": "moon", "parent": "699",
@@ -187,7 +187,7 @@ EPHEM_ID = {b["id"]: b["id"] for b in BODIES}
 # Geometric albedo (NASA Planetary/Satellite Fact Sheets). Used for exposure and point-source brightness.
 GEOMETRIC_ALBEDO = {
     "10": 1.0, "199": 0.142, "299": 0.689, "399": 0.434, "301": 0.12, "499": 0.170, "401": 0.071, "402": 0.068,
-    "599": 0.538, "501": 0.63, "502": 0.67, "503": 0.43, "504": 0.22, "699": 0.499, "602": 1.38, "606": 0.22,
+    "599": 0.538, "501": 0.63, "502": 0.67, "503": 0.43, "504": 0.22, "699": 0.499, "602": 1.0, "606": 0.22,
     "799": 0.488, "899": 0.442, "801": 0.76, "999": 0.52, "901": 0.41,
 }
 TEX = ROOT / "public" / "data" / "tex"

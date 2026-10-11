@@ -134,12 +134,14 @@ export class StarCatalog {
       radiiM: [inf.radiusM, inf.radiusM, inf.radiusM],
       radiusM: inf.radiusM,
       gmM3S2: 1.327e20 * Math.max(0.08, Math.min(30, Math.pow(inf.luminositySun, 1 / 3.5))),
-      rotation: { poleRa: [], poleDec: [], pm: [] },
+      // Spin axis and rotation are unknown for most stars: a fixed orientation (they render as uniform discs).
+      rotation: { poleRa: [0], poleDec: [90], pm: [0, 0] },
       geometricAlbedo: 1,
       albedoScale: 1,
       surface: { type: 'star', teffK: inf.teffK },
       luminositySun: inf.luminositySun,
-      provenance: 'measured',
+      // Position and magnitude are measured; the size and luminosity of the lit body are inferred (D-027).
+      provenance: 'inferred',
       source: `${this.source}; radius and luminosity inferred from magnitude and colour`,
       citation: 'hyg-v41',
     };

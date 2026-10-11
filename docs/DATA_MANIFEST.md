@@ -2,6 +2,8 @@
 
 Every external dataset and asset the game uses: where it came from, its license or terms, the credit it asks for, what we derived from it, and where the derived files live. Raw downloads are fetched once by `tools/pipeline/download.sh` into `tools/.cache/raw/` (not committed) and processed offline by `tools/pipeline/*.py` into `public/data/`. The game never calls these services at runtime.
 
+**Citations.** Every reference used in the game (Codex facts, body data, models) is in `public/data/citations.json`, verified against its DOI or page on 2026-10-11; `docs/CODEX_SOURCES.md` explains the checks and `tools/pipeline/codex_check.py` enforces them.
+
 **How terms were checked.** On 2026-10-11 a research pass read each provider's own pages (license files, product pages, usage policies) and quoted them. "Verified" means the terms were read on the provider's page that day. "Partial" means the general policy was read but a product-specific page was unreachable. Licenses of derived files are listed in `ASSETS_LICENSE.md`.
 
 **NASA, ESA, USGS, NOAA and JPL marks.** The game uses no agency logos or insignia and implies no endorsement by any agency (NASA Images and Media Usage Guidelines; ESA terms; USGS Visual Identity rules).

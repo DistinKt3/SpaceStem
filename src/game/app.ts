@@ -219,7 +219,8 @@ export class App {
       case 'moon-orbit':
         return above(s, '301', mLat + 10, mLon - 35, 120_000, 90, -25);
       case 'moon-surface':
-        return above(s, '301', mLat + 20, mLon - 50, 60, 90, -6);
+        // ~73 deg from the subsolar point: the Sun ~17 deg up, so crater rims cast long shadows.
+        return above(s, '301', mLat + 20, mLon - 72, 60, 10, -6);
       case 'earthrise': {
         // Stand near the limb as seen from Earth (lon ±85) on whichever side is sunlit, looking toward lon 0.
         const east = Math.cos(((85 - mLon) * Math.PI) / 180) > Math.cos(((-85 - mLon) * Math.PI) / 180);

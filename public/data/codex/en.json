@@ -1554,9 +1554,9 @@
     },
     {
      "claim": "Blank areas of the in-game map are fill, not imagery.",
-     "method": "Inspection of the NASA 3D Resources texture",
+     "method": "The USGS Voyager/Galileo mosaic has no data on 3.8% of its area; the game fills those pixels with the map's mean brightness",
      "provenance": "generated",
-     "citation": "nasa-3d-resources"
+     "citation": "usgs-callisto-mosaic"
     }
    ],
    "related": [
@@ -2269,9 +2269,9 @@
     },
     {
      "claim": "Only part of Triton has image coverage.",
-     "method": "Inspection of the Voyager-based map used in the game (NASA 3D Resources)",
+     "method": "The USGS Voyager 2 mosaic used in the game has no data on 38.6% of its area (Voyager 2 flew past in 1989 and saw mainly the southern hemisphere)",
      "provenance": "measured",
-     "citation": "nasa-3d-resources"
+     "citation": "usgs-triton-mosaic"
     }
    ],
    "related": [
