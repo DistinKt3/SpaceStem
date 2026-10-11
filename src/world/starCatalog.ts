@@ -93,6 +93,7 @@ export class StarCatalog {
 
   name(i: number): string {
     const n = this.named.get(i);
+    // Unnamed stars fall back to their HYG catalogue number, a designation that reads the same in every language.
     return n?.name || n?.designation || `HYG ${i}`;
   }
 

@@ -27,6 +27,10 @@ app
   .catch((err: unknown) => {
     const msg = err instanceof Error ? err.message : String(err);
     const el = document.getElementById('boot-status');
-    if (el) el.textContent = t('boot.failed', { reason: msg });
+    if (el) {
+      // Announce the failure at once (the status line is otherwise a polite live region).
+      el.setAttribute('role', 'alert');
+      el.textContent = t('boot.failed', { reason: msg });
+    }
     console.error(err);
   });

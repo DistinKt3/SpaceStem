@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { THROTTLE_MAX, THROTTLE_MIN, throttleMeter } from '../../src/game/hud/throttle';
-import { fitDistance, freeArea, keyCamera, keyTriggers, listStep, mouseTriggers, overlaps, padCamera, padHolds, type PadLike } from '../../src/game/map/mapNav';
+import { fitDistance, freeArea, keyCamera, sceneArea, keyTriggers, listStep, mouseTriggers, overlaps, padCamera, padHolds, type PadLike } from '../../src/game/map/mapNav';
 
 function pad(over: { axes?: number[]; pressed?: number[]; values?: Record<number, number> } = {}): PadLike {
   const buttons = Array.from({ length: 17 }, (_, i) => {
@@ -77,6 +77,20 @@ describe('map framing and labels', () => {
     expect(freeArea(1024, 338, 648)).toEqual({ shift: (1024 - 338) / 2, width: 338 });
     expect(freeArea(800, 456, 326)).toEqual({ shift: 172, width: 456 });
     expect(freeArea(800, 0, 0)).toEqual({ shift: 0, width: 800 });
+  });
+  it('centres the scene clear of both the list and the title box', () => {
+    // No title: same as freeArea, full height.
+    expect(sceneArea(800, 450, { left: 456, width: 326 }, null)).toEqual({ shiftX: 172, shiftY: 0, fit: fitDistance(456, 450) });
+    // Tall title (1024x768 at text scale 2): below it is the better area; the scene moves down and right of centre.
+    const tall = sceneArea(1024, 768, { left: 523, width: 480 }, { right: 450, bottom: 404 });
+    expect(tall.shiftY).toBeLessThan(0);
+    expect(1024 / 2 - tall.shiftX).toBeCloseTo(523 / 2);
+    expect(768 / 2 - tall.shiftY).toBeCloseTo(404 + (768 - 404) / 2);
+    // Narrow, short title: right of it keeps the full height and wins.
+    const slim = sceneArea(1600, 900, { left: 1300, width: 280 }, { right: 300, bottom: 600 });
+    expect(slim.shiftY).toBe(0);
+    expect(1600 / 2 - slim.shiftX).toBeCloseTo(300 + (1300 - 300) / 2);
+    expect(slim.fit).toBeCloseTo(fitDistance(1000, 900));
   });
   it('moves the camera back when the free area is narrow', () => {
     expect(fitDistance(1600, 900)).toBeCloseTo(2.1);

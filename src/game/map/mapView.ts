@@ -27,7 +27,7 @@ import { PAD, type ActionId } from '../input/actions';
 import type { Binding, InputContext } from '../input/bindings';
 import { bindingLabel, inputLabel } from '../input/labels';
 import { GamepadMenuNav, type NavCommand } from '../input/menuNav';
-import { fitDistance, freeArea, keyCamera, keyTriggers, listStep, mouseTriggers, overlaps, padCamera, padHolds, type Box, type PadLike } from './mapNav';
+import { keyCamera, keyTriggers, listStep, mouseTriggers, overlaps, padCamera, padHolds, sceneArea, type Box, type PadLike } from './mapNav';
 
 export type MapMode = 'system' | 'stars';
 
@@ -404,8 +404,10 @@ export class MapView {
     return r ? [this.modeBtn, r] : [this.modeBtn];
   }
 
+  /** A key bound to "toggle map" or to "pause" (either slot, so a player's second pause key also closes the map). */
   private isToggle(code: string): boolean {
-    return keyTriggers(this.app.input.binding('toggleMap', 0, 'kbm'), code) || keyTriggers(this.app.input.binding('toggleMap', 1, 'kbm'), code);
+    const input = this.app.input;
+    return (['toggleMap', 'pause'] as const).some((a) => keyTriggers(input.binding(a, 0, 'kbm'), code) || keyTriggers(input.binding(a, 1, 'kbm'), code));
   }
 
   /** Window capture phase: runs before the game's listeners, which are disabled while the map is open anyway. */
@@ -506,7 +508,8 @@ export class MapView {
 
   private pollPad(dt: number): void {
     const pads = this.pads() as readonly (PadLike | null)[];
-    const toggle = padHolds(this.app.input.binding('toggleMap', 0, 'pad'), pads) || padHolds(this.app.input.binding('toggleMap', 1, 'pad'), pads);
+    const input = this.app.input;
+    const toggle = (['toggleMap', 'pause'] as const).some((a) => padHolds(input.binding(a, 0, 'pad'), pads) || padHolds(input.binding(a, 1, 'pad'), pads));
     const pressed = toggle && !this.padToggleHeld;
     this.padToggleHeld = toggle;
     if (pressed) {
@@ -625,12 +628,25 @@ export class MapView {
     this.frame(extent);
   }
 
-  /** Place the camera so a disc of the given radius (map units) fits the area left of the list panel. */
+  /** The clear scene area in canvas pixels (see mapNav.sceneArea). */
+  private sceneArea(w: number, h: number): ReturnType<typeof sceneArea> {
+    const canvas = this.app.renderer.domElement.getBoundingClientRect();
+    const panel = this.list.getBoundingClientRect();
+    const title = this.title.getBoundingClientRect();
+    const gap = 8;
+    return sceneArea(
+      w,
+      h,
+      { left: panel.left - canvas.left, width: panel.width },
+      title.width > 0 ? { right: title.right - canvas.left + gap, bottom: title.bottom - canvas.top + gap } : null,
+    );
+  }
+
+  /** Place the camera so a disc of the given radius (map units) fits the clear area (left of the list, off the title). */
   private frame(radius: number): void {
     const w = this.app.renderer.domElement.clientWidth || innerWidth;
     const h = this.app.renderer.domElement.clientHeight || innerHeight;
-    const panel = this.list.getBoundingClientRect();
-    const d = radius * fitDistance(freeArea(w, panel.left, panel.width).width, h);
+    const d = radius * this.sceneArea(w, h).fit;
     this.camera.position.set(0, d * 0.55, d * 0.83);
     this.camera.near = d * 0.01;
     this.camera.far = d * 10;
@@ -705,9 +721,9 @@ export class MapView {
     const w = r.domElement.clientWidth || innerWidth;
     const h = r.domElement.clientHeight || innerHeight;
     this.camera.aspect = w / h;
-    // Centre the scene in the area left of the destination list.
-    const panel = this.list.getBoundingClientRect();
-    this.camera.setViewOffset(w, h, freeArea(w, panel.left, panel.width).shift, 0, w, h);
+    // Centre the scene in the clear area left of the destination list and clear of the title.
+    const area = this.sceneArea(w, h);
+    this.camera.setViewOffset(w, h, area.shiftX, area.shiftY, w, h);
     this.camera.updateProjectionMatrix();
     this.controls?.update();
     r.setRenderTarget(null);
@@ -720,14 +736,11 @@ export class MapView {
 
   /** Real label sizes at the current text scale (labels are visible right after a build). */
   private measure(): void {
-    this.labelSize = this.labelEls.map((e) => {
-      e.style.display = '';
-      return { w: e.offsetWidth, h: e.offsetHeight };
-    });
-    this.ringSize = this.ringEls.map((e) => {
-      e.style.display = '';
-      return { w: e.offsetWidth, h: e.offsetHeight };
-    });
+    // All style writes first, then all reads: one layout instead of one per label.
+    for (const e of this.labelEls) e.style.display = '';
+    for (const e of this.ringEls) e.style.display = '';
+    this.labelSize = this.labelEls.map((e) => ({ w: e.offsetWidth, h: e.offsetHeight }));
+    this.ringSize = this.ringEls.map((e) => ({ w: e.offsetWidth, h: e.offsetHeight }));
   }
 
   /**

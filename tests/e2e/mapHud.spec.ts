@@ -233,31 +233,40 @@ test('text scale 2: map labels and HUD panels do not overlap', async ({ page }) 
   expect(hud.hits).toEqual([]);
   expect(hud).toMatchObject({ role: 'meter', valuetext: 'Reverse 50%' });
 
-  for (const mode of ['system', 'stars']) {
-    const map = await page.evaluate((m) => {
-      const app = (window as unknown as { __ks: KS }).__ks.app;
-      app.map.open(m);
-      (window as unknown as { __ks: KS }).__ks.capture();
-      const vis = [...document.querySelectorAll<HTMLElement>('.ks-map-label, .ks-map-ring')].filter((e) => e.style.display !== 'none');
-      const rs = vis.map((e) => e.getBoundingClientRect());
-      let overlapsN = 0;
-      for (let i = 0; i < rs.length; i++) {
-        for (let j = i + 1; j < rs.length; j++) {
-          const a = rs[i]!;
-          const b = rs[j]!;
-          if (a.left < b.right - 0.5 && b.left < a.right - 0.5 && a.top < b.bottom - 0.5 && b.top < a.bottom - 0.5) overlapsN++;
+  // The finding's example (1024x768 at text scale 2) has a tall title box: the scene must clear it as well as the list.
+  for (const size of [{ width: 1280, height: 720 }, { width: 1024, height: 768 }]) {
+    await page.setViewportSize(size);
+    for (const mode of ['system', 'stars']) {
+      const map = await page.evaluate((m) => {
+        const app = (window as unknown as { __ks: KS }).__ks.app;
+        app.map.open(m);
+        (window as unknown as { __ks: KS }).__ks.capture();
+        const vis = [...document.querySelectorAll<HTMLElement>('.ks-map-label, .ks-map-ring')].filter((e) => e.style.display !== 'none');
+        const rs = vis.map((e) => e.getBoundingClientRect());
+        let overlapsN = 0;
+        for (let i = 0; i < rs.length; i++) {
+          for (let j = i + 1; j < rs.length; j++) {
+            const a = rs[i]!;
+            const b = rs[j]!;
+            if (a.left < b.right - 0.5 && b.left < a.right - 0.5 && a.top < b.bottom - 0.5 && b.top < a.bottom - 0.5) overlapsN++;
+          }
         }
-      }
-      const list = document.querySelector('.ks-map-list')!.getBoundingClientRect();
-      const cam = app.map.camera;
-      const c = cam.position.clone().set(0, 0, 0).project(cam);
-      const centreX = ((c.x + 1) / 2) * innerWidth;
-      app.map.close();
-      return { visible: vis.length, overlapsN, centreLeftOfList: centreX < list.left };
-    }, mode);
-    expect(map.visible, mode).toBeGreaterThan(1);
-    expect(map.overlapsN, mode).toBe(0);
-    expect(map.centreLeftOfList, mode).toBe(true);
+        const list = document.querySelector('.ks-map-list')!.getBoundingClientRect();
+        const cam = app.map.camera;
+        const c = cam.position.clone().set(0, 0, 0).project(cam);
+        const centreX = ((c.x + 1) / 2) * innerWidth;
+        const centreY = ((1 - c.y) / 2) * innerHeight;
+        const title = document.querySelector('.ks-map-title')!.getBoundingClientRect();
+        const underTitle = centreX > title.left && centreX < title.right && centreY > title.top && centreY < title.bottom;
+        app.map.close();
+        return { visible: vis.length, overlapsN, centreLeftOfList: centreX < list.left, underTitle };
+      }, mode);
+      const label = `${mode} ${size.width}x${size.height}`;
+      expect(map.visible, label).toBeGreaterThan(1);
+      expect(map.overlapsN, label).toBe(0);
+      expect(map.centreLeftOfList, label).toBe(true);
+      expect(map.underTitle, label).toBe(false);
+    }
   }
   expect(errors).toEqual([]);
 });

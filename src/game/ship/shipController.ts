@@ -388,7 +388,7 @@ export class ShipController implements Controller {
       velocityDir: velDir,
       target: info && this.targetId ? { id: this.targetId, ...info } : null,
       labels,
-      utc: new Date(tdbSecondsSinceJ2000ToUnixMs(app.simTime)).toISOString().replace('T', ' ').slice(0, 19) + ' UTC',
+      utc: new Date(tdbSecondsSinceJ2000ToUnixMs(app.simTime)).toISOString().replace('T', ' ').slice(0, 19) + ` ${t('hud.utc')}`,
       sunDistance: sun.rel.length(),
       sunName: this.bodyName(sun.def.key),
       howWeKnowKey: app.isBound('howWeKnow') ? app.keyFor('howWeKnow') : '',

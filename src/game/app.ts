@@ -195,8 +195,10 @@ export class App {
     try {
       created = await createRenderer(this.canvas, backend, requested);
     } catch (err) {
-      // Both WebGPU and the WebGL2 fallback failed: say so in the player's language (the cause stays in the console).
-      throw new Error(t('boot.noWebgl'), { cause: err });
+      // Name a missing graphics API in the player's language; any other failure keeps its own message.
+      const gl2 = document.createElement('canvas').getContext('webgl2') !== null;
+      if (!('gpu' in navigator) && !gl2) throw new Error(t('boot.noWebgl'), { cause: err });
+      throw err;
     }
     this.renderer = created.renderer;
     this.info = created.info;

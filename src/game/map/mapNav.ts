@@ -128,6 +128,30 @@ export function freeArea(w: number, panelLeft: number, panelWidth: number): { sh
   return { shift: (w - width) / 2, width };
 }
 
+/**
+ * Where to draw the scene: the clear area left of the destination list (`panel`) that also avoids the title box, as
+ * a view offset (px) that centres the scene there and a camera distance (in disc radii) that fits the disc inside it.
+ * Two areas are tried, right of the title and below it, and the one that shows the disc larger wins.
+ */
+export function sceneArea(
+  w: number,
+  h: number,
+  panel: { left: number; width: number },
+  title: { right: number; bottom: number } | null,
+): { shiftX: number; shiftY: number; fit: number } {
+  const right = freeArea(w, panel.left, panel.width).width;
+  const areas: Box[] = [{ x: 0, y: 0, w: right, h }];
+  if (title && title.right > 0 && title.bottom > 0) {
+    areas.length = 0;
+    areas.push({ x: Math.min(right - 1, title.right), y: 0, w: Math.max(1, right - title.right), h });
+    areas.push({ x: 0, y: Math.min(h - 1, title.bottom), w: right, h: Math.max(1, h - title.bottom) });
+  }
+  // Distance that fits the disc: 2.1 radii fill the full view height; a shorter or narrower area needs more.
+  const fitOf = (a: Box): number => Math.max(2.1 * (h / a.h), fitDistance(a.w, h));
+  const best = areas.reduce((a, b) => (fitOf(b) < fitOf(a) ? b : a));
+  return { shiftX: w / 2 - (best.x + best.w / 2), shiftY: h / 2 - (best.y + best.h / 2), fit: fitOf(best) };
+}
+
 /** Camera distance (in units of the disc radius) that fits a disc into a view area `width` x `h` px (vertical FOV 50°). */
 export function fitDistance(width: number, h: number): number {
   // 2.1 radii fits the tilted disc vertically; narrower areas need the camera further back.
