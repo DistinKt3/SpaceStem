@@ -136,16 +136,35 @@ export class App {
     if (has('showFps')) this.hud.style.display = d.showFps || this.params.get('free') === '1' ? 'block' : '';
   }
 
+  /** Boot status (#boot-status is a polite live region, so screen readers announce progress and failure). */
   progress(msg: string): void {
     const el = document.getElementById('boot-status');
     if (el) el.textContent = msg;
   }
 
+  /** Boot screen and canvas text from the locale (index.html holds English for the moment before scripts run). */
+  private localizeBootScreen(): void {
+    const set = (id: string, text: string): void => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = text;
+    };
+    set('boot-title', t('app.title'));
+    set('boot-tagline', t('app.tagline'));
+    this.canvas.setAttribute('aria-label', t('app.canvasLabel'));
+  }
+
   async boot(): Promise<void> {
     const backend = (this.params.get('backend') ?? 'auto') as BackendRequest;
     const requested = (this.params.get('depth') ?? 'reversed') as DepthMode;
-    this.progress(t('boot.loading', { item: 'renderer' }));
-    const created = await createRenderer(this.canvas, backend, requested);
+    this.localizeBootScreen();
+    this.progress(t('boot.loading', { item: t('boot.item.renderer') }));
+    let created: Awaited<ReturnType<typeof createRenderer>>;
+    try {
+      created = await createRenderer(this.canvas, backend, requested);
+    } catch (err) {
+      // Both WebGPU and the WebGL2 fallback failed: say so in the player's language (the cause stays in the console).
+      throw new Error(t('boot.noWebgl'), { cause: err });
+    }
     this.renderer = created.renderer;
     this.info = created.info;
     this.depthMode = effectiveDepthMode(requested, this.info);
@@ -161,18 +180,21 @@ export class App {
     window.addEventListener('resize', resize);
     resize();
 
-    this.progress(t('boot.loading', { item: 'ephemeris' }));
+    this.progress(t('boot.loading', { item: t('boot.item.ephemeris') }));
     const [eph, bodies] = await Promise.all([Ephemeris.load(), loadBodies()]);
     const tParam = this.params.get('t');
     const startMs = tParam ? Date.parse(tParam) : Date.now();
     this.simTime = eph.clampTime(unixMsToTdbSecondsSinceJ2000(startMs));
-    this.progress(t('boot.loading', { item: 'stars' }));
+    this.progress(t('boot.loading', { item: t('boot.item.stars') }));
     await this.stars.load();
     this.frame.backgroundScene.add(this.stars.group);
     this.catalog = new StarCatalog(this.stars.positions, this.stars.absMags);
     await this.catalog.load();
     this.pool = new ChunkWorkerPool();
-    this.sys = await SolarSystem.create(eph, bodies, this.pool, this.frame, (name) => this.progress(t('boot.loading', { item: name })));
+    this.sys = await SolarSystem.create(eph, bodies, this.pool, this.frame, (name) => {
+      const def = bodies.find((b) => b.name === name);
+      this.progress(t('boot.loading', { item: def ? bodyLabel(def) : name }));
+    });
     const catalog = this.catalog;
     this.exo = await loadExoSystems();
     this.sys.externalAnchor = (anchor, time, out) => {

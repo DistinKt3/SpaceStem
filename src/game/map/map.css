@@ -1,18 +1,50 @@
+/*
+ * Map colour tokens. The scene's lines and the "you" dot read these at build time (mapView.ts), so the colour-blind
+ * and high-contrast palettes (ui.css sets data-colorblind on :root) apply to the 3D map as well as its labels.
+ * Contrast on --ks-bg is verified by tests/unit/hudMapColors.test.ts: ring text >= 4.5:1; ring and orbit lines
+ * >= 3:1 (the scale text tells the player to read them) and apart from each other (grey reference rings, blue
+ * orbits); "you" text >= 4.5:1 and distinct from the selection colour. Drop lines are a faint depth cue.
+ */
+:root {
+  --ks-map-ring: #666b72;
+  --ks-map-ring-text: #9aa1aa;
+  --ks-map-orbit: #4a86a8;
+  --ks-map-drop: #182b39;
+  --ks-map-you: #7dffb0;
+  /* The destination list never covers more than about half the view, whatever the text scale. */
+  --ks-map-list-w: min(19rem, calc(45vw - 1.2rem));
+}
+:root[data-colorblind='tritanopia'] {
+  --ks-map-you: #ff9ec7;
+}
+:root[data-colorblind='high-contrast'] {
+  --ks-map-ring: #a0a0a0;
+  --ks-map-ring-text: #e6e6e6;
+  --ks-map-orbit: #ffffff;
+  --ks-map-drop: #8a8a8a;
+  --ks-map-you: #7cffb0;
+}
+
 .ks-map { position: fixed; inset: 0; z-index: 5; pointer-events: none; font-family: var(--ks-font); color: var(--ks-fg); }
 .ks-map:focus { outline: none; }
 .ks-map-labels { position: absolute; inset: 0; overflow: hidden; }
 .ks-map-label { position: absolute; left: 0; top: 0; pointer-events: auto; background: none; border: none; color: var(--ks-dim); font: 0.72rem var(--ks-mono); cursor: pointer; padding: 0.1rem 0.25rem; text-shadow: 0 0 3px #000; white-space: nowrap; }
 .ks-map-label:hover, .ks-map-label.sel { color: var(--ks-accent); }
-.ks-map-title { position: absolute; left: 1.2rem; top: 1rem; max-width: calc(100% - 24rem); display: flex; flex-direction: column; gap: 0.2rem; padding: 0.6rem 0.9rem; background: var(--ks-panel); border: 1px solid var(--ks-border); border-radius: 0.6rem; backdrop-filter: blur(6px); font-size: 0.8rem; }
-.ks-map-title strong { letter-spacing: 0.2em; text-transform: uppercase; color: var(--ks-accent); font-weight: 600; }
-.ks-map-title span { color: var(--ks-dim); font-size: 0.72rem; }
-.ks-map-list { position: absolute; right: 1.2rem; top: 1rem; bottom: 1rem; width: 19rem; overflow-y: auto; pointer-events: auto; display: flex; flex-direction: column; gap: 0.25rem; padding: 0.6rem; background: var(--ks-panel); border: 1px solid var(--ks-border); border-radius: 0.6rem; backdrop-filter: blur(8px); }
-.ks-map-entry, .ks-map-mode { display: flex; justify-content: space-between; gap: 0.6rem; text-align: left; background: rgba(255, 255, 255, 0.03); border: 1px solid transparent; color: var(--ks-fg); padding: 0.4rem 0.55rem; border-radius: 0.4rem; cursor: pointer; font: 0.8rem var(--ks-font); }
+.ks-map-title { position: absolute; left: 1.2rem; top: 1rem; max-width: calc(100vw - var(--ks-map-list-w) - 6.2rem); display: flex; flex-direction: column; gap: 0.2rem; padding: 0.6rem 0.9rem; background: var(--ks-panel); border: var(--ks-border-w, 1px) solid var(--ks-border); border-radius: 0.6rem; backdrop-filter: blur(6px); font-size: 0.8rem; box-sizing: border-box; }
+.ks-map-title h2 { margin: 0; font-size: inherit; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ks-accent); font-weight: 600; }
+.ks-map-title p { margin: 0; color: var(--ks-dim); font-size: 0.72rem; }
+.ks-map-list { position: absolute; right: 1.2rem; top: 1rem; bottom: 1rem; width: var(--ks-map-list-w); overflow-y: auto; pointer-events: auto; display: flex; flex-direction: column; gap: 0.25rem; padding: 0.6rem; background: var(--ks-panel); border: var(--ks-border-w, 1px) solid var(--ks-border); border-radius: 0.6rem; backdrop-filter: blur(8px); }
+.ks-map-options { display: flex; flex-direction: column; gap: 0.25rem; }
+.ks-map-here { margin: 0; padding: 0.4rem 0.55rem; color: var(--ks-map-you); font-size: 0.8rem; }
+.ks-map-entry, .ks-map-mode { display: flex; justify-content: space-between; gap: 0.6rem; text-align: left; background: var(--ks-surface-2, rgba(255, 255, 255, 0.03)); border: var(--ks-border-w, 1px) solid transparent; color: var(--ks-fg); padding: 0.4rem 0.55rem; border-radius: 0.4rem; cursor: pointer; font: 0.8rem var(--ks-font); }
 .ks-map-entry .d { color: var(--ks-dim); font-family: var(--ks-mono); font-size: 0.7rem; white-space: nowrap; }
-.ks-map-entry:hover, .ks-map-entry:focus-visible, .ks-map-mode:hover, .ks-map-mode:focus-visible { border-color: var(--ks-accent); outline: none; background: rgba(127, 212, 255, 0.08); }
+.ks-map-entry:hover, .ks-map-mode:hover { border-color: var(--ks-accent); background: color-mix(in srgb, var(--ks-accent) 8%, transparent); }
+.ks-map-entry:focus-visible, .ks-map-mode:focus-visible { outline: 2px solid var(--ks-focus, var(--ks-accent)); outline-offset: -2px; background: color-mix(in srgb, var(--ks-accent) 8%, transparent); }
 .ks-map-mode { justify-content: center; color: var(--ks-accent); text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.72rem; margin-bottom: 0.3rem; }
-.ks-map-label.you { color: #7dffb0; }
+.ks-map-label.you { color: var(--ks-map-you); cursor: default; }
 .ks-map-label.sel { color: var(--ks-accent); font-weight: 600; }
-.ks-map-ring { position: absolute; left: 0; top: 0; color: #3f6f88; font: 0.66rem var(--ks-mono); pointer-events: none; text-shadow: 0 0 3px #000; white-space: nowrap; }
-.ks-map-entry[aria-selected='true'] { border-color: var(--ks-accent); background: rgba(127, 212, 255, 0.1); }
+.ks-map-ring { position: absolute; left: 0; top: 0; color: var(--ks-map-ring-text); font: 0.66rem var(--ks-mono); pointer-events: none; text-shadow: 0 0 3px #000; white-space: nowrap; }
+/* The selected destination is marked by a border and a check mark, not by colour alone. */
+.ks-map-entry[aria-selected='true'] { border-color: var(--ks-accent); background: color-mix(in srgb, var(--ks-accent) 10%, transparent); }
+.ks-map-entry[aria-selected='true'] .n::before { content: '✓ ' / ''; color: var(--ks-accent); }
 body.ks-map-open .ks-hud { display: none; }
